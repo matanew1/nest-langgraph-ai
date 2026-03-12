@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
+import { env } from '../../config/env';
 
 const logger = new Logger('ExecutionNode');
 
@@ -40,7 +41,17 @@ export async function executionNode(
   try {
     // Pass the full structured params object — each tool validates its own
     // schema via Zod, so write_file gets {path, content}, read_file gets {path}, etc.
-    const result = (await tool.invoke(toolParams)) as string;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), env.toolTimeoutMs);
+    let result: string;
+    try {
+      result = (await tool.invoke(toolParams, { signal: controller.signal })) as string;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (controller.signal.aborted) {
+      throw new Error(`Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`);
+    }
     const preview =
       result.length > ATTEMPT_PREVIEW_LENGTH
         ? result.slice(0, ATTEMPT_PREVIEW_LENGTH) + '…'

@@ -1,14 +1,15 @@
 import { writeFile, mkdir } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { sandboxPath } from '../../utils/path.util';
 
 const logger = new Logger('WriteFileTool');
 
 export const writeFileTool = tool(
   async ({ path, content }) => {
-    const resolved = resolve(path);
+    const resolved = sandboxPath(path);
     logger.log(`Writing file: ${resolved}`);
 
     await mkdir(dirname(resolved), { recursive: true });

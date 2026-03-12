@@ -1,14 +1,15 @@
 import { readdir, stat } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { sandboxPath } from '../../utils/path.util';
 
 const logger = new Logger('ListDirTool');
 
 export const listDirTool = tool(
   async ({ path }) => {
-    const resolved = resolve(path);
+    const resolved = sandboxPath(path);
     logger.log(`Listing directory: ${resolved}`);
 
     const entries = await readdir(resolved);

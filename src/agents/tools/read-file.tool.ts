@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { sandboxPath } from '../../utils/path.util';
 
 const logger = new Logger('ReadFileTool');
 
@@ -10,7 +10,7 @@ const MAX_SIZE = 100_000; // 100 KB limit to keep LLM context manageable
 
 export const readFileTool = tool(
   async ({ path }) => {
-    const resolved = resolve(path);
+    const resolved = sandboxPath(path);
     logger.log(`Reading file: ${resolved}`);
 
     const content = await readFile(resolved, 'utf-8');

@@ -1,5 +1,11 @@
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools/tool.registry';
+import { env } from '../../config/env';
+
+function truncateAttempts(state: AgentState) {
+  const all = state.attempts ?? [];
+  return all.slice(-env.promptMaxAttempts);
+}
 
 export const buildSupervisorPrompt = (state: AgentState): string => {
   const parts: string[] = [];
@@ -38,8 +44,9 @@ ${state.input}`);
     );
   }
 
-  if (state.attempts && state.attempts.length > 0) {
-    const attemptLines = state.attempts.map(
+  const recentAttempts = truncateAttempts(state);
+  if (recentAttempts.length > 0) {
+    const attemptLines = recentAttempts.map(
       (a, i) =>
         `${i + 1}. tool="${a.tool}", params=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 200)}`,
     );
@@ -74,9 +81,10 @@ Instructions:
 - For "content" params (e.g. write_file): write the full, complete content — not a placeholder.
 - Do NOT change the tool itself, only refine its params.`);
 
-  if (state.attempts && state.attempts.length > 0) {
+  const recentAttempts = truncateAttempts(state);
+  if (recentAttempts.length > 0) {
     parts.push(
-      `\nPrevious attempts that did not satisfy the request:\n${state.attempts
+      `\nPrevious attempts that did not satisfy the request:\n${recentAttempts
         .map(
           (a, i) =>
             `${i + 1}. params=${a.input} → ${a.error ? 'ERROR' : 'insufficient'}: ${a.result.slice(0, 150)}`,
@@ -106,7 +114,7 @@ ${state.input}
 Tool used: ${state.selectedTool}
 
 Tool result:
-${state.toolResult}
+${(state.toolResult ?? '').slice(0, env.criticResultMaxChars)}
 
 Instructions:
 - If the result satisfactorily answers the request: set "done" to true and write a clear, well-formatted answer synthesizing the result.
