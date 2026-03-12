@@ -45,12 +45,20 @@ describe('AgentsService', () => {
       expect(result).toBe('The answer is 42');
     });
 
-    it('should return undefined when finalAnswer is missing', async () => {
+    it('should throw InternalServerErrorException when finalAnswer is missing', async () => {
       agentGraph.invoke.mockResolvedValue({});
 
-      const result = await service.run('prompt');
+      await expect(service.run('prompt')).rejects.toThrow(
+        'The agent could not produce an answer',
+      );
+    });
 
-      expect(result).toBeUndefined();
+    it('should wrap unexpected graph errors in InternalServerErrorException', async () => {
+      agentGraph.invoke.mockRejectedValue(new Error('LLM timeout'));
+
+      await expect(service.run('prompt')).rejects.toThrow(
+        'Agent execution failed: LLM timeout',
+      );
     });
   });
 });

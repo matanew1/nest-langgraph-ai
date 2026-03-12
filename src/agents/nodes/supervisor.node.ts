@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { llm } from '@providers/llm.provider';
+import { invokeLlm } from '@providers/llm.provider';
 import type { AgentState } from '@state/agent.state';
 import { extractJson } from '@utils/json.util';
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
@@ -23,16 +23,17 @@ export async function supervisorNode(
   logger.log(`Received input: "${state.input}"`);
 
   const prompt = buildSupervisorPrompt(state);
-
-  const res = await llm.invoke(prompt);
-  const raw = res.content as string;
+  const raw = await invokeLlm(prompt);
 
   logger.debug(`Raw LLM response:\n${raw}`);
 
   const iteration = (state.iteration ?? 0) + 1;
 
   try {
-    const decision = extractJson<{ tool: string; input: string }>(raw);
+    const decision = extractJson<{
+      tool: string;
+      params: Record<string, unknown>;
+    }>(raw);
 
     // Guard: prevent re-selecting a tool that previously errored
     const erroredTools = new Set(
@@ -46,23 +47,30 @@ export async function supervisorNode(
       );
       return {
         selectedTool: fallback,
-        toolInput: decision.input,
+        toolParams: decision.params,
+        toolInput: JSON.stringify(decision.params),
         iteration,
       };
     }
 
     logger.log(
-      `Decision → tool="${decision.tool}", input="${decision.input}"`,
+      `Decision → tool="${decision.tool}", params=${JSON.stringify(decision.params)}`,
     );
     return {
       selectedTool: decision.tool,
-      toolInput: decision.input,
+      toolParams: decision.params,
+      toolInput: JSON.stringify(decision.params),
       iteration,
     };
   } catch (error) {
-    logger.error(`Failed to parse supervisor response: ${raw}`);
+    // LLM returned unparseable output — fall back to first working tool
+    // using the raw user input as the query param
+    const fallback = pickFallbackTool(state);
+    const fallbackParams = { query: state.input };
+    logger.error(`Failed to parse supervisor response, falling back to "${fallback}": ${raw}`);
     return {
-      selectedTool: pickFallbackTool(state),
+      selectedTool: fallback,
+      toolParams: fallbackParams,
       toolInput: state.input,
       iteration,
     };

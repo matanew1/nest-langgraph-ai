@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { llm } from '@providers/llm.provider';
+import { invokeLlm } from '@providers/llm.provider';
 import type { AgentState } from '@state/agent.state';
 import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
@@ -7,40 +7,37 @@ import { buildPlannerPrompt } from '../prompts/agent.prompts';
 const logger = new Logger('PlannerNode');
 
 interface PlanDecision {
-  refinedQuery: string;
-  focus: string;
-  successCriteria: string;
+  params: Record<string, unknown>;
+  reasoning: string;
 }
 
 export async function plannerNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
   logger.log(
-    `Planning execution for tool="${state.selectedTool}", input="${state.toolInput}"`,
+    `Planning for tool="${state.selectedTool}", current params=${JSON.stringify(state.toolParams)}`,
   );
 
   const prompt = buildPlannerPrompt(state);
-
-  const res = await llm.invoke(prompt);
-  const raw = res.content as string;
+  const raw = await invokeLlm(prompt);
 
   logger.debug(`Raw LLM response:\n${raw}`);
 
   try {
     const plan = extractJson<PlanDecision>(raw);
 
-    const planSummary = `Focus: ${plan.focus} | Success: ${plan.successCriteria}`;
-    logger.log(`Plan → query="${plan.refinedQuery}", ${planSummary}`);
+    logger.log(
+      `Plan refined → params=${JSON.stringify(plan.params)}, reasoning="${plan.reasoning}"`,
+    );
 
     return {
-      toolInput: plan.refinedQuery,
-      executionPlan: planSummary,
+      toolParams: plan.params,
+      toolInput: JSON.stringify(plan.params),
+      executionPlan: plan.reasoning,
     };
   } catch (error) {
-    logger.error(`Failed to parse planner response: ${raw}`);
-    // Keep original toolInput if planning fails
-    return {
-      executionPlan: undefined,
-    };
+    // Planning failed — keep the params set by the supervisor and continue
+    logger.error(`Failed to parse planner response, keeping supervisor params: ${raw}`);
+    return {};
   }
 }

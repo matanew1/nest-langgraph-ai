@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AgentsController } from '../agents.controller';
 import { AgentsService } from '../agents.service';
 
@@ -12,8 +13,14 @@ describe('AgentsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AgentsController],
-      providers: [{ provide: AgentsService, useValue: mockAgentsService }],
-    }).compile();
+      providers: [
+        { provide: AgentsService, useValue: mockAgentsService },
+      ],
+    })
+      // ThrottlerGuard has complex DI; bypass it entirely in unit tests
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AgentsController>(AgentsController);
   });
