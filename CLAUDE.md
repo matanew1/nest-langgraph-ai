@@ -31,9 +31,14 @@ src/
 │       └── http-exception.filter.ts  # Global AllExceptionsFilter
 ├── config/
 │   └── env.ts          # Joi-validated environment variables
+├── core/               # ⚠️ DEAD CODE — legacy duplicate of src/agents/providers/ and src/utils/
+│   ├── providers/      #    (llm.provider.ts, redis.provider.ts) — to be removed
+│   └── utils/          #    (json.util.ts, path.util.ts) — to be removed
 ├── health/
 │   ├── health.controller.ts  # GET /health endpoint
 │   └── health.module.ts
+├── modules/            # ⚠️ DEAD CODE — legacy duplicate of src/agents/state/ and src/agents/tools/
+│   └── agents/         #    to be removed
 ├── utils/
 │   ├── json.util.ts    # Robust JSON extraction from LLM output
 │   └── path.util.ts    # sandboxPath() — enforces AGENT_WORKING_DIR
@@ -45,6 +50,9 @@ src/
 docker/
 └── docker-compose.yml  # Redis + Redis Commander
 ```
+
+> **Note:** `src/core/` and `src/modules/` are unused legacy directories containing duplicates of files
+> now living in `src/agents/` and `src/utils/`. They are not imported anywhere and should be deleted.
 
 ---
 
@@ -267,7 +275,7 @@ Always use these aliases in imports rather than long relative paths.
 ## Code Conventions
 
 ### General
-- **TypeScript strict mode** is enabled; avoid `any` (ESLint warns on unsafe operations)
+- **TypeScript is partially strict**: `strictNullChecks: true` is on, but `noImplicitAny: false` and `strictBindCallApply: false` — avoid `any` regardless (ESLint warns on unsafe operations)
 - Use `interface` for object shapes and `type` for unions/aliases
 - Prefer `async/await` over raw promises
 - Keep node functions pure where possible; side effects belong in providers
@@ -293,6 +301,7 @@ Always use these aliases in imports rather than long relative paths.
 - Mock external dependencies (LLM, Redis, tools) with Jest mocks
 - E2E tests go in `test/`
 - Run `npm run test:cov` and aim to maintain coverage; coverage report goes to `../coverage`
+- ⚠️ `test/app.e2e-spec.ts` is **outdated** — it expects `GET /` → `"Hello World!"` which no longer exists; needs to be updated to test `/health` and `/api/agents/run`
 
 ---
 
