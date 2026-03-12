@@ -50,7 +50,9 @@ ${state.input}`);
       (a, i) =>
         `${i + 1}. tool="${a.tool}", params=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 200)}`,
     );
-    parts.push(`\nPrevious attempts (learn from these):\n${attemptLines.join('\n')}`);
+    parts.push(
+      `\nPrevious attempts (learn from these):\n${attemptLines.join('\n')}`,
+    );
   }
 
   parts.push(`\nRespond with ONLY this JSON (use exact param names from the schema):

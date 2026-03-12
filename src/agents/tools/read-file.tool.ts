@@ -16,7 +16,10 @@ export const readFileTool = tool(
     const content = await readFile(resolved, 'utf-8');
 
     if (content.length > MAX_SIZE) {
-      return content.slice(0, MAX_SIZE) + `\n\n… [truncated – file is ${content.length} bytes]`;
+      return (
+        content.slice(0, MAX_SIZE) +
+        `\n\n… [truncated – file is ${content.length} bytes]`
+      );
     }
 
     return content;

@@ -13,8 +13,9 @@ export async function executionNode(
   const toolName = state.selectedTool ?? '';
   // Use structured params set by supervisor/planner; fall back to a plain
   // {query} object so the search tool still works when params are missing.
-  const toolParams: Record<string, unknown> =
-    state.toolParams ?? { query: state.toolInput ?? '' };
+  const toolParams: Record<string, unknown> = state.toolParams ?? {
+    query: state.toolInput ?? '',
+  };
 
   logger.log(
     `Executing tool="${toolName}" with params=${JSON.stringify(toolParams)}`,
@@ -28,13 +29,15 @@ export async function executionNode(
     return {
       toolResult: errorMsg,
       lastToolErrored: true,
-      attempts: [{
-        tool: toolName,
-        input: JSON.stringify(toolParams),
-        params: toolParams,
-        result: errorMsg,
-        error: true,
-      }],
+      attempts: [
+        {
+          tool: toolName,
+          input: JSON.stringify(toolParams),
+          params: toolParams,
+          result: errorMsg,
+          error: true,
+        },
+      ],
     };
   }
 
@@ -45,12 +48,16 @@ export async function executionNode(
     const timer = setTimeout(() => controller.abort(), env.toolTimeoutMs);
     let result: string;
     try {
-      result = (await tool.invoke(toolParams, { signal: controller.signal })) as string;
+      result = (await tool.invoke(toolParams, {
+        signal: controller.signal,
+      })) as string;
     } finally {
       clearTimeout(timer);
     }
     if (controller.signal.aborted) {
-      throw new Error(`Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`);
+      throw new Error(
+        `Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`,
+      );
     }
     const preview =
       result.length > ATTEMPT_PREVIEW_LENGTH
@@ -61,13 +68,15 @@ export async function executionNode(
     return {
       toolResult: result,
       lastToolErrored: false,
-      attempts: [{
-        tool: toolName,
-        input: JSON.stringify(toolParams),
-        params: toolParams,
-        result: preview,
-        error: false,
-      }],
+      attempts: [
+        {
+          tool: toolName,
+          input: JSON.stringify(toolParams),
+          params: toolParams,
+          result: preview,
+          error: false,
+        },
+      ],
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -76,13 +85,15 @@ export async function executionNode(
     return {
       toolResult: errorResult,
       lastToolErrored: true,
-      attempts: [{
-        tool: toolName,
-        input: JSON.stringify(toolParams),
-        params: toolParams,
-        result: errorResult,
-        error: true,
-      }],
+      attempts: [
+        {
+          tool: toolName,
+          input: JSON.stringify(toolParams),
+          params: toolParams,
+          result: errorResult,
+          error: true,
+        },
+      ],
     };
   }
 }

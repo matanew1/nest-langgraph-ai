@@ -1,6 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
 
+jest.mock('@config/env', () => ({
+  env: {
+    cacheTtlSeconds: 60,
+    redisHost: 'localhost',
+    redisPort: 6379,
+  },
+}));
+
+jest.mock('@providers/redis.provider', () => ({
+  redis: {
+    get: jest.fn(),
+    set: jest.fn(),
+  },
+}));
+
 jest.mock('@graph/agent.graph', () => ({
   agentGraph: {
     invoke: jest.fn(),

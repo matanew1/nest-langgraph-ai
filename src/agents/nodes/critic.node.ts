@@ -23,7 +23,7 @@ export async function criticNode(
       done: decision.done,
       finalAnswer: decision.answer,
     };
-  } catch (error) {
+  } catch {
     logger.error(`Failed to parse critic response: ${raw}`);
     return {
       done: false,

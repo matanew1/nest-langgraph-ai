@@ -3,6 +3,28 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { AgentsController } from '../agents.controller';
 import { AgentsService } from '../agents.service';
 
+jest.mock('@config/env', () => ({
+  env: {
+    cacheTtlSeconds: 60,
+    redisHost: 'localhost',
+    redisPort: 6379,
+  },
+}));
+
+jest.mock('@providers/redis.provider', () => ({
+  redis: {
+    get: jest.fn(),
+    set: jest.fn(),
+  },
+}));
+
+jest.mock('@graph/agent.graph', () => ({
+  agentGraph: {
+    invoke: jest.fn(),
+    stream: jest.fn(),
+  },
+}));
+
 describe('AgentsController', () => {
   let controller: AgentsController;
 
@@ -13,9 +35,7 @@ describe('AgentsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AgentsController],
-      providers: [
-        { provide: AgentsService, useValue: mockAgentsService },
-      ],
+      providers: [{ provide: AgentsService, useValue: mockAgentsService }],
     })
       // ThrottlerGuard has complex DI; bypass it entirely in unit tests
       .overrideGuard(ThrottlerGuard)
