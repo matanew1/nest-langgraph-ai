@@ -1,19 +1,18 @@
 import { Logger } from '@nestjs/common';
-import { llm } from '@providers/llm.provider';
+import { invokeLlm } from '@providers/llm.provider';
 import type { AgentState } from '@state/agent.state';
 import { extractJson } from '@utils/json.util';
 import { buildCriticPrompt } from '../prompts/agent.prompts';
 
 const logger = new Logger('CriticNode');
+
 export async function criticNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
-  logger.log(`Evaluating tool result for request: "${state.input}"`);
+  logger.log(`Evaluating result for: "${state.input}"`);
 
   const prompt = buildCriticPrompt(state);
-
-  const res = await llm.invoke(prompt);
-  const raw = res.content as string;
+  const raw = await invokeLlm(prompt);
 
   logger.debug(`Raw LLM response:\n${raw}`);
 

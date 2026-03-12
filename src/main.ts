@@ -4,56 +4,52 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
+import { env } from './config/env';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  // Security headers
   app.use(helmet());
-
-  // Gzip compression
   app.use(compression());
 
-  // CORS
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? '*',
+    origin: env.corsOrigin,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  // Global prefix
-  app.setGlobalPrefix('api', {
-    exclude: ['health'],
-  });
+  app.setGlobalPrefix('api', { exclude: ['health'] });
 
-  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
-  // Swagger
-  const config = new DocumentBuilder()
+  // Return consistent JSON error envelopes for all unhandled exceptions
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  const swaggerConfig = new DocumentBuilder()
     .setTitle('Nest LangGraph AI')
     .setDescription('AI Agent API powered by LangGraph')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup(
+    'docs',
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  logger.log(`Application running on http://localhost:${port}`);
-  logger.log(`Swagger docs at http://localhost:${port}/docs`);
+  await app.listen(env.port);
+  logger.log(`Application running on http://localhost:${env.port}`);
+  logger.log(`Swagger docs at http://localhost:${env.port}/docs`);
 }
 
 void bootstrap();

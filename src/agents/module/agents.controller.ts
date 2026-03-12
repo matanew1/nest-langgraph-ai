@@ -1,28 +1,25 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AgentsService } from './agents.service';
 import { RunAgentDto, RunAgentResponseDto } from './agents.dto';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Agents')
 @Controller('agents')
+@UseGuards(ThrottlerGuard)
 export class AgentsController {
   constructor(private readonly agentsService: AgentsService) {}
 
   @Post('run')
-  @ApiOperation({ summary: 'Run the AI agent with a prompt' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Run the AI agent with a natural-language prompt' })
   @ApiBody({ type: RunAgentDto })
-  @ApiResponse({ status: 200, description: 'The result of the agent'})
-  @ApiResponse({ status: 400, description: 'Invalid request' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiResponse({ status: 200, type: RunAgentResponseDto, description: 'Agent answer' })
+  @ApiResponse({ status: 400, description: 'Invalid request body' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiResponse({ status: 500, description: 'Agent failed to produce an answer' })
   async run(@Body() body: RunAgentDto): Promise<RunAgentResponseDto> {
-    // run the agent
     const result = await this.agentsService.run(body.prompt);
-    // return the result
     return { result };
   }
 }

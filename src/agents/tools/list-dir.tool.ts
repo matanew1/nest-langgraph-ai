@@ -12,18 +12,27 @@ export const listDirTool = tool(
     logger.log(`Listing directory: ${resolved}`);
 
     const entries = await readdir(resolved);
-    const lines: string[] = [];
+    if (entries.length === 0) return 'Directory is empty.';
 
-    for (const entry of entries) {
-      const fullPath = join(resolved, entry);
-      const stats = await stat(fullPath);
-      const type = stats.isDirectory() ? 'dir' : 'file';
-      const size = stats.isFile() ? ` (${stats.size} bytes)` : '';
-      lines.push(`[${type}] ${entry}${size}`);
-    }
+    // Stat all entries in parallel instead of sequentially
+    const stats = await Promise.all(
+      entries.map(async (entry) => {
+        const fullPath = join(resolved, entry);
+        const s = await stat(fullPath);
+        return {
+          entry,
+          type: s.isDirectory() ? 'dir' : 'file',
+          size: s.isFile() ? s.size : null,
+        };
+      }),
+    );
 
-    if (lines.length === 0) return 'Directory is empty.';
-    return lines.join('\n');
+    return stats
+      .map(
+        ({ entry, type, size }) =>
+          `[${type}] ${entry}${size !== null ? ` (${size} bytes)` : ''}`,
+      )
+      .join('\n');
   },
   {
     name: 'list_dir',

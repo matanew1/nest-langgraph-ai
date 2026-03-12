@@ -4,14 +4,13 @@ import { toolRegistry } from '../tools/tool.registry';
 export const buildSupervisorPrompt = (state: AgentState): string => {
   const parts: string[] = [];
 
-  // Derive which tools are blocked due to errors
   const erroredToolNames = new Set(
     (state.attempts ?? []).filter((a) => a.error).map((a) => a.tool),
   );
 
-  // Build available tools list, excluding errored ones
-  const allDescriptions = toolRegistry.getDescriptions();
-  const availableLines = allDescriptions
+  // Build available tools list with param schemas, excluding errored tools
+  const availableTools = toolRegistry
+    .getToolsWithParams()
     .split('\n')
     .filter((line) => {
       const name = line.match(/^- (\w+):/)?.[1];
@@ -19,68 +18,75 @@ export const buildSupervisorPrompt = (state: AgentState): string => {
     })
     .join('\n');
 
-  parts.push(`You are a routing agent. Select the single best tool for the user's request and return a JSON object.
+  parts.push(`You are a routing agent. Select the best tool and provide the exact parameters it needs.
 
 Rules:
 1. Pick the ONE tool whose capability best matches the user's intent.
-2. If a previous result was insufficient, try a significantly different query or a different tool.
-3. Return ONLY raw JSON — no explanation, no markdown, no wrapping.
+2. Provide ALL required parameters using the exact field names shown in the tool's params schema.
+3. For file operations: derive paths and content directly from the user's request.
+4. Return ONLY raw JSON — no explanation, no markdown, no wrapping.
 
-Available tools:
-${availableLines}
+Available tools (name: description, params schema):
+${availableTools}
 
 User request:
 ${state.input}`);
 
   if (erroredToolNames.size > 0) {
     parts.push(
-      `\nEXCLUDED tools (failed with errors — do NOT use):\n${[...erroredToolNames].map((t) => `- ${t}`).join('\n')}`,
+      `\nEXCLUDED tools (errored — do NOT select):\n${[...erroredToolNames].map((t) => `- ${t}`).join('\n')}`,
     );
   }
 
   if (state.attempts && state.attempts.length > 0) {
     const attemptLines = state.attempts.map(
       (a, i) =>
-        `${i + 1}. tool="${a.tool}", input="${a.input}" → ${a.error ? 'ERROR: ' : ''}${a.result}`,
+        `${i + 1}. tool="${a.tool}", params=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 200)}`,
     );
-    parts.push(`\nPrevious attempts:\n${attemptLines.join('\n')}`);
+    parts.push(`\nPrevious attempts (learn from these):\n${attemptLines.join('\n')}`);
   }
 
-  parts.push(`\nRespond with ONLY this JSON:
-{"tool":"<tool_name>","input":"<optimized_query>"}`);
+  parts.push(`\nRespond with ONLY this JSON (use exact param names from the schema):
+{"tool":"<tool_name>","params":{<params matching the tool schema exactly>}}`);
 
   return parts.join('\n');
 };
 
 export const buildPlannerPrompt = (state: AgentState): string => {
+  const paramHint =
+    toolRegistry.getParamHint(state.selectedTool ?? '') ||
+    '{"query":"<string>"}';
   const parts: string[] = [];
 
-  parts.push(`You are a planning agent. Your job is to create an optimized execution plan for the selected tool.
-
-Given the user's request and the chosen tool, produce:
-1. A refined, optimized query that will yield the best results from the tool.
-2. Key aspects to focus on — what specific information matters most.
-3. Success criteria — what would make the result satisfactory.
+  parts.push(`You are a planning agent. Refine the tool parameters to maximise the quality of the result.
 
 User request:
 ${state.input}
 
 Selected tool: ${state.selectedTool}
-Original query: ${state.toolInput}`);
+Tool params schema: ${paramHint}
+Current params: ${JSON.stringify(state.toolParams ?? {})}
+
+Instructions:
+- Improve every parameter value to be more precise, complete, and correct.
+- Keep ALL required fields — never drop a param that the schema requires.
+- For file paths: use the path clearly implied or stated in the user's request.
+- For "content" params (e.g. write_file): write the full, complete content — not a placeholder.
+- Do NOT change the tool itself, only refine its params.`);
 
   if (state.attempts && state.attempts.length > 0) {
     parts.push(
       `\nPrevious attempts that did not satisfy the request:\n${state.attempts
         .map(
           (a, i) =>
-            `${i + 1}. tool="${a.tool}", query="${a.input}" → ${a.error ? 'ERROR' : 'insufficient'}`,
+            `${i + 1}. params=${a.input} → ${a.error ? 'ERROR' : 'insufficient'}: ${a.result.slice(0, 150)}`,
         )
-        .join('\n')}\n\nLearn from these failures and produce a better plan.`,
+        .join('\n')}\n\nLearn from these failures and produce better params.`,
     );
   }
 
-  parts.push(`\nRespond with ONLY this JSON (no other text):
-{"refinedQuery":"<optimized query for the tool>","focus":"<what to focus on in the results>","successCriteria":"<what makes the result good enough>"}`);
+  parts.push(`\nRespond with ONLY this JSON:
+{"params":{<refined params matching the tool schema>},"reasoning":"<one sentence: what you improved and why>"}`);
 
   return parts.join('\n');
 };
