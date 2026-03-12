@@ -62,12 +62,14 @@ export async function supervisorNode(
       toolInput: JSON.stringify(decision.params),
       iteration,
     };
-  } catch (error) {
+  } catch {
     // LLM returned unparseable output — fall back to first working tool
     // using the raw user input as the query param
     const fallback = pickFallbackTool(state);
     const fallbackParams = { query: state.input };
-    logger.error(`Failed to parse supervisor response, falling back to "${fallback}": ${raw}`);
+    logger.error(
+      `Failed to parse supervisor response, falling back to "${fallback}": ${raw}`,
+    );
     return {
       selectedTool: fallback,
       toolParams: fallbackParams,

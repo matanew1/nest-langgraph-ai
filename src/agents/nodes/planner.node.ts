@@ -35,9 +35,11 @@ export async function plannerNode(
       toolInput: JSON.stringify(plan.params),
       executionPlan: plan.reasoning,
     };
-  } catch (error) {
+  } catch {
     // Planning failed — keep the params set by the supervisor and continue
-    logger.error(`Failed to parse planner response, keeping supervisor params: ${raw}`);
+    logger.error(
+      `Failed to parse planner response, keeping supervisor params: ${raw}`,
+    );
     return {};
   }
 }
