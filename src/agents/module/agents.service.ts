@@ -18,7 +18,9 @@ export class AgentsService {
     return `agent:cache:${createHash('sha256').update(prompt).digest('hex')}`;
   }
 
-  async *stream(prompt: string): AsyncGenerator<{ node: string; data: unknown }> {
+  async *stream(
+    prompt: string,
+  ): AsyncGenerator<{ node: string; data: unknown }> {
     this.logger.log(
       `Streaming agent for: "${prompt.slice(0, 120)}${prompt.length > 120 ? '…' : ''}"`,
     );
@@ -60,10 +62,10 @@ export class AgentsService {
     try {
       // LangGraph compile() returns a Runnable whose generic params don't
       // perfectly match our AgentState shape, so we use a minimal cast here.
-      const result = (await agentGraph.invoke({
+      const result = await agentGraph.invoke({
         input: prompt,
         iteration: 0,
-      } as Partial<AgentState>)) as AgentState;
+      } as Partial<AgentState>);
 
       if (!result.finalAnswer) {
         this.logger.warn('Agent completed without producing a final answer');

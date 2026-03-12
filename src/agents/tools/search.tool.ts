@@ -18,9 +18,7 @@ export const searchTool = tool(
     }
 
     return response.results
-      .map(
-        (r, i) => `${i + 1}. [${r.title}](${r.url})\n   ${r.content}`,
-      )
+      .map((r, i) => `${i + 1}. [${r.title}](${r.url})\n   ${r.content}`)
       .join('\n\n');
   },
   {

@@ -34,8 +34,7 @@ export function extractJson<T>(raw: string): T {
   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) {
     const content = fenceMatch[1].trim();
-    result =
-      tryParse<T>(content) ?? tryParse<T>(sanitizeJsonNewlines(content));
+    result = tryParse<T>(content) ?? tryParse<T>(sanitizeJsonNewlines(content));
     if (result !== undefined) return result;
   }
 
