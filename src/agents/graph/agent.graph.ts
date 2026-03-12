@@ -4,8 +4,9 @@ import { supervisorNode } from '../nodes/supervisor.node';
 import { plannerNode } from '../nodes/planner.node';
 import { executionNode } from '../nodes/execution.node';
 import { criticNode } from '../nodes/critic.node';
+import { env } from '../../config/env';
 
-const MAX_ITERATIONS = 3;
+const MAX_ITERATIONS = env.agentMaxIterations;
 
 enum Nodes {
   SUPERVISOR = 'supervisor',

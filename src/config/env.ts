@@ -12,6 +12,12 @@ const envSchema = Joi.object({
   REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().required(),
   CORS_ORIGIN: Joi.string().default('*'),
+  AGENT_MAX_ITERATIONS: Joi.number().integer().min(1).max(10).default(3),
+  TOOL_TIMEOUT_MS: Joi.number().default(15_000),
+  AGENT_WORKING_DIR: Joi.string().default(process.cwd()),
+  CACHE_TTL_SECONDS: Joi.number().default(60),
+  CRITIC_RESULT_MAX_CHARS: Joi.number().default(8_000),
+  PROMPT_MAX_ATTEMPTS: Joi.number().default(5),
 }).unknown(true);
 
 interface EnvVariables {
@@ -23,6 +29,12 @@ interface EnvVariables {
   REDIS_HOST: string;
   REDIS_PORT: number;
   CORS_ORIGIN: string;
+  AGENT_MAX_ITERATIONS: number;
+  TOOL_TIMEOUT_MS: number;
+  AGENT_WORKING_DIR: string;
+  CACHE_TTL_SECONDS: number;
+  CRITIC_RESULT_MAX_CHARS: number;
+  PROMPT_MAX_ATTEMPTS: number;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -43,4 +55,10 @@ export const env = {
   redisHost: validatedEnv.REDIS_HOST,
   redisPort: validatedEnv.REDIS_PORT,
   corsOrigin: validatedEnv.CORS_ORIGIN,
+  agentMaxIterations: validatedEnv.AGENT_MAX_ITERATIONS,
+  toolTimeoutMs: validatedEnv.TOOL_TIMEOUT_MS,
+  agentWorkingDir: validatedEnv.AGENT_WORKING_DIR,
+  cacheTtlSeconds: validatedEnv.CACHE_TTL_SECONDS,
+  criticResultMaxChars: validatedEnv.CRITIC_RESULT_MAX_CHARS,
+  promptMaxAttempts: validatedEnv.PROMPT_MAX_ATTEMPTS,
 };
