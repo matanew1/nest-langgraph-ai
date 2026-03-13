@@ -1,17 +1,16 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { buildCriticPrompt } from '../prompts/agent.prompts';
-import { prettyJson } from '@utils/pretty-log.util';
+import { prettyJson, logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { AgentState } from '../state/agent.state';
 
-const logger = new Logger('CriticNode');
+const logger = new Logger('Critic');
 
 interface CriticDecision {
   status: string;
   reason?: string;
   suggested_fix?: string;
-  confidence?: number;
   summary?: string;
   message?: string;
 }
@@ -19,24 +18,23 @@ interface CriticDecision {
 export async function criticNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
+  const elapsed = startTimer();
   const stepNum = (state.currentStep ?? 0) + 1;
   const totalSteps = (state.plan ?? []).length;
 
-  logger.log(
-    `Evaluating step ${stepNum}/${totalSteps} for: "${state.input}"`,
-  );
+  logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
 
   const prompt = buildCriticPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
+  logger.debug(`LLM response: ${preview(raw, 300)}`);
 
   try {
     const decision = extractJson<CriticDecision>(raw);
 
-    logger.log(`Decision → status="${decision.status}"`);
-
+    // ── COMPLETE ──
     if (decision.status === 'complete') {
+      logPhaseEnd('CRITIC', `COMPLETE: ${preview(decision.summary ?? '', 100)}`, elapsed());
       return {
         status: 'complete',
         done: true,
@@ -44,13 +42,13 @@ export async function criticNode(
       };
     }
 
+    // ── NEXT STEP ──
     if (decision.status === 'next_step') {
       const nextStepIndex = (state.currentStep ?? 0) + 1;
       const plan = state.plan ?? [];
 
       if (nextStepIndex >= plan.length) {
-        // No more steps — treat as complete
-        logger.log('No more steps remaining — marking as complete');
+        logPhaseEnd('CRITIC', 'COMPLETE (no more steps)', elapsed());
         return {
           status: 'complete',
           done: true,
@@ -60,21 +58,20 @@ export async function criticNode(
       }
 
       const nextStep = plan[nextStepIndex];
-      logger.log(
-        `Advancing to step ${nextStepIndex + 1}: tool="${nextStep.tool}"`,
-      );
+      logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} [${nextStep.tool}]`, elapsed());
 
       return {
         status: 'running',
         currentStep: nextStepIndex,
         selectedTool: nextStep.tool,
         toolParams: nextStep.input,
-      toolInput: prettyJson(nextStep.input),
-    };
-  }
+        toolInput: prettyJson(nextStep.input),
+      };
+    }
 
-  if (decision.status === 'retry') {
-      logger.warn(`Retry requested: ${decision.reason}`);
+    // ── RETRY ──
+    if (decision.status === 'retry') {
+      logPhaseEnd('CRITIC', `RETRY: ${decision.reason}`, elapsed());
       return {
         status: 'retry',
         done: false,
@@ -82,7 +79,9 @@ export async function criticNode(
       };
     }
 
+    // ── ERROR ──
     if (decision.status === 'error') {
+      logPhaseEnd('CRITIC', `ERROR: ${decision.message}`, elapsed());
       return {
         status: 'error',
         done: true,
@@ -90,8 +89,7 @@ export async function criticNode(
       };
     }
 
-    // Unknown status — LLM returned wrong field names. Use a heuristic:
-    // if the tool result looks like an error, retry; otherwise advance/complete.
+    // ── UNKNOWN STATUS — heuristic fallback ──
     const toolResult = state.toolResult ?? '';
     const looksLikeError =
       toolResult.startsWith('ERROR') ||
@@ -99,10 +97,11 @@ export async function criticNode(
       toolResult.startsWith('error:');
 
     logger.warn(
-      `Unknown critic status "${decision.status}" — heuristic: ${looksLikeError ? 'retry' : 'advance'}`,
+      `Unknown status "${decision.status}" → heuristic: ${looksLikeError ? 'retry' : 'advance'}`,
     );
 
     if (looksLikeError) {
+      logPhaseEnd('CRITIC', 'RETRY (heuristic)', elapsed());
       return { status: 'retry', done: false };
     }
 
@@ -110,6 +109,7 @@ export async function criticNode(
     const nextStepIndex = (state.currentStep ?? 0) + 1;
     const plan = state.plan ?? [];
     if (nextStepIndex >= plan.length) {
+      logPhaseEnd('CRITIC', 'COMPLETE (heuristic, last step)', elapsed());
       return {
         status: 'complete',
         done: true,
@@ -117,6 +117,7 @@ export async function criticNode(
       };
     }
     const nextStep = plan[nextStepIndex];
+    logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} (heuristic)`, elapsed());
     return {
       status: 'running',
       currentStep: nextStepIndex,
@@ -125,7 +126,8 @@ export async function criticNode(
       toolInput: prettyJson(nextStep.input),
     };
   } catch {
-    logger.error(`Failed to parse critic response: ${raw}`);
+    logPhaseEnd('CRITIC', 'PARSE FAILED → retry', elapsed());
+    logger.error(`Raw response: ${preview(raw, 500)}`);
     return {
       done: false,
       status: 'retry',

@@ -1,4 +1,5 @@
 import { inspect } from 'node:util';
+import { Logger } from '@nestjs/common';
 
 /**
  * Pretty-prints any data (objects, JSON, strings) for logging with optional truncation.
@@ -33,5 +34,38 @@ export function prettyJson(data: unknown, maxLength: number = Infinity): string 
 export function preview(str: string, maxLength: number = 200): string {
   if (str.length <= maxLength) return str;
   return str.slice(0, maxLength) + '…';
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase logging helpers for graph node flow                         */
+/* ------------------------------------------------------------------ */
+
+const SEPARATOR = '─'.repeat(60);
+
+const flowLogger = new Logger('AgentFlow');
+
+/**
+ * Log a clear phase entry with visual separator.
+ * Use at the start of each graph node.
+ */
+export function logPhaseStart(phase: string, detail: string): void {
+  flowLogger.log(`\n${SEPARATOR}`);
+  flowLogger.log(`▶ ${phase} | ${detail}`);
+  flowLogger.log(SEPARATOR);
+}
+
+/**
+ * Log a phase completion with timing.
+ */
+export function logPhaseEnd(phase: string, outcome: string, durationMs: number): void {
+  flowLogger.log(`✓ ${phase} completed in ${durationMs}ms → ${outcome}`);
+}
+
+/**
+ * Simple timer for measuring node execution time.
+ */
+export function startTimer(): () => number {
+  const start = Date.now();
+  return () => Date.now() - start;
 }
 

@@ -6,7 +6,7 @@ This file provides context for AI assistants working on the `nest-langgraph-ai` 
 
 ## Project Overview
 
-A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint; the system autonomously routes through a Supervisor → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and tools like web search and file system access.
+A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint; the system autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
 
 **Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Groq LLM, Tavily Search, Redis (IORedis), TypeScript 5.7, Jest 30
 
@@ -16,43 +16,45 @@ A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users 
 
 ```
 src/
-├── agents/
-│   ├── graph/          # LangGraph StateGraph definition
-│   ├── module/         # NestJS controller, service, DTOs, unit tests
-│   ├── nodes/          # Four graph nodes: supervisor, planner, execution, critic
-│   ├── prompts/        # LLM prompt builders (agent.prompts.ts)
-│   ├── providers/      # LLM (Groq) and Redis provider factories
-│   ├── state/          # LangGraph annotated state type
-│   └── tools/          # Tool implementations + ToolRegistry
+├── modules/
+│   ├── agents/
+│   │   ├── graph/          # LangGraph StateGraph definition
+│   │   ├── nodes/          # Five graph nodes: supervisor, researcher, planner, execution, critic
+│   │   ├── prompts/        # LLM prompt builders + file-driven templates
+│   │   │   ├── agent.prompts.ts   # Template loader, render(), prompt builders
+│   │   │   └── templates/         # .txt prompt templates (supervisor, planner, critic)
+│   │   ├── state/          # LangGraph annotated state type
+│   │   ├── tools/          # Tool implementations + ToolRegistry
+│   │   ├── agents.controller.ts
+│   │   ├── agents.service.ts
+│   │   ├── agents.dto.ts
+│   │   ├── agents.module.ts
+│   │   └── tests/          # Unit tests
+│   └── llm/
+│       ├── llm.provider.ts # LLM (Groq) provider + invokeLlm()
+│       └── llm.module.ts
 ├── common/
+│   ├── config/
+│   │   └── env.ts          # Joi-validated environment variables
 │   ├── dto/
 │   │   └── error-response.dto.ts  # Standard error envelope DTO
-│   └── filters/
-│       └── http-exception.filter.ts  # Global AllExceptionsFilter
-├── config/
-│   └── env.ts          # Joi-validated environment variables
-├── core/               # ⚠️ DEAD CODE — legacy duplicate of src/agents/providers/ and src/utils/
-│   ├── providers/      #    (llm.provider.ts, redis.provider.ts) — to be removed
-│   └── utils/          #    (json.util.ts, path.util.ts) — to be removed
+│   ├── filters/
+│   │   └── http-exception.filter.ts  # Global AllExceptionsFilter
+│   └── utils/
+│       ├── json.util.ts    # Robust JSON extraction from LLM output
+│       ├── path.util.ts    # sandboxPath() — enforces AGENT_WORKING_DIR
+│       └── pretty-log.util.ts  # Logging helpers (prettyJson, preview, logPhase*)
 ├── health/
 │   ├── health.controller.ts  # GET /health endpoint
 │   └── health.module.ts
-├── modules/            # ⚠️ DEAD CODE — legacy duplicate of src/agents/state/ and src/agents/tools/
-│   └── agents/         #    to be removed
-├── utils/
-│   ├── json.util.ts    # Robust JSON extraction from LLM output
-│   └── path.util.ts    # sandboxPath() — enforces AGENT_WORKING_DIR
 ├── app.module.ts       # Root module
 └── main.ts             # Bootstrap (Helmet, CORS, Swagger, validation pipe, global filter)
 .github/
 └── workflows/
-    └── ci.yml          # Lint + build + test on push/PR
+    └── ci.yml          # Build + test on push/PR
 docker/
 └── docker-compose.yml  # Redis + Redis Commander
 ```
-
-> **Note:** `src/core/` and `src/modules/` are unused legacy directories containing duplicates of files
-> now living in `src/agents/` and `src/utils/`. They are not imported anywhere and should be deleted.
 
 ---
 
@@ -89,7 +91,7 @@ npm run test:e2e      # End-to-end tests
 
 ## Environment Variables
 
-Create a `.env` file at the project root. All variables are validated on startup via Joi (`src/config/env.ts`):
+Create a `.env` file at the project root. All variables are validated on startup via Joi (`src/common/config/env.ts`):
 
 | Variable                | Required | Default             | Description                                         |
 |-------------------------|----------|---------------------|-----------------------------------------------------|
@@ -114,60 +116,76 @@ Missing required variables cause an immediate startup crash with a descriptive e
 
 ## Agent Graph Architecture
 
-The core workflow is a **LangGraph StateGraph** (`src/agents/graph/agent.graph.ts`):
+The core workflow is a **LangGraph StateGraph** (`src/modules/agents/graph/agent.graph.ts`):
 
 ```
-START → SUPERVISOR → PLANNER → EXECUTE → CRITIC
-              ↑________________________________|  (if not done and iterations < AGENT_MAX_ITERATIONS)
-                                              → END (if done or max iterations reached)
+START → SUPERVISOR → RESEARCHER → PLANNER → EXECUTE → CRITIC
+              ↑                      ↑                    |
+              |                      └────────────────────┘  (next step in plan)
+              └───────────────────────────────────────────┘  (retry / re-plan)
+                                                          → END (complete / error / max iterations)
 ```
 
 | Node       | File                              | Responsibility                                                              |
 |------------|-----------------------------------|-----------------------------------------------------------------------------|
-| SUPERVISOR | `nodes/supervisor.node.ts`        | Picks the best tool; outputs `{tool, params}` JSON; skips errored tools     |
-| PLANNER    | `nodes/planner.node.ts`           | Refines params; outputs `{params, reasoning}` JSON                          |
-| EXECUTE    | `nodes/execution.node.ts`         | Invokes the selected tool with `toolParams`; adds timeout via AbortController |
-| CRITIC     | `nodes/critic.node.ts`            | Evaluates result; sets `done=true` + `finalAnswer` if satisfied             |
+| SUPERVISOR | `nodes/supervisor.node.ts`        | Evaluates feasibility; outputs `{status, task}` JSON                        |
+| RESEARCHER | `nodes/researcher.node.ts`        | Gathers project context (file tree, git status) — no LLM call              |
+| PLANNER    | `nodes/planner.node.ts`           | Creates multi-step execution plan; outputs `{objective, steps[], expected_result}` |
+| EXECUTE    | `nodes/execution.node.ts`         | Invokes the selected tool with `toolParams`; substitutes `__PREVIOUS_RESULT__` |
+| CRITIC     | `nodes/critic.node.ts`            | Evaluates result; advances plan or sets `done=true` + `finalAnswer`         |
 
 ### LLM calls
 
-All node LLM calls go through `invokeLlm()` from `src/agents/providers/llm.provider.ts`:
+All node LLM calls go through `invokeLlm()` from `src/modules/llm/llm.provider.ts`:
 ```typescript
 invokeLlm(prompt: string, timeoutMs?: number): Promise<string>
 ```
 This wraps ChatGroq with an AbortController timeout (default `GROQ_TIMEOUT_MS`).
 
-### Supervisor/Planner flow
+### Agent flow
 
-1. **Supervisor** → asks LLM for `{"tool":"<name>","params":{…}}`
-2. Sets `state.selectedTool` and `state.toolParams`
-3. **Planner** → asks LLM to refine: `{"params":{…},"reasoning":"…"}`
-4. Updates `state.toolParams` with improved params
-5. **Execution** → calls `tool.invoke(state.toolParams)` with tool timeout
+1. **Supervisor** → evaluates task feasibility, outputs `{"status":"plan_required","task":"..."}`
+2. **Researcher** → gathers project context (file tree + git status) automatically
+3. **Planner** → creates multi-step plan with project context: `{"objective":"...","steps":[...],"expected_result":"..."}`
+4. **Executor** → runs each step's tool, substituting `__PREVIOUS_RESULT__` between steps
+5. **Critic** → evaluates each step result; advances to next step, retries, or completes
 
-### State shape (`src/agents/state/agent.state.ts`)
+### Prompt templates
+
+Prompts are file-driven (`.txt` files in `src/modules/agents/prompts/templates/`):
+- `supervisor.txt` — feasibility evaluation
+- `planner.txt` — multi-step plan creation (includes project context from researcher)
+- `critic.txt` — step evaluation and decision
+
+Templates use `{{variable}}` placeholders rendered by `agent.prompts.ts`.
+
+### State shape (`src/modules/agents/state/agent.state.ts`)
 
 ```typescript
 {
   input: string;
+  plan: PlanStep[];              // multi-step execution plan
+  currentStep: number;           // 0-based index into plan
+  status: string;                // idle | plan_required | running | complete | retry | error
+  expectedResult: string;        // success criteria from planner
   selectedTool: string;
-  toolInput: string;           // JSON string of params (display only)
+  toolInput: string;             // JSON string of params (display only)
   toolParams: Record<string, unknown>;  // structured params for tool.invoke()
   toolResult: string;
-  executionPlan: string;       // planner's reasoning
+  projectContext: string;        // file tree + git status from researcher
+  executionPlan: string;         // cleaned objective
   finalAnswer: string;
   done: boolean;
   iteration: number;
-  attempts: Attempt[];         // reducer: appends each attempt
   lastToolErrored: boolean;
+  attempts: Attempt[];           // reducer: appends each attempt
 }
 
-interface Attempt {
+interface PlanStep {
+  step_id: number;
+  description: string;
   tool: string;
-  input: string;               // JSON string
-  params?: Record<string, unknown>;
-  result: string;
-  error: boolean;
+  input: Record<string, unknown>;
 }
 ```
 
@@ -175,17 +193,24 @@ interface Attempt {
 
 ## Available Tools
 
-All tools are defined in `src/agents/tools/`. Inputs validated with **Zod**. File tools enforce `AGENT_WORKING_DIR` via `sandboxPath()`.
+All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zod**. File tools enforce `AGENT_WORKING_DIR` via `sandboxPath()`.
 
-| Tool Name    | File               | Params                             | Description                                     |
-|--------------|--------------------|------------------------------------|--------------------------------------------------|
-| `search`     | `search.tool.ts`   | `{"query":"<string>"}`             | Web search via Tavily (up to 5 results)          |
-| `read_file`  | `read-file.tool.ts`| `{"path":"<path>"}`                | Reads a local file (truncated at 100 KB)         |
-| `write_file` | `write-file.tool.ts`| `{"path":"<path>","content":"<text>"}` | Writes content to a file (creates parent dirs) |
-| `list_dir`   | `list-dir.tool.ts` | `{"path":"<path>"}`                | Lists directory contents with type and size info |
+| Tool Name        | File                   | Params                                          | Description                                       |
+|------------------|------------------------|-------------------------------------------------|---------------------------------------------------|
+| `search`         | `search.tool.ts`       | `{"query":"<string>"}`                          | Web search via Tavily (up to 5 results)           |
+| `read_file`      | `read-file.tool.ts`    | `{"path":"<path>"}`                             | Reads a local file (truncated at 100 KB)          |
+| `write_file`     | `write-file.tool.ts`   | `{"path":"<path>","content":"<text>"}`           | Writes content to a file (creates parent dirs)    |
+| `list_dir`       | `list-dir.tool.ts`     | `{"path":"<path>"}`                             | Lists directory contents with type and size info  |
+| `tree_dir`       | `tree-dir.tool.ts`     | `{"path":"<path>"}`                             | Recursive directory tree (like Unix `tree`)       |
+| `shell_run`      | `shell-run.tool.ts`    | `{"command":"<cmd>"}`                           | Execute shell command; returns clean stdout       |
+| `llm_summarize`  | `llm-summarize.tool.ts`| `{"content":"<text>","instruction":"<what>"}`    | AI-powered content summarization/analysis         |
+| `git_info`       | `git-info.tool.ts`     | `{"action":"status\|log\|diff\|branch\|show"}`  | Query git repository information                  |
+| `grep_search`    | `grep-search.tool.ts`  | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}` | Search for patterns across files        |
+| `file_patch`     | `file-patch.tool.ts`   | `{"path":"<file>","find":"<text>","replace":"<text>"}` | Find and replace within a file            |
 
 The **ToolRegistry** (`tools/tool.registry.ts`) exposes:
 - `get(name)` — lookup by name
+- `has(name)` — check existence
 - `getNames()` — all registered tool names
 - `getToolsWithParams()` — formatted string for prompts including param schemas
 
@@ -243,9 +268,21 @@ Rate limit: **60 requests per 60 seconds** (global ThrottlerModule).
 
 ---
 
+## Logging
+
+All graph nodes use structured logging with visual flow markers:
+- `logPhaseStart(phase, detail)` — separator + node entry
+- `logPhaseEnd(phase, outcome, durationMs)` — node completion with timing
+- `startTimer()` — returns elapsed-time function for node timing
+- Service-level logs show full run summary with step count and total time
+
+Utilities in `src/common/utils/pretty-log.util.ts`.
+
+---
+
 ## LLM Provider
 
-Configured in `src/agents/providers/llm.provider.ts`:
+Configured in `src/modules/llm/llm.provider.ts`:
 - **Model:** `GROQ_MODEL` env var (default: `meta-llama/llama-4-scout-17b-16e-instruct`)
 - **Temperature:** `0` (deterministic output)
 - **Timeout:** `GROQ_TIMEOUT_MS` ms via AbortController
@@ -258,15 +295,11 @@ Defined in `tsconfig.json` and mirrored in Jest's `moduleNameMapper`:
 
 | Alias          | Resolves to                    |
 |----------------|--------------------------------|
-| `@agents/*`    | `src/agents/*`                 |
-| `@config/*`    | `src/config/*`                 |
-| `@utils/*`     | `src/utils/*`                  |
-| `@nodes/*`     | `src/agents/nodes/*`           |
-| `@providers/*` | `src/agents/providers/*`       |
-| `@state/*`     | `src/agents/state/*`           |
-| `@graph/*`     | `src/agents/graph/*`           |
-| `@module/*`    | `src/agents/module/*`          |
-| `@tools/*`     | `src/agents/tools/*`           |
+| `@config/*`    | `src/common/config/*`          |
+| `@utils/*`     | `src/common/utils/*`           |
+| `@llm/*`       | `src/modules/llm/*`            |
+| `@redis/*`     | `src/modules/redis/*`          |
+| `@modules/*`   | `src/modules/*`                |
 
 Always use these aliases in imports rather than long relative paths.
 
@@ -289,7 +322,8 @@ Always use these aliases in imports rather than long relative paths.
 ### LLM / LangGraph
 - All LLM calls go through `invokeLlm()` — never call `llm.invoke()` directly
 - All LLM responses are parsed through `extractJson()` from `@utils/json.util.ts`
-- Prompt builders live in `src/agents/prompts/agent.prompts.ts`; keep business logic out of prompts
+- Prompt builders live in `src/modules/agents/prompts/agent.prompts.ts`; keep business logic out of prompts
+- Prompt templates are `.txt` files in `src/modules/agents/prompts/templates/`
 - Graph state mutations must go through annotated reducers — never mutate state directly
 
 ### File safety
@@ -297,28 +331,28 @@ Always use these aliases in imports rather than long relative paths.
 - `sandboxPath()` enforces `AGENT_WORKING_DIR` and throws if the resolved path escapes the sandbox
 
 ### Testing
-- Unit tests go in `src/agents/module/tests/*.spec.ts`
+- Unit tests go in `src/modules/agents/tests/*.spec.ts`
 - Mock external dependencies (LLM, Redis, tools) with Jest mocks
 - E2E tests go in `test/`
 - Run `npm run test:cov` and aim to maintain coverage; coverage report goes to `../coverage`
-- ⚠️ `test/app.e2e-spec.ts` is **outdated** — it expects `GET /` → `"Hello World!"` which no longer exists; needs to be updated to test `/health` and `/api/agents/run`
 
 ---
 
 ## Adding a New Tool
 
-1. Create `src/agents/tools/<name>.tool.ts` exporting a `DynamicStructuredTool`
+1. Create `src/modules/agents/tools/<name>.tool.ts` exporting a `DynamicStructuredTool` or using `tool()`
 2. Define the Zod input schema inline; use `sandboxPath()` for any file path handling
-3. Register it in `src/agents/tools/index.ts` with a param hint string
+3. Register it in `src/modules/agents/tools/index.ts` with a param hint string
 4. The `ToolRegistry` picks it up automatically — no further wiring needed
 
 ---
 
 ## Adding a New Graph Node
 
-1. Create `src/agents/nodes/<name>.node.ts` exporting an async function `(state: AgentState) => Partial<AgentState>`
-2. Add the node and any new edges in `src/agents/graph/agent.graph.ts`
-3. Extend `AgentState` in `src/agents/state/agent.state.ts` if new fields are required (add reducers where needed)
+1. Create `src/modules/agents/nodes/<name>.node.ts` exporting an async function `(state: AgentState) => Partial<AgentState>`
+2. Add the node and any new edges in `src/modules/agents/graph/agent.graph.ts`
+3. Extend `AgentState` in `src/modules/agents/state/agent.state.ts` if new fields are required (add reducers where needed)
+4. If the node uses an LLM, create a `.txt` template in `prompts/templates/` and a builder in `agent.prompts.ts`
 
 ---
 
@@ -326,9 +360,8 @@ Always use these aliases in imports rather than long relative paths.
 
 GitHub Actions runs on every push and pull request (`.github/workflows/ci.yml`):
 1. `npm ci --legacy-peer-deps`
-2. `npm run lint`
-3. `npm run build`
-4. `npm test -- --passWithNoTests`
+2. `npm run build`
+3. `npm test -- --passWithNoTests`
 
 ---
 

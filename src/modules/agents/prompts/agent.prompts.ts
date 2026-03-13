@@ -92,6 +92,7 @@ export const buildPlannerPrompt = (state: AgentState): string =>
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
     objective: state.executionPlan ?? state.input,
+    projectContext: state.projectContext ?? '(not available)',
   });
 
 export const buildCriticPrompt = (state: AgentState): string => {

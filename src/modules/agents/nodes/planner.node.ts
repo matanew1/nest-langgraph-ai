@@ -1,12 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
-import { prettyJson } from '@utils/pretty-log.util';
+import { prettyJson, logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AgentState, PlanStep } from '../state/agent.state';
 import { toolRegistry } from '../tools';
 
-const logger = new Logger('PlannerNode');
+const logger = new Logger('Planner');
 
 interface PlanDecision {
   objective: string;
@@ -17,19 +17,22 @@ interface PlanDecision {
 export async function plannerNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
-  logger.log(`Planning for: "${state.executionPlan ?? state.input}"`);
+  const elapsed = startTimer();
+  const objective = state.executionPlan ?? state.input;
+
+  logPhaseStart('PLANNER', `objective="${preview(objective, 80)}"`);
 
   const prompt = buildPlannerPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
+  logger.debug(`LLM response: ${preview(raw, 300)}`);
 
   try {
     const plan = extractJson<PlanDecision>(raw);
 
     // Validate plan structure
     if (!plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
-      logger.error('Planner returned empty or invalid steps');
+      logPhaseEnd('PLANNER', 'FAILED: empty or invalid steps', elapsed());
       return {
         status: 'error',
         done: true,
@@ -40,7 +43,7 @@ export async function plannerNode(
     // Validate all referenced tools exist
     for (const step of plan.steps) {
       if (!toolRegistry.has(step.tool)) {
-        logger.error(`Planner referenced unknown tool: "${step.tool}"`);
+        logPhaseEnd('PLANNER', `FAILED: unknown tool "${step.tool}"`, elapsed());
         return {
           status: 'error',
           done: true,
@@ -50,10 +53,12 @@ export async function plannerNode(
     }
 
     const firstStep = plan.steps[0];
+    const planSummary = plan.steps
+      .map((s) => `  ${s.step_id}. [${s.tool}] ${s.description}`)
+      .join('\n');
 
-    logger.log(
-      `Plan created → ${plan.steps.length} steps: ${plan.steps.map((s) => `${s.step_id}:${s.tool}`).join(' → ')}`,
-    );
+    logPhaseEnd('PLANNER', `${plan.steps.length}-step plan created`, elapsed());
+    logger.log(`Plan:\n${planSummary}`);
 
     return {
       plan: plan.steps,
@@ -66,7 +71,8 @@ export async function plannerNode(
       expectedResult: plan.expected_result,
     };
   } catch {
-    logger.error(`Failed to parse planner response: ${raw}`);
+    logPhaseEnd('PLANNER', 'PARSE FAILED', elapsed());
+    logger.error(`Raw response: ${preview(raw, 500)}`);
     return {
       status: 'error',
       done: true,

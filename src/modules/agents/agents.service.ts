@@ -7,9 +7,11 @@ import {
 import { createHash } from 'node:crypto';
 import { redis } from '@redis/redis.provider';
 import { env } from '@config/env';
-import { preview } from '@utils/pretty-log.util';
+import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentGraph } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
+
+const SEPARATOR = '━'.repeat(60);
 
 @Injectable()
 export class AgentsService {
@@ -20,19 +22,22 @@ export class AgentsService {
   }
 
   async run(prompt: string): Promise<string> {
-    this.logger.log(
-      `Running agent for: "${preview(prompt, 120)}"`,
-    );
+    const elapsed = startTimer();
+
+    this.logger.log(`\n${SEPARATOR}`);
+    this.logger.log(`🚀 AGENT RUN START | "${preview(prompt, 100)}"`);
+    this.logger.log(SEPARATOR);
 
     const key = this.cacheKey(prompt);
     try {
       const cached = await redis.get(key);
       if (cached) {
-        this.logger.log('Cache hit — returning cached answer');
+        this.logger.log(`Cache HIT → returning in ${elapsed()}ms`);
         return cached;
       }
+      this.logger.debug('Cache MISS → running graph');
     } catch {
-      this.logger.warn('Redis unavailable — skipping cache lookup');
+      this.logger.warn('Redis unavailable — skipping cache');
     }
 
     try {
@@ -40,6 +45,8 @@ export class AgentsService {
         input: prompt,
         iteration: 0,
       } as Partial<AgentState>);
+
+      const totalTime = elapsed();
 
       // Prefer finalAnswer, fall back to last tool result, then a generic message
       const answer =
@@ -49,19 +56,23 @@ export class AgentsService {
           : null);
 
       if (!answer) {
-        this.logger.warn('Agent completed without producing a final answer');
+        this.logger.warn('Agent completed without a final answer');
         throw new InternalServerErrorException(
           'The agent could not produce an answer. Try rephrasing your prompt.',
         );
       }
 
-      if (!result.finalAnswer) {
-        this.logger.warn('Max iterations reached — returning partial result');
-      }
+      const status = result.finalAnswer ? 'COMPLETE' : 'PARTIAL (max iterations)';
+      const steps = (result.attempts ?? []).length;
+
+      this.logger.log(SEPARATOR);
+      this.logger.log(
+        `🏁 AGENT RUN ${status} | ${steps} steps | ${totalTime}ms | answer=${preview(answer, 120)}`,
+      );
+      this.logger.log(SEPARATOR);
 
       try {
         await redis.set(key, answer, 'EX', env.cacheTtlSeconds);
-        this.logger.debug(`Cached answer for ${env.cacheTtlSeconds}s`);
       } catch {
         this.logger.warn('Redis unavailable — skipping cache write');
       }
@@ -70,11 +81,10 @@ export class AgentsService {
     } catch (err) {
       if (err instanceof HttpException) throw err;
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Agent graph execution failed: ${message}`);
+      this.logger.error(`Agent execution failed in ${elapsed()}ms: ${message}`);
       throw new InternalServerErrorException(
         `Agent execution failed: ${message}`,
       );
     }
   }
 }
-

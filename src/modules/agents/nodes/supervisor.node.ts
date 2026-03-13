@@ -1,59 +1,55 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { extractJson } from '@utils/json.util';
+import { logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
 import { AgentState } from '../state/agent.state';
 
-const logger = new Logger('SupervisorNode');
+const logger = new Logger('Supervisor');
 
 interface SupervisorDecision {
   status: string;
   task?: string;
   message?: string;
-  suggestion?: string;
 }
 
 export async function supervisorNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
-  logger.log(`Received input: "${state.input}"`);
+  const elapsed = startTimer();
+  const iteration = (state.iteration ?? 0) + 1;
+
+  logPhaseStart('SUPERVISOR', `iteration=${iteration} | input="${preview(state.input, 80)}"`);
 
   const prompt = buildSupervisorPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
-
-  const iteration = (state.iteration ?? 0) + 1;
+  logger.debug(`LLM response: ${preview(raw, 300)}`);
 
   try {
     const decision = extractJson<SupervisorDecision>(raw);
 
     if (decision.status === 'error') {
-      logger.warn(`Task unsupported — ${decision.message}`);
+      logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
       return {
         status: 'error',
         done: true,
         finalAnswer:
-          decision.message ??
-          'Task cannot be completed with available tools.',
+          decision.message ?? 'Task cannot be completed with available tools.',
         iteration,
       };
     }
 
-    logger.log(
-      `Decision → status="${decision.status}", task="${decision.task}"`,
-    );
+    const task = decision.task ?? state.input;
+    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(task, 80)}"`, elapsed());
 
     return {
       status: 'plan_required',
-      executionPlan: decision.task ?? state.input,
+      executionPlan: task,
       iteration,
     };
   } catch {
-    // Parse failed — assume solvable and pass the raw input through
-    logger.error(
-      `Failed to parse supervisor response, proceeding with raw input`,
-    );
+    logPhaseEnd('SUPERVISOR', 'PARSE FAILED → forwarding raw input', elapsed());
     return {
       status: 'plan_required',
       executionPlan: state.input,

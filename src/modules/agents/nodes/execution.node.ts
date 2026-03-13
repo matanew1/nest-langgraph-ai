@@ -2,15 +2,14 @@ import { Logger } from '@nestjs/common';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
 import { env } from '@config/env';
-import { prettyJson, preview } from '@utils/pretty-log.util';
+import { prettyJson, preview, logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
 
-const logger = new Logger('ExecutionNode');
-
-const ATTEMPT_PREVIEW_LENGTH = 300;
+const logger = new Logger('Executor');
 
 export async function executionNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
+  const elapsed = startTimer();
   const toolName = state.selectedTool ?? '';
   const rawParams: Record<string, unknown> = state.toolParams ?? {
     query: state.toolInput ?? '',
@@ -29,15 +28,14 @@ export async function executionNode(
   const stepNum = (state.currentStep ?? 0) + 1;
   const totalSteps = (state.plan ?? []).length;
 
-  logger.log(
-    `Executing step ${stepNum}/${totalSteps}: tool="${toolName}" with params=${preview(prettyJson(rawParams), 200)}`,
-  );
+  logPhaseStart('EXECUTOR', `step ${stepNum}/${totalSteps} | tool="${toolName}"`);
+  logger.log(`Params: ${preview(prettyJson(rawParams), 200)}`);
 
   const tool = toolRegistry.get(toolName);
 
   if (!tool) {
     const errorMsg = `Unknown tool "${toolName}". Available: ${toolRegistry.getNames().join(', ')}`;
-    logger.warn(errorMsg);
+    logPhaseEnd('EXECUTOR', `FAILED: ${errorMsg}`, elapsed());
     return {
       toolResult: errorMsg,
       lastToolErrored: true,
@@ -70,12 +68,10 @@ export async function executionNode(
       );
     }
 
-    const preview =
-      result.length > ATTEMPT_PREVIEW_LENGTH
-        ? result.slice(0, ATTEMPT_PREVIEW_LENGTH) + '…'
-        : result;
+    const resultPreview = preview(result, 300);
+    logPhaseEnd('EXECUTOR', `OK (${result.length} chars)`, elapsed());
+    logger.debug(`Result: ${resultPreview}`);
 
-    logger.debug(`Tool result preview: ${preview}`);
     return {
       toolResult: result,
       lastToolErrored: false,
@@ -84,15 +80,15 @@ export async function executionNode(
           tool: toolName,
           input: prettyJson(rawParams),
           params: rawParams,
-          result: preview,
+          result: resultPreview,
           error: false,
         },
       ],
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`Tool "${toolName}" failed: ${message}`);
     const errorResult = `Tool "${toolName}" failed: ${message}`;
+    logPhaseEnd('EXECUTOR', `ERROR: ${message}`, elapsed());
     return {
       toolResult: errorResult,
       lastToolErrored: true,

@@ -1,6 +1,7 @@
 import { START, END, StateGraph } from '@langchain/langgraph';
 import { AgentStateAnnotation } from '../state/agent.state';
 import { supervisorNode } from '../nodes/supervisor.node';
+import { researcherNode } from '../nodes/researcher.node';
 import { plannerNode } from '../nodes/planner.node';
 import { executionNode } from '../nodes/execution.node';
 import { criticNode } from '../nodes/critic.node';
@@ -10,6 +11,7 @@ const MAX_ITERATIONS = env.agentMaxIterations;
 
 enum Nodes {
   SUPERVISOR = 'supervisor',
+  RESEARCHER = 'researcher',
   PLANNER = 'planner',
   EXECUTE = 'execute',
   CRITIC = 'critic',
@@ -18,22 +20,24 @@ enum Nodes {
 /**
  * Graph flow:
  *
- *   START → SUPERVISOR → PLANNER → EXECUTE → CRITIC
- *                ↑         ↑                    |
- *                |         └────────────────────┘  (next step in plan)
- *                └──────────────────────────────┘  (retry / re-plan)
- *                                               → END (complete / error / max iterations)
+ *   START → SUPERVISOR → RESEARCHER → PLANNER → EXECUTE → CRITIC
+ *                ↑                       ↑                    |
+ *                |                       └────────────────────┘  (next step in plan)
+ *                └────────────────────────────────────────────┘  (retry / re-plan)
+ *                                                             → END (complete / error / max iterations)
  */
 const graph = new StateGraph(AgentStateAnnotation)
   .addNode(Nodes.SUPERVISOR, supervisorNode)
+  .addNode(Nodes.RESEARCHER, researcherNode)
   .addNode(Nodes.PLANNER, plannerNode)
   .addNode(Nodes.EXECUTE, executionNode)
   .addNode(Nodes.CRITIC, criticNode)
   .addEdge(START, Nodes.SUPERVISOR)
   .addConditionalEdges(Nodes.SUPERVISOR, (state) => {
     if (state.done) return END;
-    return Nodes.PLANNER;
+    return Nodes.RESEARCHER;
   })
+  .addEdge(Nodes.RESEARCHER, Nodes.PLANNER)
   .addConditionalEdges(Nodes.PLANNER, (state) => {
     if (state.done) return END;
     return Nodes.EXECUTE;
