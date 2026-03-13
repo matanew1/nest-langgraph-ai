@@ -18,10 +18,10 @@ jest.mock('@redis/redis.provider', () => ({
   },
 }));
 
-jest.mock('@graph/agent.graph', () => ({
+// Mock path matches service import and spec
+jest.mock('../graph/agent.graph', () => ({
   agentGraph: {
     invoke: jest.fn(),
-    stream: jest.fn(),
   },
 }));
 
@@ -73,3 +73,4 @@ describe('AgentsController', () => {
     });
   });
 });
+

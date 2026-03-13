@@ -16,16 +16,11 @@ jest.mock('@redis/redis.provider', () => ({
   },
 }));
 
-jest.mock('@graph/agent.graph', () => ({
+jest.mock('../graph/agent.graph', () => ({
   agentGraph: {
     invoke: jest.fn(),
   },
 }));
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { agentGraph } = require('@graph/agent.graph') as {
-  agentGraph: { invoke: jest.Mock };
-};
 
 describe('AgentsService', () => {
   let service: AgentsService;
@@ -47,6 +42,8 @@ describe('AgentsService', () => {
   });
 
   describe('run', () => {
+    const agentGraph = require('../graph/agent.graph').agentGraph;
+
     it('should invoke the agent graph and return finalAnswer', async () => {
       const prompt = 'test prompt';
       agentGraph.invoke.mockResolvedValue({ finalAnswer: 'The answer is 42' });
@@ -77,3 +74,4 @@ describe('AgentsService', () => {
     });
   });
 });
+

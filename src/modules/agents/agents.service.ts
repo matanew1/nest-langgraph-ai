@@ -19,31 +19,6 @@ export class AgentsService {
     return `agent:cache:${createHash('sha256').update(prompt).digest('hex')}`;
   }
 
-  async *stream(
-    prompt: string,
-  ): AsyncGenerator<{ node: string; data: unknown }> {
-    this.logger.log(
-      `Streaming agent for: "${preview(prompt, 120)}"`,
-    );
-    try {
-      const streamResult = await agentGraph.stream({
-        input: prompt,
-        iteration: 0,
-      } as Partial<AgentState>);
-
-      for await (const chunk of streamResult) {
-        for (const [node, data] of Object.entries(chunk)) {
-          yield { node, data };
-        }
-      }
-    } catch (err) {
-      if (err instanceof HttpException) throw err;
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Agent stream failed: ${message}`);
-      throw new InternalServerErrorException(`Agent stream failed: ${message}`);
-    }
-  }
-
   async run(prompt: string): Promise<string> {
     this.logger.log(
       `Running agent for: "${preview(prompt, 120)}"`,
@@ -102,3 +77,4 @@ export class AgentsService {
     }
   }
 }
+
