@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
+import { prettyJson } from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AgentState, PlanStep } from '../state/agent.state';
@@ -21,7 +22,7 @@ export async function plannerNode(
   const prompt = buildPlannerPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`Raw LLM response:\n${raw}`);
+  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
 
   try {
     const plan = extractJson<PlanDecision>(raw);
@@ -60,7 +61,7 @@ export async function plannerNode(
       status: 'running',
       selectedTool: firstStep.tool,
       toolParams: firstStep.input,
-      toolInput: JSON.stringify(firstStep.input),
+      toolInput: prettyJson(firstStep.input),
       executionPlan: plan.objective,
       expectedResult: plan.expected_result,
     };

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
 import { env } from '@config/env';
+import { prettyJson, preview } from '@utils/pretty-log.util';
 
 const logger = new Logger('ExecutionNode');
 
@@ -29,7 +30,7 @@ export async function executionNode(
   const totalSteps = (state.plan ?? []).length;
 
   logger.log(
-    `Executing step ${stepNum}/${totalSteps}: tool="${toolName}" with params=${JSON.stringify(rawParams).slice(0, 200)}`,
+    `Executing step ${stepNum}/${totalSteps}: tool="${toolName}" with params=${preview(prettyJson(rawParams), 200)}`,
   );
 
   const tool = toolRegistry.get(toolName);
@@ -43,7 +44,7 @@ export async function executionNode(
       attempts: [
         {
           tool: toolName,
-          input: JSON.stringify(rawParams),
+          input: prettyJson(rawParams),
           params: rawParams,
           result: errorMsg,
           error: true,
@@ -81,7 +82,7 @@ export async function executionNode(
       attempts: [
         {
           tool: toolName,
-          input: JSON.stringify(rawParams),
+          input: prettyJson(rawParams),
           params: rawParams,
           result: preview,
           error: false,
@@ -98,7 +99,7 @@ export async function executionNode(
       attempts: [
         {
           tool: toolName,
-          input: JSON.stringify(rawParams),
+          input: prettyJson(rawParams),
           params: rawParams,
           result: errorResult,
           error: true,

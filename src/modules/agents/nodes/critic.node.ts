@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { buildCriticPrompt } from '../prompts/agent.prompts';
+import { prettyJson } from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { AgentState } from '../state/agent.state';
 
@@ -28,7 +29,7 @@ export async function criticNode(
   const prompt = buildCriticPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`Raw LLM response:\n${raw}`);
+  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
 
   try {
     const decision = extractJson<CriticDecision>(raw);
@@ -68,11 +69,11 @@ export async function criticNode(
         currentStep: nextStepIndex,
         selectedTool: nextStep.tool,
         toolParams: nextStep.input,
-        toolInput: JSON.stringify(nextStep.input),
-      };
-    }
+      toolInput: prettyJson(nextStep.input),
+    };
+  }
 
-    if (decision.status === 'retry') {
+  if (decision.status === 'retry') {
       logger.warn(`Retry requested: ${decision.reason}`);
       return {
         status: 'retry',
@@ -121,7 +122,7 @@ export async function criticNode(
       currentStep: nextStepIndex,
       selectedTool: nextStep.tool,
       toolParams: nextStep.input,
-      toolInput: JSON.stringify(nextStep.input),
+      toolInput: prettyJson(nextStep.input),
     };
   } catch {
     logger.error(`Failed to parse critic response: ${raw}`);

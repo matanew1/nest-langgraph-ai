@@ -21,7 +21,7 @@ export async function supervisorNode(
   const prompt = buildSupervisorPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`Raw LLM response:\n${raw}`);
+  logger.debug(JSON.stringify(`Raw LLM response:\n${raw}`, null, 2));
 
   const iteration = (state.iteration ?? 0) + 1;
 

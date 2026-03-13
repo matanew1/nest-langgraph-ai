@@ -7,6 +7,7 @@ import {
 import { createHash } from 'node:crypto';
 import { redis } from '@redis/redis.provider';
 import { env } from '@config/env';
+import { preview } from '@utils/pretty-log.util';
 import { agentGraph } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
 
@@ -22,7 +23,7 @@ export class AgentsService {
     prompt: string,
   ): AsyncGenerator<{ node: string; data: unknown }> {
     this.logger.log(
-      `Streaming agent for: "${prompt.slice(0, 120)}${prompt.length > 120 ? '…' : ''}"`,
+      `Streaming agent for: "${preview(prompt, 120)}"`,
     );
     try {
       const streamResult = await agentGraph.stream({
@@ -45,7 +46,7 @@ export class AgentsService {
 
   async run(prompt: string): Promise<string> {
     this.logger.log(
-      `Running agent for: "${prompt.slice(0, 120)}${prompt.length > 120 ? '…' : ''}"`,
+      `Running agent for: "${preview(prompt, 120)}"`,
     );
 
     const key = this.cacheKey(prompt);
