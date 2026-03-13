@@ -17,6 +17,7 @@ Rules:
 4. tree_dir / list_dir / read_file: "path" = INPUT directory or file to scan/read. NEVER an output file.
 5. shell_run: no output redirects (>, >>, |). Stdout is captured automatically.
 6. write_file: "content" can be "__PREVIOUS_RESULT__" if the prior step produced the full content.
+7. Do NOT create a step just to "echo" or "print" the output. The system captures it automatically.
 
 Output format:
 {"objective":"<task>","steps":[{"step_id":1,"description":"<what>","tool":"<name>","input":{}}],"expected_result":"<success definition>"}
