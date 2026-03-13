@@ -40,9 +40,7 @@ export const listDirTool = tool(
     description:
       'List the contents of a directory, showing file names, types (file/dir), and sizes',
     schema: z.object({
-      path: z
-        .string()
-        .describe('Absolute or relative path to the directory'),
+      path: z.string().describe('Absolute or relative path to the directory'),
     }),
   },
 );

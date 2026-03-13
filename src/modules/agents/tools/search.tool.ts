@@ -2,7 +2,7 @@ import { tavily } from '@tavily/core';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { env } from '../../../config/env';
+import { env } from '@config/env';
 
 const logger = new Logger('SearchTool');
 
@@ -18,9 +18,7 @@ export const searchTool = tool(
     }
 
     return response.results
-      .map(
-        (r, i) => `${i + 1}. [${r.title}](${r.url})\n   ${r.content}`,
-      )
+      .map((r, i) => `${i + 1}. [${r.title}](${r.url})\n   ${r.content}`)
       .join('\n\n');
   },
   {

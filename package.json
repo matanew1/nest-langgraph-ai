@@ -21,7 +21,11 @@
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
-    "release:first": "standard-version --first-release"
+    "release:first": "standard-version --first-release",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:clean": "docker compose -f docker/docker-compose.yml down -v --rmi all && docker builder prune -f",
+    "docker:fresh": "npm run docker:clean && npm run docker:up"
   },
   "dependencies": {
     "@langchain/community": "^1.1.23",
@@ -34,6 +38,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
+    "@qdrant/js-client-rest": "^1.17.0",
     "@tavily/core": "^0.7.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -92,15 +97,12 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^@agents/(.*)$": "<rootDir>/agents/$1",
-      "^@config/(.*)$": "<rootDir>/config/$1",
-      "^@utils/(.*)$": "<rootDir>/utils/$1",
-      "^@nodes/(.*)$": "<rootDir>/agents/nodes/$1",
-      "^@providers/(.*)$": "<rootDir>/agents/providers/$1",
-      "^@state/(.*)$": "<rootDir>/agents/state/$1",
-      "^@graph/(.*)$": "<rootDir>/agents/graph/$1",
-      "^@module/(.*)$": "<rootDir>/agents/module/$1",
-      "^@tools/(.*)$": "<rootDir>/agents/tools/$1"
+      "^src/(.*)$": "<rootDir>/$1",
+      "^@config/(.*)$": "<rootDir>/common/config/$1",
+      "^@utils/(.*)$": "<rootDir>/common/utils/$1",
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@llm/(.*)$": "<rootDir>/modules/llm/$1",
+      "^@redis/(.*)$": "<rootDir>/modules/redis/$1"
     }
   }
 }

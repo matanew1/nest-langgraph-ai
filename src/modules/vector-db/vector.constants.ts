@@ -1,0 +1,1 @@
+export const QDRANT_CLIENT = 'QDRANT_CLIENT';

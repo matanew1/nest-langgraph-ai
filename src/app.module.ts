@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { AgentsModule } from './agents/module/agents.module';
-import { HealthModule } from './health/health.module';
+import { HealthModule } from './modules/health/health.module';
+import { LlmModule } from './modules/llm/llm.module';
+import { RedisModule } from './modules/redis/redis.module';
+import { VectorModule } from './modules/vector-db/vector.module';
+import { AgentsModule } from './modules/agents/agents.module';
 
 @Module({
   imports: [
@@ -15,8 +18,11 @@ import { HealthModule } from './health/health.module';
       throttlers: [{ ttl: 60_000, limit: 60 }],
     }),
 
+    LlmModule,
+    RedisModule,
     AgentsModule,
     HealthModule,
+    VectorModule,
   ],
 })
 export class AppModule {}
