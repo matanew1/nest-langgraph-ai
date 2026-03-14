@@ -6,7 +6,7 @@ import { env } from '@config/env';
 
 const logger = new Logger('ShellRunTool');
 
-const MAX_OUTPUT = 50_000;
+const MAX_OUTPUT = 200_000;
 
 // Patterns that could cause irreversible damage or exfiltration
 const DENIED_PATTERNS = [
@@ -50,7 +50,7 @@ export const shellRunTool = tool(
       const child = exec(command, {
         cwd: env.agentWorkingDir,
         timeout: env.toolTimeoutMs,
-        maxBuffer: MAX_OUTPUT,
+        maxBuffer: MAX_OUTPUT * 2,
       });
 
       let stdout = '';
@@ -67,7 +67,15 @@ export const shellRunTool = tool(
           resolve(`ERROR (exit ${exitCode}):\n${err}`);
         } else {
           // Success: return clean stdout only — no prefix, so __PREVIOUS_RESULT__ is usable directly
-          resolve((stdout || '(no output)').slice(0, MAX_OUTPUT));
+          const output = stdout || '(no output)';
+          if (output.length > MAX_OUTPUT) {
+            resolve(
+              output.slice(0, MAX_OUTPUT) +
+                `\n\n… [truncated – output was ${output.length} chars, limit is ${MAX_OUTPUT}]`,
+            );
+          } else {
+            resolve(output);
+          }
         }
       });
 

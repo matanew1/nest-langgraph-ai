@@ -32,7 +32,7 @@ export class AgentsService {
   async run(prompt: string): Promise<string> {
     const elapsed = startTimer();
 
-    this.logger.log(`\n${SEPARATOR}`);
+    this.logger.log(`${SEPARATOR}`);
     this.logger.log(`🚀 AGENT RUN START | "${preview(prompt, 100)}"`);
     this.logger.log(SEPARATOR);
 
@@ -103,24 +103,24 @@ export class AgentsService {
       subject.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
     };
 
-    agentGraph
-      .streamEvents(
-        { input: prompt, iteration: 0 } as Partial<AgentState>,
-        { version: 'v2' },
-      )
-      .then(async (eventStream) => {
+    (async () => {
+      try {
+        const eventStream = agentGraph.streamEvents(
+          { input: prompt, iteration: 0 } as Partial<AgentState>,
+          { version: 'v2' },
+        );
         for await (const event of eventStream) {
           if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
             emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
           }
         }
         subject.complete();
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         emit('error', { message });
         subject.complete();
-      });
+      }
+    })();
 
     return subject.asObservable();
   }

@@ -70,7 +70,7 @@ export async function executionNode(
 
     const resultPreview = preview(result, 300);
     logPhaseEnd('EXECUTOR', `OK (${result.length} chars)`, elapsed());
-    logger.debug(`Result: ${resultPreview}`);
+    logger.debug(`Result:\n${resultPreview}`);
 
     return {
       toolResult: result,
