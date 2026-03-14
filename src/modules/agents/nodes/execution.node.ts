@@ -18,8 +18,8 @@ export async function executionNode(
   // Substitute __PREVIOUS_RESULT__ placeholders with actual previous tool result
   const toolParams: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(rawParams)) {
-    if (value === '__PREVIOUS_RESULT__' && state.toolResult) {
-      toolParams[key] = state.toolResult;
+    if (typeof value === 'string' && value.includes('__PREVIOUS_RESULT__') && state.toolResult) {
+      toolParams[key] = value.replaceAll('__PREVIOUS_RESULT__', state.toolResult);
     } else {
       toolParams[key] = value;
     }
@@ -59,13 +59,13 @@ export async function executionNode(
       result = (await tool.invoke(toolParams, {
         signal: controller.signal,
       })) as string;
+      if (controller.signal.aborted) {
+        throw new Error(
+          `Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`,
+        );
+      }
     } finally {
       clearTimeout(timer);
-    }
-    if (controller.signal.aborted) {
-      throw new Error(
-        `Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`,
-      );
     }
 
     const resultPreview = preview(result, 300);

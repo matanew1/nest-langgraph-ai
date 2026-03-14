@@ -4,18 +4,26 @@ import {
   Logger,
   HttpException,
 } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
 import { createHash } from 'node:crypto';
-import { redis } from '@redis/redis.provider';
+import { RedisService } from '@redis/redis.service';
 import { env } from '@config/env';
 import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentGraph } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
+
+export interface StreamEvent {
+  node: string;
+  data: Record<string, unknown>;
+}
 
 const SEPARATOR = '━'.repeat(60);
 
 @Injectable()
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
+
+  constructor(private readonly redisService: RedisService) {}
 
   private cacheKey(prompt: string): string {
     return `agent:cache:${createHash('sha256').update(prompt).digest('hex')}`;
@@ -30,7 +38,7 @@ export class AgentsService {
 
     const key = this.cacheKey(prompt);
     try {
-      const cached = await redis.get(key);
+      const cached = await this.redisService.get(key);
       if (cached) {
         this.logger.log(`Cache HIT → returning in ${elapsed()}ms`);
         return cached;
@@ -72,7 +80,7 @@ export class AgentsService {
       this.logger.log(SEPARATOR);
 
       try {
-        await redis.set(key, answer, 'EX', env.cacheTtlSeconds);
+        await this.redisService.set(key, answer, env.cacheTtlSeconds);
       } catch {
         this.logger.warn('Redis unavailable — skipping cache write');
       }
@@ -86,5 +94,34 @@ export class AgentsService {
         `Agent execution failed: ${message}`,
       );
     }
+  }
+
+  stream(prompt: string): Observable<{ data: string }> {
+    const subject = new Subject<{ data: string }>();
+
+    const emit = (node: string, data: Record<string, unknown>) => {
+      subject.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
+    };
+
+    agentGraph
+      .streamEvents(
+        { input: prompt, iteration: 0 } as Partial<AgentState>,
+        { version: 'v2' },
+      )
+      .then(async (eventStream) => {
+        for await (const event of eventStream) {
+          if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
+            emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
+          }
+        }
+        subject.complete();
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        emit('error', { message });
+        subject.complete();
+      });
+
+    return subject.asObservable();
   }
 }

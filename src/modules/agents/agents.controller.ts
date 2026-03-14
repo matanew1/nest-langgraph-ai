@@ -4,8 +4,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AgentsService } from './agents.service';
 import { RunAgentDto, RunAgentResponseDto } from './agents.dto';
@@ -45,5 +47,22 @@ export class AgentsController {
   async run(@Body() body: RunAgentDto): Promise<RunAgentResponseDto> {
     const result = await this.agentsService.run(body.prompt);
     return { result };
+  }
+
+  @Sse('stream')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Stream agent execution as Server-Sent Events' })
+  @ApiBody({ type: RunAgentDto })
+  @ApiResponse({
+    status: 200,
+    description: 'SSE stream of agent node events: data: {"node":"<name>","data":{...}}',
+  })
+  @ApiResponse({
+    status: 429,
+    type: ErrorResponseDto,
+    description: 'Too many requests',
+  })
+  stream(@Body() body: RunAgentDto): Observable<{ data: string }> {
+    return this.agentsService.stream(body.prompt);
   }
 }
