@@ -66,10 +66,10 @@ export const treeDirTool = tool(
     try {
       s = await stat(resolved);
     } catch {
-      return `Error: path "${path}" does not exist. Use "." for the project root directory.`;
+      return `ERROR: path "${path}" does not exist. Use "." for the project root directory.`;
     }
     if (!s.isDirectory()) {
-      return `Error: path "${path}" is a file, not a directory. This tool requires a directory path. Use "." for the project root directory.`;
+      return `ERROR: path "${path}" is a file, not a directory. This tool requires a directory path. Use "." for the project root directory.`;
     }
 
     const lines = [resolved, ...(await buildTree(resolved, '', 0))];

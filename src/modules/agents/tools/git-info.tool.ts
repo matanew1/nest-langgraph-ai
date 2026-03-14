@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
@@ -18,34 +18,45 @@ const ALLOWED_ACTIONS = [
 
 type GitAction = (typeof ALLOWED_ACTIONS)[number];
 
-/** Map user-friendly action names to safe git commands */
-function buildCommand(action: GitAction, args: string): string {
+/**
+ * Build a safe args array for execFile('git', ...).
+ * Using execFile avoids shell interpretation — args are passed directly
+ * to the git process, so injection via `args` is not possible.
+ */
+function buildArgs(action: GitAction, args: string): string[] {
+  // Split user-supplied args on whitespace; each token is a separate argument
+  const extra = args
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
   switch (action) {
     case 'status':
-      return 'git status --short';
+      return ['status', '--short'];
     case 'log':
-      return `git log --oneline -20 ${args}`.trim();
+      return ['log', '--oneline', '-20', ...extra];
     case 'diff':
-      return `git diff ${args || 'HEAD'}`.trim();
+      return ['diff', ...(extra.length ? extra : ['HEAD'])];
     case 'branch':
-      return 'git branch -a';
+      return ['branch', '-a'];
     case 'show':
-      return `git show --stat ${args || 'HEAD'}`.trim();
+      return ['show', '--stat', ...(extra.length ? extra : ['HEAD'])];
   }
 }
 
 export const gitInfoTool = tool(
   async ({ action, args }) => {
     if (!ALLOWED_ACTIONS.includes(action as GitAction)) {
-      return `Error: unknown action "${action}". Allowed: ${ALLOWED_ACTIONS.join(', ')}`;
+      return `ERROR: unknown action "${action}". Allowed: ${ALLOWED_ACTIONS.join(', ')}`;
     }
 
-    const command = buildCommand(action as GitAction, args ?? '');
-    logger.log(`git ${action}: ${command}`);
+    const gitArgs = buildArgs(action as GitAction, args ?? '');
+    logger.log(`git ${action}: git ${gitArgs.join(' ')}`);
 
     return new Promise<string>((resolve) => {
-      exec(
-        command,
+      execFile(
+        'git',
+        gitArgs,
         { cwd: env.agentWorkingDir, timeout: env.toolTimeoutMs, maxBuffer: MAX_OUTPUT },
         (error, stdout, stderr) => {
           if (error) {

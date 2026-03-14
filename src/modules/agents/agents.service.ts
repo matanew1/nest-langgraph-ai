@@ -4,7 +4,7 @@ import {
   Logger,
   HttpException,
 } from '@nestjs/common';
-import { Observable, Subject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { createHash } from 'node:crypto';
 import { RedisService } from '@redis/redis.service';
 import { env } from '@config/env';
@@ -49,10 +49,21 @@ export class AgentsService {
     }
 
     try {
-      const result = await agentGraph.invoke({
-        input: prompt,
-        iteration: 0,
-      } as Partial<AgentState>);
+      // Overall timeout: groq timeout × iterations × 4 LLM calls per iteration max
+      const graphTimeoutMs = env.groqTimeoutMs * env.agentMaxIterations * 4;
+
+      let timeoutHandle: NodeJS.Timeout;
+      const result = await Promise.race([
+        agentGraph
+          .invoke({ input: prompt, iteration: 0 } as Partial<AgentState>)
+          .finally(() => clearTimeout(timeoutHandle)),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
+            graphTimeoutMs,
+          );
+        }),
+      ]);
 
       const totalTime = elapsed();
 
@@ -97,31 +108,36 @@ export class AgentsService {
   }
 
   stream(prompt: string): Observable<{ data: string }> {
-    const subject = new Subject<{ data: string }>();
+    return new Observable<{ data: string }>((subscriber) => {
+      const controller = new AbortController();
 
-    const emit = (node: string, data: Record<string, unknown>) => {
-      subject.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
-    };
+      const emit = (node: string, data: Record<string, unknown>) => {
+        subscriber.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
+      };
 
-    (async () => {
-      try {
-        const eventStream = agentGraph.streamEvents(
-          { input: prompt, iteration: 0 } as Partial<AgentState>,
-          { version: 'v2' },
-        );
-        for await (const event of eventStream) {
-          if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
-            emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
+      (async () => {
+        try {
+          const eventStream = agentGraph.streamEvents(
+            { input: prompt, iteration: 0 } as Partial<AgentState>,
+            { version: 'v2', signal: controller.signal },
+          );
+          for await (const event of eventStream) {
+            if (controller.signal.aborted) break;
+            if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
+              emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
+            }
           }
+          if (!controller.signal.aborted) subscriber.complete();
+        } catch (err: unknown) {
+          if (controller.signal.aborted) return; // client disconnected — no-op
+          const message = err instanceof Error ? err.message : String(err);
+          emit('error', { message });
+          subscriber.complete();
         }
-        subject.complete();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        emit('error', { message });
-        subject.complete();
-      }
-    })();
+      })();
 
-    return subject.asObservable();
+      // Teardown: abort the LangGraph stream when the client disconnects
+      return () => controller.abort();
+    });
   }
 }
