@@ -7,8 +7,25 @@ import compression from 'compression';
 import { env } from './common/config/env';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
+/**
+ * Bootstraps the NestJS application, setting up middleware, global pipes,
+ * exception filters, and Swagger documentation.
+ *
+ * @async
+ * @function bootstrap
+ * @returns {Promise<void>} A promise that resolves when the application is successfully bootstrapped and listening.
+ */
 async function bootstrap() {
+  /**
+   * The NestJS application instance.
+   * @type {import('@nestjs/core').INestApplication}
+   */
   const app = await NestFactory.create(AppModule);
+
+  /**
+   * Logger instance for the bootstrap process.
+   * @type {Logger}
+   */
   const logger = new Logger('Bootstrap');
 
   app.use(helmet());
@@ -34,6 +51,10 @@ async function bootstrap() {
   // Return consistent JSON error envelopes for all unhandled exceptions
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  /**
+   * Configuration for Swagger documentation.
+   * @type {import('@nestjs/swagger').DocumentBuilder}
+   */
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Nest LangGraph AI')
     .setDescription('AI Agent API powered by LangGraph')

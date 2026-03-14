@@ -48,6 +48,6 @@ export function extractJson<T>(raw: string): T {
   }
 
   throw new SyntaxError(
-    `Could not extract valid JSON from LLM response:\n${raw.slice(0, 300)}`,
+    `Could not extract valid JSON from LLM response:\n${raw.slice(0, 1000)}`,
   );
 }

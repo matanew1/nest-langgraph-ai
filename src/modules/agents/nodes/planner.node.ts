@@ -31,7 +31,7 @@ export async function plannerNode(
   const prompt = buildPlannerPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw, 1000)}`);
 
   try {
     const plan = extractJson<PlanDecision>(raw);

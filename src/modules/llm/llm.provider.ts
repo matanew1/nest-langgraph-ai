@@ -1,13 +1,13 @@
-import { ChatGroq } from '@langchain/groq';
+import { ChatMistralAI } from "@langchain/mistralai";
 import { Logger } from '@nestjs/common';
 import { env } from '@config/env';
 
 const logger = new Logger('LlmProvider');
 
-export const llm = new ChatGroq({
-  apiKey: env.groqKey,
-  model: env.groqModel,
-  temperature: 1, // Higher temperature for more creative responses, which can be useful for agents
+export const llm = new ChatMistralAI({
+  apiKey: process.env.MISTRAL_API_KEY,
+  model: "mistral-large-latest",
+  temperature: 0,
 });
 
 /**
@@ -17,7 +17,7 @@ export const llm = new ChatGroq({
  */
 export async function invokeLlm(
   prompt: string,
-  timeoutMs: number = env.groqTimeoutMs,
+  timeoutMs: number = env.mistralTimeoutMs,
 ): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

@@ -98,7 +98,11 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
     }
 
     // Traverse children
-    if (t.isProgram(node)) {
+    if (t.isExportNamedDeclaration(node) && node.declaration) {
+      traverse(node.declaration);
+    } else if (t.isExportDefaultDeclaration(node) && node.declaration) {
+      traverse(node.declaration);
+    } else if (t.isProgram(node)) {
       node.body.forEach((child) => traverse(child));
     } else if (t.isBlock(node)) {
       node.body.forEach((child) => traverse(child));

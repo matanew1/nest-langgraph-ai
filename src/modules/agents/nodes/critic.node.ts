@@ -34,7 +34,7 @@ export async function criticNode(
   const prompt = buildCriticPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw, 1000)}`);
 
   try {
     const decision = extractJson<CriticDecision>(raw);

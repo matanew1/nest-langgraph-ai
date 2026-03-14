@@ -34,7 +34,7 @@ toolRegistry.register(
 toolRegistry.register(shellRunTool, '{"command":"<shell command to execute>"}');
 toolRegistry.register(
   llmSummarizeTool,
-  '{"content":"<text to analyse>","instruction":"<what to do with it>"}',
+  '{"content":"<text to analyse>","instruction":"<what to do with it>","outputType":"text|code"}',
 );
 toolRegistry.register(
   gitInfoTool,

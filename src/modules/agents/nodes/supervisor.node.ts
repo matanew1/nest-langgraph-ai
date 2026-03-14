@@ -32,7 +32,7 @@ export async function supervisorNode(
   const prompt = buildSupervisorPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw, 1000)}`);
 
   try {
     const decision = extractJson<SupervisorDecision>(raw);

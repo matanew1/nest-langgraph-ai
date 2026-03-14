@@ -50,12 +50,18 @@ export class AgentsService {
 
     try {
       // Overall timeout: groq timeout × iterations × 4 LLM calls per iteration max
-      const graphTimeoutMs = env.groqTimeoutMs * env.agentMaxIterations * 4;
+      const graphTimeoutMs = env.mistralTimeoutMs * env.agentMaxIterations * 4;
 
       let timeoutHandle: NodeJS.Timeout;
       const result = await Promise.race([
         agentGraph
-          .invoke({ input: prompt, iteration: 0 } as Partial<AgentState>)
+          .invoke(
+            { input: prompt, iteration: 0 } as Partial<AgentState>,
+            {
+              recursionLimit: 100,
+              configurable: { thread_id: `agent-run-${Date.now()}` },
+            },
+          )
           .finally(() => clearTimeout(timeoutHandle)),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
