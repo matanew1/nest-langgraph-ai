@@ -5,9 +5,9 @@ dotenv.config();
 
 const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
-  GROQ_API_KEY: Joi.string().required(),
-  GROQ_MODEL: Joi.string().default('llama-3.3-70b-versatile'),
-  GROQ_TIMEOUT_MS: Joi.number().default(30_000),
+  MISTRAL_API_KEY: Joi.string().required(),
+  MISTRAL_MODEL: Joi.string().default('mistral-small-latest'),
+  MISTRAL_TIMEOUT_MS: Joi.number().default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().required(),
@@ -30,6 +30,9 @@ interface EnvVariables {
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
   GROQ_TIMEOUT_MS: number;
+  MISTRAL_API_KEY: string;
+  MISTRAL_MODEL: string;
+  MISTRAL_TIMEOUT_MS: number;
   TAVILY_API_KEY: string;
   REDIS_HOST: string;
   REDIS_PORT: number;
@@ -58,7 +61,9 @@ if (error) {
 
 export const env = {
   port: validatedEnv.PORT,
-  groqKey: validatedEnv.GROQ_API_KEY,
+  mistralKey: validatedEnv.MISTRAL_API_KEY,
+  mistralModel: validatedEnv.MISTRAL_MODEL,
+  mistralTimeoutMs: validatedEnv.MISTRAL_TIMEOUT_MS,
   groqModel: validatedEnv.GROQ_MODEL,
   groqTimeoutMs: validatedEnv.GROQ_TIMEOUT_MS,
   tavilyKey: validatedEnv.TAVILY_API_KEY,
