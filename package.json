@@ -25,8 +25,7 @@
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:clean": "docker compose -f docker/docker-compose.yml down -v --rmi all && docker builder prune -f",
-    "docker:fresh": "npm run docker:clean && npm run docker:up",
-    "vercel-build": "npm install --legacy-peer-deps && npm run build"
+    "docker:fresh": "npm run docker:clean && npm run docker:up"
   },
   "dependencies": {
     "@langchain/community": "^1.1.23",
