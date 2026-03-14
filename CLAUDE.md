@@ -8,7 +8,7 @@ This file provides context for AI assistants working on the `nest-langgraph-ai` 
 
 A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint; the system autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
 
-**Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Groq LLM, Tavily Search, Redis (IORedis), TypeScript 5.7, Jest 30
+**Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Groq LLM, Tavily Search, Redis (IORedis), Qdrant (vector DB), TypeScript 5.7, Jest 30
 
 ---
 
@@ -30,9 +30,19 @@ src/
 │   │   ├── agents.dto.ts
 │   │   ├── agents.module.ts
 │   │   └── tests/          # Unit tests
-│   └── llm/
-│       ├── llm.provider.ts # LLM (Groq) provider + invokeLlm()
-│       └── llm.module.ts
+│   ├── llm/
+│   │   ├── llm.provider.ts # LLM (Groq) provider + invokeLlm()
+│   │   └── llm.module.ts
+│   ├── redis/
+│   │   ├── redis.provider.ts   # IORedis client with lazy connect & retry strategy
+│   │   ├── redis.service.ts    # Wrapper service around IORedis
+│   │   ├── redis.module.ts     # Global Redis module (OnModuleInit connection check)
+│   │   └── redis.constants.ts  # REDIS_CLIENT injection token
+│   └── vector-db/
+│       ├── vector.service.ts   # Qdrant upsert() + search() wrapper
+│       ├── qdrant.provider.ts  # QdrantClient instance factory
+│       ├── vector.module.ts    # Vector DB module configuration
+│       └── vector.constants.ts # QDRANT_CLIENT injection token
 ├── common/
 │   ├── config/
 │   │   └── env.ts          # Joi-validated environment variables
@@ -45,10 +55,10 @@ src/
 │       ├── path.util.ts    # sandboxPath() — enforces AGENT_WORKING_DIR
 │       └── pretty-log.util.ts  # Logging helpers (prettyJson, preview, logPhase*)
 ├── health/
-│   ├── health.controller.ts  # GET /health endpoint
+│   ├── health.controller.ts  # GET /health endpoint (checks Redis)
 │   └── health.module.ts
-├── app.module.ts       # Root module
-└── main.ts             # Bootstrap (Helmet, CORS, Swagger, validation pipe, global filter)
+├── app.module.ts       # Root module (ConfigModule, Throttler, agents, health, vector-db)
+└── main.ts             # Bootstrap (Helmet, compression, CORS, Swagger, validation pipe, global filter)
 .github/
 └── workflows/
     └── ci.yml          # Build + test on push/PR
@@ -93,24 +103,29 @@ npm run test:e2e      # End-to-end tests
 
 Create a `.env` file at the project root. All variables are validated on startup via Joi (`src/common/config/env.ts`):
 
-| Variable                | Required | Default             | Description                                         |
-|-------------------------|----------|---------------------|-----------------------------------------------------|
-| `PORT`                  | No       | `3000`              | HTTP server port                                    |
-| `GROQ_API_KEY`          | Yes      | —                   | Groq API key for LLM calls                          |
-| `TAVILY_API_KEY`        | Yes      | —                   | Tavily API key for web search                       |
-| `REDIS_HOST`            | Yes      | —                   | Redis server hostname                               |
-| `REDIS_PORT`            | Yes      | —                   | Redis server port (number)                          |
-| `CORS_ORIGIN`           | No       | `*`                 | Allowed CORS origin                                 |
-| `GROQ_MODEL`            | No       | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq model ID |
-| `GROQ_TIMEOUT_MS`       | No       | `30000`             | LLM call timeout in ms (AbortController)            |
-| `AGENT_MAX_ITERATIONS`  | No       | `3`                 | Max graph iterations (1–10)                         |
-| `TOOL_TIMEOUT_MS`       | No       | `15000`             | Per-tool invocation timeout in ms                   |
-| `AGENT_WORKING_DIR`     | No       | `process.cwd()`     | Sandbox root for all file tool operations           |
-| `CACHE_TTL_SECONDS`     | No       | `60`                | Redis cache TTL for agent responses                 |
-| `CRITIC_RESULT_MAX_CHARS`| No      | `8000`              | Max chars from tool result passed to critic prompt  |
-| `PROMPT_MAX_ATTEMPTS`   | No       | `5`                 | Max recent attempts included in supervisor/planner prompts |
+| Variable                 | Required | Default                                      | Description                                           |
+|--------------------------|----------|----------------------------------------------|-------------------------------------------------------|
+| `PORT`                   | No       | `3000`                                       | HTTP server port                                      |
+| `GROQ_API_KEY`           | Yes      | —                                            | Groq API key for LLM calls                            |
+| `TAVILY_API_KEY`         | Yes      | —                                            | Tavily API key for web search                         |
+| `REDIS_HOST`             | Yes      | —                                            | Redis server hostname                                 |
+| `REDIS_PORT`             | Yes      | —                                            | Redis server port (number)                            |
+| `CORS_ORIGIN`            | No       | `*`                                          | Allowed CORS origin                                   |
+| `GROQ_MODEL`             | No       | `meta-llama/llama-4-scout-17b-16e-instruct`  | Groq model ID                                         |
+| `GROQ_TIMEOUT_MS`        | No       | `30000`                                      | LLM call timeout in ms (AbortController)              |
+| `AGENT_MAX_ITERATIONS`   | No       | `3`                                          | Max graph iterations (1–10)                           |
+| `TOOL_TIMEOUT_MS`        | No       | `15000`                                      | Per-tool invocation timeout in ms                     |
+| `AGENT_WORKING_DIR`      | No       | `process.cwd()`                              | Sandbox root for all file tool operations             |
+| `CACHE_TTL_SECONDS`      | No       | `60`                                         | Redis cache TTL for agent responses                   |
+| `CRITIC_RESULT_MAX_CHARS`| No       | `8000`                                       | Max chars from tool result passed to critic prompt    |
+| `PROMPT_MAX_ATTEMPTS`    | No       | `5`                                          | Max recent attempts included in supervisor/planner prompts |
+| `QDRANT_URL`             | No       | `http://localhost:6333`                      | Qdrant vector database URL                            |
+| `QDRANT_COLLECTION`      | No       | `agent_vectors`                              | Qdrant collection name                                |
+| `QDRANT_VECTOR_SIZE`     | No       | `1536`                                       | Embedding vector dimensions                           |
 
 Missing required variables cause an immediate startup crash with a descriptive error.
+
+The `env` object exported from `src/common/config/env.ts` maps these to camelCase properties (e.g., `GROQ_API_KEY` → `env.groqKey`).
 
 ---
 
@@ -140,15 +155,25 @@ All node LLM calls go through `invokeLlm()` from `src/modules/llm/llm.provider.t
 ```typescript
 invokeLlm(prompt: string, timeoutMs?: number): Promise<string>
 ```
-This wraps ChatGroq with an AbortController timeout (default `GROQ_TIMEOUT_MS`).
+This wraps ChatGroq with an AbortController timeout (default `GROQ_TIMEOUT_MS`). **Never call `llm.invoke()` directly.**
 
 ### Agent flow
 
 1. **Supervisor** → evaluates task feasibility, outputs `{"status":"plan_required","task":"..."}`
-2. **Researcher** → gathers project context (file tree + git status) automatically
+2. **Researcher** → gathers project context (file tree + git status) automatically; no LLM call
 3. **Planner** → creates multi-step plan with project context: `{"objective":"...","steps":[...],"expected_result":"..."}`
 4. **Executor** → runs each step's tool, substituting `__PREVIOUS_RESULT__` between steps
 5. **Critic** → evaluates each step result; advances to next step, retries, or completes
+
+### Critic routing logic
+
+The critic outputs one of four statuses:
+- **`next_step`** — advance `currentStep` (or complete if last step)
+- **`complete`** — set `done=true`, populate `finalAnswer`
+- **`retry`** — reset plan pointer, optionally suggest a fix
+- **`error`** — terminate with error message
+
+Heuristic fallback: if parsed status is unrecognized, the critic inspects the raw output for an `ERROR` prefix.
 
 ### Prompt templates
 
@@ -157,7 +182,7 @@ Prompts are file-driven (`.txt` files in `src/modules/agents/prompts/templates/`
 - `planner.txt` — multi-step plan creation (includes project context from researcher)
 - `critic.txt` — step evaluation and decision
 
-Templates use `{{variable}}` placeholders rendered by `agent.prompts.ts`.
+Templates use `{{variable}}` placeholders rendered by `render()` in `agent.prompts.ts`. The `nest-cli.json` is configured with `watchAssets: true` so `.txt` files are copied to `dist/` during build.
 
 ### State shape (`src/modules/agents/state/agent.state.ts`)
 
@@ -178,7 +203,7 @@ Templates use `{{variable}}` placeholders rendered by `agent.prompts.ts`.
   done: boolean;
   iteration: number;
   lastToolErrored: boolean;
-  attempts: Attempt[];           // reducer: appends each attempt
+  attempts: Attempt[];           // reducer: appends each attempt (never overwritten)
 }
 
 interface PlanStep {
@@ -189,30 +214,54 @@ interface PlanStep {
 }
 ```
 
+Graph state mutations must go through annotated reducers — **never mutate state directly**.
+
 ---
 
 ## Available Tools
 
 All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zod**. File tools enforce `AGENT_WORKING_DIR` via `sandboxPath()`.
 
-| Tool Name        | File                   | Params                                          | Description                                       |
-|------------------|------------------------|-------------------------------------------------|---------------------------------------------------|
-| `search`         | `search.tool.ts`       | `{"query":"<string>"}`                          | Web search via Tavily (up to 5 results)           |
-| `read_file`      | `read-file.tool.ts`    | `{"path":"<path>"}`                             | Reads a local file (truncated at 100 KB)          |
-| `write_file`     | `write-file.tool.ts`   | `{"path":"<path>","content":"<text>"}`           | Writes content to a file (creates parent dirs)    |
-| `list_dir`       | `list-dir.tool.ts`     | `{"path":"<path>"}`                             | Lists directory contents with type and size info  |
-| `tree_dir`       | `tree-dir.tool.ts`     | `{"path":"<path>"}`                             | Recursive directory tree (like Unix `tree`)       |
-| `shell_run`      | `shell-run.tool.ts`    | `{"command":"<cmd>"}`                           | Execute shell command; returns clean stdout       |
-| `llm_summarize`  | `llm-summarize.tool.ts`| `{"content":"<text>","instruction":"<what>"}`    | AI-powered content summarization/analysis         |
-| `git_info`       | `git-info.tool.ts`     | `{"action":"status\|log\|diff\|branch\|show"}`  | Query git repository information                  |
-| `grep_search`    | `grep-search.tool.ts`  | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}` | Search for patterns across files        |
-| `file_patch`     | `file-patch.tool.ts`   | `{"path":"<file>","find":"<text>","replace":"<text>"}` | Find and replace within a file            |
+| Tool Name        | File                    | Params                                                          | Description                                       |
+|------------------|-------------------------|-----------------------------------------------------------------|---------------------------------------------------|
+| `search`         | `search.tool.ts`        | `{"query":"<string>"}`                                          | Web search via Tavily (up to 5 results)           |
+| `read_file`      | `read-file.tool.ts`     | `{"path":"<path>"}`                                             | Reads a local file (truncated at 100 KB)          |
+| `write_file`     | `write-file.tool.ts`    | `{"path":"<path>","content":"<text>"}`                          | Writes content to a file (creates parent dirs)    |
+| `list_dir`       | `list-dir.tool.ts`      | `{"path":"<path>"}`                                             | Lists directory contents with type and size info  |
+| `tree_dir`       | `tree-dir.tool.ts`      | `{"path":"<path>"}`                                             | Recursive directory tree (skips node_modules, .git, dist, coverage) |
+| `shell_run`      | `shell-run.tool.ts`     | `{"command":"<cmd>"}`                                           | Execute shell command; 50 KB output cap           |
+| `llm_summarize`  | `llm-summarize.tool.ts` | `{"content":"<text>","instruction":"<what>"}`                   | AI-powered content summarization/analysis         |
+| `git_info`       | `git-info.tool.ts`      | `{"action":"status\|log\|diff\|branch\|show"}`                  | Query git repository information (whitelisted)    |
+| `grep_search`    | `grep-search.tool.ts`   | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}`        | Search for patterns across files                  |
+| `file_patch`     | `file-patch.tool.ts`    | `{"path":"<file>","find":"<text>","replace":"<text>"}`          | Find and replace within a file (single occurrence)|
 
 The **ToolRegistry** (`tools/tool.registry.ts`) exposes:
 - `get(name)` — lookup by name
 - `has(name)` — check existence
 - `getNames()` — all registered tool names
 - `getToolsWithParams()` — formatted string for prompts including param schemas
+
+The supervisor and planner prompts automatically filter out previously errored tools via `getAvailableTools()` in `agent.prompts.ts`.
+
+---
+
+## Supporting Modules
+
+### Redis (`src/modules/redis/`)
+
+- **`redis.provider.ts`** — creates an IORedis client with lazy connect and exponential-backoff retry strategy
+- **`redis.service.ts`** — thin wrapper service; injected via `REDIS_CLIENT` token
+- **`redis.module.ts`** — global module; verifies connection on `OnModuleInit`
+- **`redis.constants.ts`** — exports `REDIS_CLIENT` injection token
+
+### Vector DB (`src/modules/vector-db/`)
+
+Qdrant integration for semantic vector storage. Not wired into the main agent loop yet but available for extension.
+
+- **`qdrant.provider.ts`** — creates a `QdrantClient` pointed at `env.qdrantUrl`
+- **`vector.service.ts`** — `upsert(id, vector, metadata)` and `search(queryVector, topK)` methods
+- **`vector.module.ts`** — wires provider and service; exported for other modules to import
+- **`vector.constants.ts`** — exports `QDRANT_CLIENT` injection token
 
 ---
 
@@ -264,7 +313,7 @@ Rate limit: **60 requests per 60 seconds** (global ThrottlerModule).
 - `AllExceptionsFilter` (`src/common/filters/http-exception.filter.ts`) is registered globally in `main.ts`
 - All errors return `ErrorResponseDto`: `{ statusCode, timestamp, path, message }`
 - Node functions catch tool errors and set `lastToolErrored: true` on state
-- The SUPERVISOR skips errored tools on subsequent iterations
+- The SUPERVISOR skips errored tools on subsequent iterations via `getAvailableTools()`
 
 ---
 
@@ -293,13 +342,20 @@ Configured in `src/modules/llm/llm.provider.ts`:
 
 Defined in `tsconfig.json` and mirrored in Jest's `moduleNameMapper`:
 
-| Alias          | Resolves to                    |
-|----------------|--------------------------------|
-| `@config/*`    | `src/common/config/*`          |
-| `@utils/*`     | `src/common/utils/*`           |
-| `@llm/*`       | `src/modules/llm/*`            |
-| `@redis/*`     | `src/modules/redis/*`          |
-| `@modules/*`   | `src/modules/*`                |
+| Alias          | Resolves to                         |
+|----------------|-------------------------------------|
+| `@agents/*`    | `src/modules/agents/*`              |
+| `@nodes/*`     | `src/modules/agents/nodes/*`        |
+| `@state/*`     | `src/modules/agents/state/*`        |
+| `@graph/*`     | `src/modules/agents/graph/*`        |
+| `@tools/*`     | `src/modules/agents/tools/*`        |
+| `@config/*`    | `src/common/config/*`               |
+| `@utils/*`     | `src/common/utils/*`                |
+| `@common/*`    | `src/common/*`                      |
+| `@llm/*`       | `src/modules/llm/*`                 |
+| `@redis/*`     | `src/modules/redis/*`               |
+| `@vector-db/*` | `src/modules/vector-db/*`           |
+| `@health/*`    | `src/modules/health/*`              |
 
 Always use these aliases in imports rather than long relative paths.
 
