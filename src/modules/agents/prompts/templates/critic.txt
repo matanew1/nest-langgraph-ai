@@ -15,6 +15,7 @@ Tool result preview:
 
 DECISION LOGIC:
 - Success signal YES + more steps remain → next_step
+- AST chunks found + discovery task → next_step
 - Success signal YES + last step + objective achieved → complete
 - Success signal NO or result is clearly wrong → retry
 - Task is fundamentally impossible → error

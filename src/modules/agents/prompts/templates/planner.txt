@@ -26,10 +26,11 @@ RULES:
 6. llm_summarize: Use this when you need to UNDERSTAND, EXPLAIN, or SUMMARIZE content with AI intelligence.
    Feed gathered raw content as "content" and specify what to do as "instruction".
    CRITICAL: If the task asks to "summarize", "explain", "analyze", or "describe" content — you MUST use llm_summarize. Never just copy raw content.
-7. grep_search: Use to find specific patterns, definitions, or usage across files.
-8. git_info: Use for repository context (status, log, diff, branches).
-9. file_patch: Use to modify part of a file (find/replace) instead of rewriting the whole file.
-10. Keep plans minimal — fewest steps possible.
+7. ast_parse: Use this as the primary tool for structural analysis of JS/TS files. Use it before read_file for large files to identify specific functions/classes or when mapping project architecture.
+8. grep_search: Use to find specific patterns, definitions, or usage across files.
+9. git_info: Use for repository context (status, log, diff, branches).
+10. file_patch: Use to modify part of a file (find/replace) instead of rewriting the whole file.
+11. Keep plans minimal — fewest steps possible.
 
 Output JSON:
 {"objective":"<task>","steps":[{"step_id":1,"description":"<what this step does>","tool":"<tool_name>","input":{...}}],"expected_result":"<what success looks like>"}
