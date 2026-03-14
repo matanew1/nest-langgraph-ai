@@ -101,7 +101,7 @@ curl http://localhost:3000/api/health
 | `REDIS_HOST` | Yes | - | Redis hostname |
 | `REDIS_PORT` | Yes | - | Redis port |
 | `PORT` | No | `3000` | HTTP server port |
-| `GROQ_MODEL` | No | `meta-llama/llama-4-scout-17b-16e-instruct` | LLM model |
+| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | LLM model |
 | `AGENT_MAX_ITERATIONS` | No | `3` | Max agent loop iterations |
 | `AGENT_WORKING_DIR` | No | `process.cwd()` | Sandbox root for file tools |
 

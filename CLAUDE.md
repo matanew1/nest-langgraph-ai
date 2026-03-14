@@ -111,7 +111,7 @@ Create a `.env` file at the project root. All variables are validated on startup
 | `REDIS_HOST`             | Yes      | —                                            | Redis server hostname                                 |
 | `REDIS_PORT`             | Yes      | —                                            | Redis server port (number)                            |
 | `CORS_ORIGIN`            | No       | `*`                                          | Allowed CORS origin                                   |
-| `GROQ_MODEL`             | No       | `meta-llama/llama-4-scout-17b-16e-instruct`  | Groq model ID                                         |
+| `GROQ_MODEL`             | No       | `llama-3.3-70b-versatile`  | Groq model ID                                         |
 | `GROQ_TIMEOUT_MS`        | No       | `30000`                                      | LLM call timeout in ms (AbortController)              |
 | `AGENT_MAX_ITERATIONS`   | No       | `3`                                          | Max graph iterations (1–10)                           |
 | `TOOL_TIMEOUT_MS`        | No       | `15000`                                      | Per-tool invocation timeout in ms                     |
@@ -345,7 +345,7 @@ Utilities in `src/common/utils/pretty-log.util.ts`.
 ## LLM Provider
 
 Configured in `src/modules/llm/llm.provider.ts`:
-- **Model:** `GROQ_MODEL` env var (default: `meta-llama/llama-4-scout-17b-16e-instruct`)
+- **Model:** `GROQ_MODEL` env var (default: `llama-3.3-70b-versatile`)
 - **Temperature:** `0` (deterministic output)
 - **Timeout:** `GROQ_TIMEOUT_MS` ms via AbortController
 

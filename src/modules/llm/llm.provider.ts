@@ -7,7 +7,7 @@ const logger = new Logger('LlmProvider');
 export const llm = new ChatGroq({
   apiKey: env.groqKey,
   model: env.groqModel,
-  temperature: 0,
+  temperature: 1, // Higher temperature for more creative responses, which can be useful for agents
 });
 
 /**

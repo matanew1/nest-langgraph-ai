@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
   GROQ_API_KEY: Joi.string().required(),
-  GROQ_MODEL: Joi.string().default('meta-llama/llama-4-scout-17b-16e-instruct'),
+  GROQ_MODEL: Joi.string().default('llama-3.3-70b-versatile'),
   GROQ_TIMEOUT_MS: Joi.number().default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
