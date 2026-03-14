@@ -21,6 +21,12 @@ const envSchema = Joi.object({
   QDRANT_URL: Joi.string().default('http://localhost:6333'),
   QDRANT_COLLECTION: Joi.string().default('agent_vectors'),
   QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(1536),
+  // Splunk integration
+  SPLUNK_URL: Joi.string().default('http://localhost:8089'),
+  SPLUNK_TOKEN: Joi.string().optional().allow(''),
+  SPLUNK_DEFAULT_INDEX: Joi.string().default('main'),
+  SPLUNK_POLL_INTERVAL_MS: Joi.number().default(1_500),
+  SPLUNK_POLL_MAX_ATTEMPTS: Joi.number().default(20),
 }).unknown(true);
 
 interface EnvVariables {
@@ -41,6 +47,11 @@ interface EnvVariables {
   QDRANT_URL: string;
   QDRANT_COLLECTION: string;
   QDRANT_VECTOR_SIZE: number;
+  SPLUNK_URL: string;
+  SPLUNK_TOKEN: string;
+  SPLUNK_DEFAULT_INDEX: string;
+  SPLUNK_POLL_INTERVAL_MS: number;
+  SPLUNK_POLL_MAX_ATTEMPTS: number;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -70,4 +81,9 @@ export const env = {
   qdrantUrl: validatedEnv.QDRANT_URL,
   qdrantCollection: validatedEnv.QDRANT_COLLECTION,
   qdrantVectorSize: validatedEnv.QDRANT_VECTOR_SIZE,
+  splunkUrl: validatedEnv.SPLUNK_URL,
+  splunkToken: validatedEnv.SPLUNK_TOKEN,
+  splunkDefaultIndex: validatedEnv.SPLUNK_DEFAULT_INDEX,
+  splunkPollIntervalMs: validatedEnv.SPLUNK_POLL_INTERVAL_MS,
+  splunkPollMaxAttempts: validatedEnv.SPLUNK_POLL_MAX_ATTEMPTS,
 };

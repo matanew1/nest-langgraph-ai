@@ -121,7 +121,12 @@ Create a `.env` file at the project root. All variables are validated on startup
 | `PROMPT_MAX_ATTEMPTS`    | No       | `5`                                          | Max recent attempts included in supervisor/planner prompts |
 | `QDRANT_URL`             | No       | `http://localhost:6333`                      | Qdrant vector database URL                            |
 | `QDRANT_COLLECTION`      | No       | `agent_vectors`                              | Qdrant collection name                                |
-| `QDRANT_VECTOR_SIZE`     | No       | `1536`                                       | Embedding vector dimensions                           |
+| `QDRANT_VECTOR_SIZE`          | No       | `1536`                    | Embedding vector dimensions                                        |
+| `SPLUNK_URL`                  | No       | `http://localhost:8089`   | Splunk REST API base URL                                           |
+| `SPLUNK_TOKEN`                | No       | —                         | Splunk Bearer token for authentication                             |
+| `SPLUNK_DEFAULT_INDEX`        | No       | `main`                    | Default Splunk index for log tools                                 |
+| `SPLUNK_POLL_INTERVAL_MS`     | No       | `1500`                    | Polling interval when waiting for a Splunk search job to complete  |
+| `SPLUNK_POLL_MAX_ATTEMPTS`    | No       | `20`                      | Max polling attempts before giving up on a Splunk job              |
 
 Missing required variables cause an immediate startup crash with a descriptive error.
 
@@ -234,7 +239,12 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `git_info`       | `git-info.tool.ts`      | `{"action":"status\|log\|diff\|branch\|show"}`                  | Query git repository information (whitelisted)    |
 | `grep_search`    | `grep-search.tool.ts`   | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}`        | Search for patterns across files                  |
 | `file_patch`     | `file-patch.tool.ts`    | `{"path":"<file>","find":"<text>","replace":"<text>"}`          | Find and replace within a file (single occurrence)|
-| `drawio_generate`| `drawio.tool.ts`        | `{"description":"<diagram description>","path":"<output path>"}` | Generate a draw.io XML diagram from natural language |
+| `drawio_generate`   | `drawio.tool.ts`            | `{"description":"<diagram description>","path":"<output path>"}` | Generate a draw.io XML diagram from natural language |
+| `analyze_logs`      | `analyze-logs.tool.ts`      | `{"spl":"<SPL>","index":"<idx>","earliest_time":"-1h","focus":"<question>"}` | Query Splunk logs and return AI-powered analysis |
+| `detect_root_cause` | `detect-root-cause.tool.ts` | `{"service":"<svc>","earliest_time":"-1h","pattern":"<keyword>"}` | Search Splunk for errors and produce a structured RCA report |
+| `suggest_fix`       | `suggest-fix.tool.ts`       | `{"root_cause":"<text>","service":"<svc>","tech_stack":"<e.g. TypeScript/NestJS>","validate_with_splunk":false}` | Generate immediate mitigation + permanent fix plan |
+
+Splunk tools share a common client in `tools/splunk.client.ts` (`splunkSearch()` + `formatEvents()`).
 
 The **ToolRegistry** (`tools/tool.registry.ts`) exposes:
 - `get(name)` — lookup by name

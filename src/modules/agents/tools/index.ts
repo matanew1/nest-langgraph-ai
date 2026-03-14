@@ -10,6 +10,9 @@ import { gitInfoTool } from './git-info.tool';
 import { grepSearchTool } from './grep-search.tool';
 import { filePatchTool } from './file-patch.tool';
 import { drawioTool } from './drawio.tool';
+import { analyzeLogsTool } from './analyze-logs.tool';
+import { detectRootCauseTool } from './detect-root-cause.tool';
+import { suggestFixTool } from './suggest-fix.tool';
 
 // Param hints tell the LLM what JSON shape each tool expects so it can
 // produce correctly-structured params in the supervisor/planner responses.
@@ -50,6 +53,18 @@ toolRegistry.register(
 toolRegistry.register(
   drawioTool,
   '{"description":"<diagram description>","path":"<output file path e.g. diagrams/arch.drawio>"}',
+);
+toolRegistry.register(
+  analyzeLogsTool,
+  '{"spl":"<optional SPL query>","index":"<splunk index>","earliest_time":"-1h","latest_time":"now","focus":"<optional question>"}',
+);
+toolRegistry.register(
+  detectRootCauseTool,
+  '{"index":"<splunk index>","service":"<service name>","earliest_time":"-1h","latest_time":"now","pattern":"<error keyword>","spl":"<optional custom SPL>"}',
+);
+toolRegistry.register(
+  suggestFixTool,
+  '{"root_cause":"<root cause text>","service":"<service>","stack":"<stack trace>","tech_stack":"<e.g. TypeScript/NestJS>","validate_with_splunk":false}',
 );
 
 export { toolRegistry };
