@@ -57,11 +57,18 @@ export const AgentStateAnnotation = Annotation.Root({
   lastToolErrored: Annotation<boolean | undefined>,
   /** Project context gathered by the researcher node (file tree, git status) */
   projectContext: Annotation<string | undefined>,
-  /** Full history of every tool call; reducer appends each new entry (capped at 20) */
+  /** Full history of every tool call; reducer appends each new entry (capped at 10 to prevent bloat) */
   attempts: Annotation<Attempt[]>({
-    reducer: (prev, curr) => [...prev, ...curr].slice(-20),
+    reducer: (prev, curr) => [...prev, ...curr].slice(-10),
     default: () => [],
+  }),
+
+  /** Circuit breaker: consecutive retries on same step */
+  consecutiveRetries: Annotation<number>({
+    reducer: Math.max,
+    default: () => 0,
   }),
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
+

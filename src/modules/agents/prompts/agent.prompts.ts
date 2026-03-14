@@ -48,12 +48,25 @@ const SELF_REFLECTION =
 function formatAttempts(state: AgentState): string {
   const all = state.attempts ?? [];
   const recent = all.slice(-env.promptMaxAttempts);
-  if (recent.length === 0) return '';
-  const lines = recent.map(
-    (a, i) =>
-      `${i + 1}. tool="${a.tool}", input=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 200)}`,
+  let displayRecent = recent;
+  let trimNote = '';
+
+  // Context trimming utility to prevent prompt bloat during deep recursive iterations
+  let totalPreviewChars = 0;
+  for (const a of recent) {
+    totalPreviewChars += a.input.length + Math.min(a.result.length, 200);
+  }
+  if (totalPreviewChars > env.promptMaxSummaryChars) {
+    displayRecent = recent.slice(-3);
+    trimNote = `\n[TASK TRIMMED: ${recent.length - 3} earlier attempts to fit context window]`;
+  }
+
+  if (displayRecent.length === 0) return '';
+
+  const lines = displayRecent.map((a, i) =>
+    `${i + 1}. tool="${a.tool}" input=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 150)}...`
   );
-  return `\nPrevious attempts:\n${lines.join('\n')}`;
+  return `\nPrevious attempts:${trimNote}\n${lines.join('\n')}`;
 }
 
 function getAvailableTools(state: AgentState): string {

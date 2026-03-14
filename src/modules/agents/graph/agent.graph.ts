@@ -46,6 +46,7 @@ const graph = new StateGraph(AgentStateAnnotation)
   .addConditionalEdges(Nodes.CRITIC, (state) => {
     if (state.done) return END;
     if ((state.iteration ?? 0) >= MAX_ITERATIONS) return END;
+    if ((state.consecutiveRetries ?? 0) >= 5) return END; // Circuit breaker fallback
     if (state.status === 'running') return Nodes.EXECUTE; // next step in plan
     return Nodes.SUPERVISOR; // retry — re-plan
   });

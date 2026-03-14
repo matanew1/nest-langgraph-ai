@@ -243,8 +243,10 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `analyze_logs`      | `analyze-logs.tool.ts`      | `{"spl":"<SPL>","index":"<idx>","earliest_time":"-1h","focus":"<question>"}` | Query Splunk logs and return AI-powered analysis |
 | `detect_root_cause` | `detect-root-cause.tool.ts` | `{"service":"<svc>","earliest_time":"-1h","pattern":"<keyword>"}` | Search Splunk for errors and produce a structured RCA report |
 | `suggest_fix`       | `suggest-fix.tool.ts`       | `{"root_cause":"<text>","service":"<svc>","tech_stack":"<e.g. TypeScript/NestJS>","validate_with_splunk":false}` | Generate immediate mitigation + permanent fix plan |
+| `ast_parse`        | `ast-parse.tool.ts`        | `{"path":"<JS/TS file>","maxChunks":10}`                                       | Parse JS/TS to semantic AST chunks (functions/classes/vars) |
 
 Splunk tools share a common client in `tools/splunk.client.ts` (`splunkSearch()` + `formatEvents()`).
+
 
 The **ToolRegistry** (`tools/tool.registry.ts`) exposes:
 - `get(name)` — lookup by name

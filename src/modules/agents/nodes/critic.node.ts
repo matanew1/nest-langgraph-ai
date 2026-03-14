@@ -39,6 +39,7 @@ export async function criticNode(
         status: 'complete',
         done: true,
         finalAnswer: decision.summary ?? 'Task completed successfully.',
+        consecutiveRetries: 0,
       };
     }
 
@@ -49,13 +50,14 @@ export async function criticNode(
 
       if (nextStepIndex >= plan.length) {
         logPhaseEnd('CRITIC', 'COMPLETE (no more steps)', elapsed());
-        return {
-          status: 'complete',
-          done: true,
-          finalAnswer:
-            decision.reason ?? state.toolResult ?? 'Task completed.',
-        };
-      }
+      return {
+        status: 'complete',
+        done: true,
+        finalAnswer:
+          decision.reason ?? state.toolResult ?? 'Task completed.',
+        consecutiveRetries: 0,
+      };
+    }
 
       const nextStep = plan[nextStepIndex];
       logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} [${nextStep.tool}]`, elapsed());
@@ -66,15 +68,27 @@ export async function criticNode(
         selectedTool: nextStep.tool,
         toolParams: nextStep.input,
         toolInput: prettyJson(nextStep.input),
+        consecutiveRetries: 0, // Reset on advance
       };
     }
 
-    // ── RETRY ──
+    // ── RETRY ── with Circuit Breaker
     if (decision.status === 'retry') {
-      logPhaseEnd('CRITIC', `RETRY: ${decision.reason}`, elapsed());
+      const currentRetries = state.consecutiveRetries ?? 0;
+      const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
+      if (currentRetries >= 3) {
+        logPhaseEnd('CRITIC', `CIRCUIT BREAKER: ${currentRetries} retries on step ${stepId + 1}`, elapsed());
+        return {
+          status: 'error',
+          done: true,
+          finalAnswer: `Circuit breaker triggered: stuck in retry loop (${currentRetries} attempts) on step ${stepId + 1}.`,
+        };
+      }
+      logPhaseEnd('CRITIC', `RETRY [${currentRetries + 1}/3]: ${decision.reason}`, elapsed());
       return {
         status: 'retry',
         done: false,
+        consecutiveRetries: currentRetries + 1,
         executionPlan: decision.suggested_fix ?? state.executionPlan,
       };
     }
@@ -101,8 +115,22 @@ export async function criticNode(
     );
 
     if (looksLikeError) {
-      logPhaseEnd('CRITIC', 'RETRY (heuristic)', elapsed());
-      return { status: 'retry', done: false };
+      const currentRetries = state.consecutiveRetries ?? 0;
+      const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
+      if (currentRetries >= 3) {
+        logPhaseEnd('CRITIC', `CIRCUIT BREAKER (heuristic): ${currentRetries} retries on step ${stepId + 1}`, elapsed());
+        return {
+          status: 'error',
+          done: true,
+          finalAnswer: `Circuit breaker (heuristic): stuck retry (${currentRetries} attempts) on step ${stepId + 1}.`,
+        };
+      }
+      logPhaseEnd('CRITIC', `RETRY (heuristic) [${currentRetries + 1}/3]`, elapsed());
+      return { 
+        status: 'retry', 
+        done: false,
+        consecutiveRetries: currentRetries + 1 
+      };
     }
 
     // Treat as next_step (or complete if last step)
@@ -118,19 +146,30 @@ export async function criticNode(
     }
     const nextStep = plan[nextStepIndex];
     logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} (heuristic)`, elapsed());
-    return {
-      status: 'running',
-      currentStep: nextStepIndex,
-      selectedTool: nextStep.tool,
-      toolParams: nextStep.input,
-      toolInput: prettyJson(nextStep.input),
-    };
+      return {
+        status: 'running',
+        currentStep: nextStepIndex,
+        selectedTool: nextStep.tool,
+        toolParams: nextStep.input,
+        toolInput: prettyJson(nextStep.input),
+        consecutiveRetries: 0, // Reset on advance
+      };
   } catch {
     logPhaseEnd('CRITIC', 'PARSE FAILED → retry', elapsed());
     logger.error(`Raw response: ${preview(raw, 500)}`);
+    const currentRetries = state.consecutiveRetries ?? 0;
+    const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
+    if (currentRetries >= 3) {
+      return {
+        status: 'error',
+        done: true,
+        finalAnswer: `Circuit breaker (parse fail): max retries exceeded on step ${stepId + 1}.`,
+      };
+    }
     return {
       done: false,
       status: 'retry',
+      consecutiveRetries: currentRetries + 1,
     };
   }
 }
