@@ -1,132 +1,134 @@
-import { writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { tool } from '@langchain/core/tools';
-import { Logger } from '@nestjs/common';
-import { z } from 'zod';
-import { invokeLlm } from '@llm/llm.provider';
-import { sandboxPath } from '@utils/path.util';
+import { writeFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import { tool } from "@langchain/core/tools";
+import { Logger } from "@nestjs/common";
+import { z } from "zod";
+import { XMLParser } from "fast-xml-parser";
 
-const logger = new Logger('DrawioTool');
+import { invokeLlm } from "@llm/llm.provider";
+import { sandboxPath } from "@utils/path.util";
 
-const SYSTEM_PROMPT = `You are a professional draw.io diagram designer. Output ONLY valid draw.io XML — no explanation, no markdown fences, no extra text.
+const logger = new Logger("DrawioTool");
+const MAX_RETRIES = 3;
 
-═══════════════════════════════════════════
-MODERN DESIGN SYSTEM — follow exactly
-═══════════════════════════════════════════
+const SYSTEM_PROMPT = `
+You are an expert system architect and professional draw.io diagram designer.
 
-## COLOR PALETTE (hex only, never CSS names)
-Start/End nodes:   fillColor=#1B5E20;strokeColor=#1B5E20;gradientColor=#43A047;fontColor=#ffffff;
-Process nodes:     fillColor=#0D47A1;strokeColor=#0D47A1;gradientColor=#1E88E5;fontColor=#ffffff;
-Decision nodes:    fillColor=#E65100;strokeColor=#E65100;gradientColor=#FB8C00;fontColor=#ffffff;
-Error/End nodes:   fillColor=#B71C1C;strokeColor=#B71C1C;gradientColor=#E53935;fontColor=#ffffff;
-Retry/Warning:     fillColor=#4A148C;strokeColor=#4A148C;gradientColor=#7B1FA2;fontColor=#ffffff;
-Neutral/Info:      fillColor=#263238;strokeColor=#263238;gradientColor=#455A64;fontColor=#ffffff;
+Your job:
+Convert a natural language description into a high-quality draw.io XML diagram.
 
-## SHAPE STYLES
-Start/End (terminal):
-  style="ellipse;whiteSpace=wrap;html=1;shadow=1;fontSize=13;fontStyle=1;arcSize=50;fillColor=#1B5E20;strokeColor=#1B5E20;gradientColor=#43A047;gradientDirection=north;fontColor=#ffffff;"
-  size: width=140 height=60
+OUTPUT RULES:
+- Output ONLY valid draw.io XML
+- Never output explanations
+- Never output markdown
+- Never output code fences
+- The root element MUST be <mxGraphModel>
 
-Process (rectangle):
-  style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fontSize=13;fontStyle=1;arcSize=8;fillColor=#0D47A1;strokeColor=#0D47A1;gradientColor=#1E88E5;gradientDirection=north;fontColor=#ffffff;"
-  size: width=160 height=60
+LAYOUT & DESIGN:
+- Automatically detect diagram type: Flowchart, System Architecture, Microservices, Sequence, ERD, Network, State Machine, Data Pipeline, Agent Architecture
+- Horizontal flow → width 160, gap 80
+- Vertical flow → height 60, gap 60
+- Start nodes: ellipse;fillColor=#77DD77;strokeColor=#000000;fontColor=#ffffff;
+- Process nodes: rounded=1;fillColor=#77AADD;strokeColor=#000000;fontColor=#ffffff;
+- Decision nodes: rhombus;fillColor=#E65100;strokeColor=#000000;fontColor=#ffffff;
+- Error nodes: ellipse;fillColor=#FF7777;strokeColor=#000000;fontColor=#ffffff;
+- Edges: edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#37474F;endArrow=block;
+- Multi-point or curved edges must use <Array as="points"><mxPoint x="…" y="…"/></Array>
+- Add meaningful labels for transitions: success, failure, retry, timeout
+- Unique integer id for every cell, vertices must contain mxGeometry, edges must contain mxGeometry relative="1"
+`;
 
-Decision (diamond):
-  style="rhombus;whiteSpace=wrap;html=1;shadow=1;fontSize=12;fontStyle=1;fillColor=#E65100;strokeColor=#E65100;gradientColor=#FB8C00;gradientDirection=north;fontColor=#ffffff;"
-  size: width=160 height=80
+function cleanXml(raw: string): string {
+  return raw.replace(/^```(?:xml)?/i, "").replace(/```$/, "").trim();
+}
 
-Section header / swimlane label:
-  style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontStyle=1;fontColor=#212121;"
+function validateXml(xml: string): boolean {
+  try {
+    const parser = new XMLParser();
+    parser.parse(xml);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-## EDGE STYLES
-Main flow arrow:
-  style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#37474F;strokeWidth=2;endArrow=block;endFill=1;"
+/**
+ * Ensures all multi-point edges use <Array as="points"> format.
+ */
+function fixEdgePoints(xml: string): string {
+  return xml.replace(
+    /<mxGeometryPoints>([\s\S]*?)<\/mxGeometryPoints>/g,
+    (_match, points) => {
+      const pointMatches = [...points.matchAll(/<mxPoint\s+x="(\d+)"\s+y="(\d+)"\s*\/>/g)];
+      const pointsXml = pointMatches
+        .map((m) => `<mxPoint x="${m[1]}" y="${m[2]}"/>`)
+        .join("");
+      return `<Array as="points">${pointsXml}</Array>`;
+    }
+  );
+}
 
-Dashed/retry arrow:
-  style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;orthogonalLoop=1;jettySize=auto;dashed=1;strokeColor=#7B1FA2;strokeWidth=2;endArrow=open;endFill=0;fontColor=#7B1FA2;fontSize=11;fontStyle=2;"
+async function generateDiagramXml(description: string): Promise<string> {
+  const prompt = `${SYSTEM_PROMPT}\n\nDiagram description:\n${description}`;
+  let lastOutput = "";
 
-Curved arrow (for back-routes or loops):
-  style="edgeStyle=elbowEdgeStyle;elbow=vertical;html=1;rounded=1;dashed=1;strokeColor=#C62828;strokeWidth=2;endArrow=block;endFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;"
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    logger.log(`LLM attempt ${attempt}`);
+    const raw = await invokeLlm(prompt);
+    let xml = cleanXml(raw);
+    xml = fixEdgePoints(xml);
 
-## LAYOUT RULES
-- Horizontal flow: node width=160, gap between nodes=80px (next x = prev_x + 160 + 80 = +240)
-- Vertical flow: node height=60, gap=60px (next y = prev_y + 60 + 60 = +120)
-- Start the first node at x=60, y=200 for horizontal; x=400, y=60 for vertical
-- Add edge labels (value="label text") on important transitions
-- Minimum canvas: space nodes so nothing overlaps
+    lastOutput = xml;
 
-## STRUCTURE RULES
-- mxGraphModel attributes: dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="1"
-- First two cells ALWAYS:
-    <mxCell id="0" />
-    <mxCell id="1" parent="0" />
-- All vertex cells: vertex="1" parent="1" — include <mxGeometry x y width height as="geometry" />
-- All edge cells: edge="1" parent="1" source="id" target="id" — include <mxGeometry relative="1" as="geometry" />
-- Unique integer id for every cell, starting at 2
+    if (!xml.startsWith("<mxGraphModel")) {
+      logger.warn("LLM output missing <mxGraphModel>");
+      continue;
+    }
 
-═══════════════════════════════════════════
-FULL VALID EXAMPLE (copy this pattern):
-═══════════════════════════════════════════
-<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="1">
-  <root>
-    <mxCell id="0" />
-    <mxCell id="1" parent="0" />
-    <mxCell id="2" value="START" style="ellipse;whiteSpace=wrap;html=1;shadow=1;fontSize=13;fontStyle=1;arcSize=50;fillColor=#1B5E20;strokeColor=#1B5E20;gradientColor=#43A047;gradientDirection=north;fontColor=#ffffff;" vertex="1" parent="1">
-      <mxGeometry x="60" y="200" width="140" height="60" as="geometry" />
-    </mxCell>
-    <mxCell id="3" value="Process A" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fontSize=13;fontStyle=1;arcSize=8;fillColor=#0D47A1;strokeColor=#0D47A1;gradientColor=#1E88E5;gradientDirection=north;fontColor=#ffffff;" vertex="1" parent="1">
-      <mxGeometry x="300" y="200" width="160" height="60" as="geometry" />
-    </mxCell>
-    <mxCell id="4" value="END" style="ellipse;whiteSpace=wrap;html=1;shadow=1;fontSize=13;fontStyle=1;arcSize=50;fillColor=#B71C1C;strokeColor=#B71C1C;gradientColor=#E53935;gradientDirection=north;fontColor=#ffffff;" vertex="1" parent="1">
-      <mxGeometry x="540" y="200" width="140" height="60" as="geometry" />
-    </mxCell>
-    <mxCell id="5" value="" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#37474F;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="2" target="3" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-    <mxCell id="6" value="complete" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;orthogonalLoop=1;jettySize=auto;strokeColor=#37474F;strokeWidth=2;endArrow=block;endFill=1;fontColor=#37474F;fontSize=11;fontStyle=2;" edge="1" source="3" target="4" parent="1">
-      <mxGeometry relative="1" as="geometry" />
-    </mxCell>
-  </root>
-</mxGraphModel>`;
+    if (!validateXml(xml)) {
+      logger.warn("Generated XML failed validation");
+      continue;
+    }
+
+    return xml;
+  }
+
+  throw new Error(
+    `Failed to generate valid draw.io XML after ${MAX_RETRIES} attempts.\nPreview:\n${lastOutput.slice(
+      0,
+      200
+    )}`
+  );
+}
 
 export const drawioTool = tool(
   async ({ description, path }) => {
-    logger.log(`Generating draw.io diagram: "${description}" → ${path}`);
+    logger.log(`Generating diagram → ${path}`);
+    logger.log(`Description: ${description}`);
 
-    const prompt = `${SYSTEM_PROMPT}\n\nDiagram description:\n${description}`;
-    const xml = (await invokeLlm(prompt)).trim();
+    try {
+      const xml = await generateDiagramXml(description);
 
-    // Strip accidental markdown fences if the LLM adds them
-    const clean = xml
-      .replace(/^```(?:xml)?\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
+      const resolved = sandboxPath(path);
+      await mkdir(dirname(resolved), { recursive: true });
+      await writeFile(resolved, xml, "utf-8");
 
-    if (!clean.startsWith('<mxGraphModel')) {
-      return `ERROR: LLM did not return valid draw.io XML. Got: ${clean.slice(0, 200)}`;
+      logger.log(`Diagram saved → ${resolved}`);
+      return `draw.io diagram saved to ${resolved} (${xml.length} bytes)`;
+    } catch (err) {
+      logger.error(`Diagram generation failed`, err as Error);
+      return `ERROR: ${(err as Error).message}`;
     }
-
-    const resolved = sandboxPath(path);
-    await mkdir(dirname(resolved), { recursive: true });
-    await writeFile(resolved, clean, 'utf-8');
-
-    logger.log(`Diagram written: ${resolved}`);
-    return `draw.io diagram saved to ${resolved} (${clean.length} bytes)`;
   },
   {
-    name: 'drawio_generate',
+    name: "drawio_generate",
     description:
-      'Generate a draw.io (.drawio / .xml) diagram from a natural-language description and save it to a file. ' +
-      'Useful for architecture diagrams, flowcharts, sequence diagrams, and ER diagrams.',
+      "Generate a professional draw.io diagram from a natural-language description. Supports architecture diagrams, flowcharts, ER diagrams, sequence diagrams, network diagrams, and system designs.",
     schema: z.object({
-      description: z
-        .string()
-        .describe(
-          'Natural-language description of the diagram to generate, e.g. "flowchart showing user login flow with success and failure paths"',
-        ),
+      description: z.string().describe("Natural-language description of the diagram to generate."),
       path: z
         .string()
-        .describe('Output file path, e.g. "diagrams/architecture.drawio"'),
+        .describe('Output file path such as "diagrams/system-architecture.drawio"'),
     }),
-  },
+  }
 );

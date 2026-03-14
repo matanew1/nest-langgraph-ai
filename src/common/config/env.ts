@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
   MISTRAL_API_KEY: Joi.string().required(),
-  MISTRAL_MODEL: Joi.string().default('mistral-large-latest'),
+  MISTRAL_MODEL: Joi.string().default('mistral-small-latest'),
   MISTRAL_TIMEOUT_MS: Joi.number().default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
