@@ -9,6 +9,7 @@ import { llmSummarizeTool } from './llm-summarize.tool';
 import { gitInfoTool } from './git-info.tool';
 import { grepSearchTool } from './grep-search.tool';
 import { filePatchTool } from './file-patch.tool';
+import { drawioTool } from './drawio.tool';
 
 // Param hints tell the LLM what JSON shape each tool expects so it can
 // produce correctly-structured params in the supervisor/planner responses.
@@ -45,6 +46,10 @@ toolRegistry.register(
 toolRegistry.register(
   filePatchTool,
   '{"path":"<file path>","find":"<exact text to find>","replace":"<replacement text>"}',
+);
+toolRegistry.register(
+  drawioTool,
+  '{"description":"<diagram description>","path":"<output file path e.g. diagrams/arch.drawio>"}',
 );
 
 export { toolRegistry };

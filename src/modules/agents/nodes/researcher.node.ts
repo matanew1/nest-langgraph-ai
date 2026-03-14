@@ -18,6 +18,13 @@ import type { AgentState } from '../state/agent.state';
 export async function researcherNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
+  // Skip on retry cycles — project context hasn't changed
+  if (state.projectContext) {
+    logPhaseStart('RESEARCHER', 'skipping — context already gathered');
+    logPhaseEnd('RESEARCHER', 'skipped (cached)', 0);
+    return {};
+  }
+
   const elapsed = startTimer();
 
   logPhaseStart('RESEARCHER', 'gathering project context');

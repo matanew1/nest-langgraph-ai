@@ -4,7 +4,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthModule } from './modules/health/health.module';
 import { LlmModule } from './modules/llm/llm.module';
 import { RedisModule } from './modules/redis/redis.module';
-import { VectorModule } from './modules/vector-db/vector.module';
 import { AgentsModule } from './modules/agents/agents.module';
 
 @Module({
@@ -22,7 +21,6 @@ import { AgentsModule } from './modules/agents/agents.module';
     RedisModule,
     AgentsModule,
     HealthModule,
-    VectorModule,
   ],
 })
 export class AppModule {}

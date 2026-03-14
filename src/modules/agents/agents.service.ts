@@ -4,18 +4,26 @@ import {
   Logger,
   HttpException,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import { createHash } from 'node:crypto';
-import { redis } from '@redis/redis.provider';
+import { RedisService } from '@redis/redis.service';
 import { env } from '@config/env';
 import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentGraph } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
+
+export interface StreamEvent {
+  node: string;
+  data: Record<string, unknown>;
+}
 
 const SEPARATOR = '━'.repeat(60);
 
 @Injectable()
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
+
+  constructor(private readonly redisService: RedisService) {}
 
   private cacheKey(prompt: string): string {
     return `agent:cache:${createHash('sha256').update(prompt).digest('hex')}`;
@@ -24,13 +32,13 @@ export class AgentsService {
   async run(prompt: string): Promise<string> {
     const elapsed = startTimer();
 
-    this.logger.log(`\n${SEPARATOR}`);
+    this.logger.log(`${SEPARATOR}`);
     this.logger.log(`🚀 AGENT RUN START | "${preview(prompt, 100)}"`);
     this.logger.log(SEPARATOR);
 
     const key = this.cacheKey(prompt);
     try {
-      const cached = await redis.get(key);
+      const cached = await this.redisService.get(key);
       if (cached) {
         this.logger.log(`Cache HIT → returning in ${elapsed()}ms`);
         return cached;
@@ -41,10 +49,21 @@ export class AgentsService {
     }
 
     try {
-      const result = await agentGraph.invoke({
-        input: prompt,
-        iteration: 0,
-      } as Partial<AgentState>);
+      // Overall timeout: groq timeout × iterations × 4 LLM calls per iteration max
+      const graphTimeoutMs = env.groqTimeoutMs * env.agentMaxIterations * 4;
+
+      let timeoutHandle: NodeJS.Timeout;
+      const result = await Promise.race([
+        agentGraph
+          .invoke({ input: prompt, iteration: 0 } as Partial<AgentState>)
+          .finally(() => clearTimeout(timeoutHandle)),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
+            graphTimeoutMs,
+          );
+        }),
+      ]);
 
       const totalTime = elapsed();
 
@@ -72,7 +91,7 @@ export class AgentsService {
       this.logger.log(SEPARATOR);
 
       try {
-        await redis.set(key, answer, 'EX', env.cacheTtlSeconds);
+        await this.redisService.set(key, answer, env.cacheTtlSeconds);
       } catch {
         this.logger.warn('Redis unavailable — skipping cache write');
       }
@@ -86,5 +105,39 @@ export class AgentsService {
         `Agent execution failed: ${message}`,
       );
     }
+  }
+
+  stream(prompt: string): Observable<{ data: string }> {
+    return new Observable<{ data: string }>((subscriber) => {
+      const controller = new AbortController();
+
+      const emit = (node: string, data: Record<string, unknown>) => {
+        subscriber.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
+      };
+
+      (async () => {
+        try {
+          const eventStream = agentGraph.streamEvents(
+            { input: prompt, iteration: 0 } as Partial<AgentState>,
+            { version: 'v2', signal: controller.signal },
+          );
+          for await (const event of eventStream) {
+            if (controller.signal.aborted) break;
+            if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
+              emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
+            }
+          }
+          if (!controller.signal.aborted) subscriber.complete();
+        } catch (err: unknown) {
+          if (controller.signal.aborted) return; // client disconnected — no-op
+          const message = err instanceof Error ? err.message : String(err);
+          emit('error', { message });
+          subscriber.complete();
+        }
+      })();
+
+      // Teardown: abort the LangGraph stream when the client disconnects
+      return () => controller.abort();
+    });
   }
 }

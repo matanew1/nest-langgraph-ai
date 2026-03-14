@@ -49,7 +49,7 @@ const flowLogger = new Logger('AgentFlow');
  * Use at the start of each graph node.
  */
 export function logPhaseStart(phase: string, detail: string): void {
-  flowLogger.log(`\n${SEPARATOR}`);
+  flowLogger.log(`${SEPARATOR}`);
   flowLogger.log(`▶ ${phase} | ${detail}`);
   flowLogger.log(SEPARATOR);
 }

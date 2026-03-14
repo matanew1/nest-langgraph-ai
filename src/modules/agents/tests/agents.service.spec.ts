@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
+import { RedisService } from '@redis/redis.service';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -9,25 +10,26 @@ jest.mock('@config/env', () => ({
   },
 }));
 
-jest.mock('@redis/redis.provider', () => ({
-  redis: {
-    get: jest.fn(),
-    set: jest.fn(),
-  },
-}));
-
 jest.mock('../graph/agent.graph', () => ({
   agentGraph: {
     invoke: jest.fn(),
   },
 }));
 
+const mockRedisService = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
+
 describe('AgentsService', () => {
   let service: AgentsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AgentsService],
+      providers: [
+        AgentsService,
+        { provide: RedisService, useValue: mockRedisService },
+      ],
     }).compile();
 
     service = module.get<AgentsService>(AgentsService);

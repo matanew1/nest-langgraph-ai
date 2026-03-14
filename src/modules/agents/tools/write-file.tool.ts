@@ -7,8 +7,14 @@ import { sandboxPath } from '@utils/path.util';
 
 const logger = new Logger('WriteFileTool');
 
+const MAX_CONTENT_SIZE = 10_000_000; // 10 MB guard against runaway LLM output
+
 export const writeFileTool = tool(
   async ({ path, content }) => {
+    if (content.length > MAX_CONTENT_SIZE) {
+      return `ERROR: content is too large (${content.length} chars). Maximum allowed is ${MAX_CONTENT_SIZE} chars.`;
+    }
+
     const resolved = sandboxPath(path);
     logger.log(`Writing file: ${resolved}`);
 

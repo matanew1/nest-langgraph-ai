@@ -3,6 +3,7 @@ import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { sandboxPath } from '@utils/path.util';
+import { env } from '@config/env';
 
 const logger = new Logger('GrepSearchTool');
 
@@ -35,7 +36,7 @@ export const grepSearchTool = tool(
     return new Promise<string>((resolve) => {
       exec(
         command,
-        { cwd: resolved, timeout: 15_000, maxBuffer: MAX_OUTPUT },
+        { cwd: resolved, timeout: env.toolTimeoutMs, maxBuffer: MAX_OUTPUT },
         (error, stdout) => {
           if (!stdout || stdout.trim().length === 0) {
             resolve(`No matches found for pattern "${pattern}"`);

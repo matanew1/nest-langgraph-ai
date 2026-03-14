@@ -102,7 +102,7 @@ export const buildCriticPrompt = (state: AgentState): string => {
   const isLastStep = currentStep >= totalSteps - 1;
 
   const rawResult = state.toolResult ?? '';
-  const PREVIEW = 400;
+  const PREVIEW = env.criticResultMaxChars;
   const resultPreview =
     rawResult.length > PREVIEW
       ? `${rawResult.slice(0, PREVIEW)}\n… [${rawResult.length} chars total]`

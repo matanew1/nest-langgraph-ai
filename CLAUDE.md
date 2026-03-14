@@ -234,6 +234,7 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `git_info`       | `git-info.tool.ts`      | `{"action":"status\|log\|diff\|branch\|show"}`                  | Query git repository information (whitelisted)    |
 | `grep_search`    | `grep-search.tool.ts`   | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}`        | Search for patterns across files                  |
 | `file_patch`     | `file-patch.tool.ts`    | `{"path":"<file>","find":"<text>","replace":"<text>"}`          | Find and replace within a file (single occurrence)|
+| `drawio_generate`| `drawio.tool.ts`        | `{"description":"<diagram description>","path":"<output path>"}` | Generate a draw.io XML diagram from natural language |
 
 The **ToolRegistry** (`tools/tool.registry.ts`) exposes:
 - `get(name)` — lookup by name
@@ -414,10 +415,12 @@ Always use these aliases in imports rather than long relative paths.
 
 ## CI/CD
 
-GitHub Actions runs on every push and pull request (`.github/workflows/ci.yml`):
+Jenkins runs the pipeline via `Jenkinsfile` at the project root:
 1. `npm ci --legacy-peer-deps`
 2. `npm run build`
 3. `npm test -- --passWithNoTests`
+
+The pipeline runs inside a `node:20-alpine` Docker agent. Secrets `groq-api-key` and `tavily-api-key` must be configured as Jenkins credentials.
 
 ---
 

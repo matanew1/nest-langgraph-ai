@@ -15,11 +15,11 @@ export const filePatchTool = tool(
     try {
       content = await readFile(resolved, 'utf-8');
     } catch {
-      return `Error: file "${path}" does not exist or cannot be read.`;
+      return `ERROR: file "${path}" does not exist or cannot be read.`;
     }
 
     if (!content.includes(find)) {
-      return `Error: the exact "find" string was not found in "${path}". The file has ${content.length} chars. Make sure the find string matches exactly (including whitespace).`;
+      return `ERROR: the exact "find" string was not found in "${path}". The file has ${content.length} chars. Make sure the find string matches exactly (including whitespace).`;
     }
 
     const updated = content.replace(find, replace);
