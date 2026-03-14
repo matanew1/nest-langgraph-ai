@@ -44,7 +44,9 @@ describe('researcherNode', () => {
   });
 
   it('truncates long file trees to 80 lines', async () => {
-    const longTree = Array.from({ length: 100 }, (_, i) => `file${i}.ts`).join('\n');
+    const longTree = Array.from({ length: 100 }, (_, i) => `file${i}.ts`).join(
+      '\n',
+    );
     mockTreeInvoke.mockResolvedValue(longTree);
     mockGitInvoke.mockResolvedValue('clean');
 

@@ -1,6 +1,14 @@
+import { Logger } from '@nestjs/common';
 import { toolRegistry } from '../tools/index';
-import { logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
+import {
+  logPhaseStart,
+  logPhaseEnd,
+  startTimer,
+  preview,
+} from '@utils/pretty-log.util';
 import type { AgentState } from '../state/agent.state';
+
+const logger = new Logger('Researcher');
 
 /**
  * RESEARCHER node — gathers project context automatically (no LLM call).
@@ -41,10 +49,12 @@ export async function researcherNode(
       const lines = tree.split('\n');
       const truncated =
         lines.length > maxLines
-          ? lines.slice(0, maxLines).join('\n') + `\n… (${lines.length - maxLines} more entries)`
+          ? lines.slice(0, maxLines).join('\n') +
+            `\n… (${lines.length - maxLines} more entries)`
           : tree;
       sections.push(`## Project file tree\n${truncated}`);
-    } catch {
+    } catch (e) {
+      logger.error('Failed to fetch file tree', e);
       sections.push('## Project file tree\n(unavailable)');
     }
   }
@@ -55,7 +65,8 @@ export async function researcherNode(
     try {
       const status = (await gitTool.invoke({ action: 'status' })) as string;
       sections.push(`## Git status\n${status || '(clean working tree)'}`);
-    } catch {
+    } catch (e) {
+      logger.error('Failed to fetch git status', e);
       sections.push('## Git status\n(unavailable)');
     }
   }

@@ -8,13 +8,7 @@ const logger = new Logger('GitInfoTool');
 
 const MAX_OUTPUT = 50_000;
 
-const ALLOWED_ACTIONS = [
-  'status',
-  'log',
-  'diff',
-  'branch',
-  'show',
-] as const;
+const ALLOWED_ACTIONS = ['status', 'log', 'diff', 'branch', 'show'] as const;
 
 type GitAction = (typeof ALLOWED_ACTIONS)[number];
 
@@ -25,10 +19,7 @@ type GitAction = (typeof ALLOWED_ACTIONS)[number];
  */
 function buildArgs(action: GitAction, args: string): string[] {
   // Split user-supplied args on whitespace; each token is a separate argument
-  const extra = args
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const extra = args.trim().split(/\s+/).filter(Boolean);
 
   switch (action) {
     case 'status':
@@ -57,7 +48,11 @@ export const gitInfoTool = tool(
       execFile(
         'git',
         gitArgs,
-        { cwd: env.agentWorkingDir, timeout: env.toolTimeoutMs, maxBuffer: MAX_OUTPUT },
+        {
+          cwd: env.agentWorkingDir,
+          timeout: env.toolTimeoutMs,
+          maxBuffer: MAX_OUTPUT,
+        },
         (error, stdout, stderr) => {
           if (error) {
             resolve(`ERROR: ${stderr || error.message}`.slice(0, MAX_OUTPUT));
@@ -73,13 +68,13 @@ export const gitInfoTool = tool(
     description:
       'Query git repository information. Actions: status (working tree changes), log (recent commits), diff (show changes), branch (list branches), show (commit details).',
     schema: z.object({
-      action: z
-        .string()
-        .describe('One of: status, log, diff, branch, show'),
+      action: z.string().describe('One of: status, log, diff, branch, show'),
       args: z
         .string()
         .optional()
-        .describe('Optional extra arguments (e.g. file path for diff, commit hash for show)'),
+        .describe(
+          'Optional extra arguments (e.g. file path for diff, commit hash for show)',
+        ),
     }),
   },
 );

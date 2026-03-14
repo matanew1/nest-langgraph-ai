@@ -20,8 +20,6 @@ export async function connectQdrant(): Promise<void> {
       `Qdrant connected — collection '${env.qdrantCollection}' created (size=${env.qdrantVectorSize})`,
     );
   } else {
-    logger.log(
-      `Qdrant connected — collection '${env.qdrantCollection}' ready`,
-    );
+    logger.log(`Qdrant connected — collection '${env.qdrantCollection}' ready`);
   }
 }

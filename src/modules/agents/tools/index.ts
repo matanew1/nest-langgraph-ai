@@ -12,7 +12,6 @@ import { filePatchTool } from './file-patch.tool';
 import { drawioTool } from './drawio.tool';
 import { astParseTool } from './ast-parse.tool';
 
-
 // Param hints tell the LLM what JSON shape each tool expects so it can
 // produce correctly-structured params in the supervisor/planner responses.
 toolRegistry.register(searchTool, '{"query":"<search query string>"}');
@@ -58,6 +57,5 @@ toolRegistry.register(
   astParseTool,
   '{"path":"<JS/TS file path>","maxChunks":10}',
 );
-
 
 export { toolRegistry };

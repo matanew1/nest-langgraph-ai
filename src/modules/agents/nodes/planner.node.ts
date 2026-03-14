@@ -1,6 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
-import { prettyJson, logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
+import {
+  prettyJson,
+  logPhaseStart,
+  logPhaseEnd,
+  startTimer,
+  preview,
+} from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AgentState, PlanStep } from '../state/agent.state';
@@ -43,7 +49,11 @@ export async function plannerNode(
     // Validate all referenced tools exist
     for (const step of plan.steps) {
       if (!toolRegistry.has(step.tool)) {
-        logPhaseEnd('PLANNER', `FAILED: unknown tool "${step.tool}"`, elapsed());
+        logPhaseEnd(
+          'PLANNER',
+          `FAILED: unknown tool "${step.tool}"`,
+          elapsed(),
+        );
         return {
           status: 'error',
           done: true,

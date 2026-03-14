@@ -1,7 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { extractJson } from '@utils/json.util';
-import { logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
+import {
+  logPhaseStart,
+  logPhaseEnd,
+  startTimer,
+  preview,
+} from '@utils/pretty-log.util';
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
 import { AgentState } from '../state/agent.state';
 
@@ -19,7 +24,10 @@ export async function supervisorNode(
   const elapsed = startTimer();
   const iteration = (state.iteration ?? 0) + 1;
 
-  logPhaseStart('SUPERVISOR', `iteration=${iteration} | input="${preview(state.input, 80)}"`);
+  logPhaseStart(
+    'SUPERVISOR',
+    `iteration=${iteration} | input="${preview(state.input, 80)}"`,
+  );
 
   const prompt = buildSupervisorPrompt(state);
   const raw = await invokeLlm(prompt);

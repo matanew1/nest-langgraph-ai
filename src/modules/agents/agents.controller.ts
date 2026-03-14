@@ -55,7 +55,8 @@ export class AgentsController {
   @ApiBody({ type: RunAgentDto })
   @ApiResponse({
     status: 200,
-    description: 'SSE stream of agent node events: data: {"node":"<name>","data":{...}}',
+    description:
+      'SSE stream of agent node events: data: {"node":"<name>","data":{...}}',
   })
   @ApiResponse({
     status: 429,

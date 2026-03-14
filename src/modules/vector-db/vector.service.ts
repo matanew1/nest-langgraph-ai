@@ -11,9 +11,7 @@ export interface VectorSearchResult {
 
 @Injectable()
 export class VectorService {
-  constructor(
-    @Inject(QDRANT_CLIENT) private readonly client: QdrantClient,
-  ) {}
+  constructor(@Inject(QDRANT_CLIENT) private readonly client: QdrantClient) {}
 
   async upsert(
     id: string,
@@ -39,7 +37,7 @@ export class VectorService {
     return results.map((hit: Schemas['ScoredPoint']) => ({
       id: String(hit.id),
       score: hit.score,
-      metadata: (hit.payload ?? {}) as Record<string, unknown>,
+      metadata: hit.payload ?? {},
     }));
   }
 }

@@ -29,7 +29,9 @@ describe('supervisorNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('returns plan_required when LLM approves', async () => {
-    invokeLlm.mockResolvedValue('{"status":"plan_required","task":"do the test task"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"plan_required","task":"do the test task"}',
+    );
 
     const result = await supervisorNode(baseState as AgentState);
 
@@ -40,7 +42,9 @@ describe('supervisorNode', () => {
   });
 
   it('returns error and done=true when LLM rejects task', async () => {
-    invokeLlm.mockResolvedValue('{"status":"error","message":"Cannot do this"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"error","message":"Cannot do this"}',
+    );
 
     const result = await supervisorNode(baseState as AgentState);
 
@@ -61,7 +65,10 @@ describe('supervisorNode', () => {
   it('increments iteration correctly', async () => {
     invokeLlm.mockResolvedValue('{"status":"plan_required","task":"task"}');
 
-    const result = await supervisorNode({ ...baseState, iteration: 2 } as AgentState);
+    const result = await supervisorNode({
+      ...baseState,
+      iteration: 2,
+    } as AgentState);
 
     expect(result.iteration).toBe(3);
   });

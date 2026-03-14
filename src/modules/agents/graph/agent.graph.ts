@@ -8,6 +8,7 @@ import { criticNode } from '../nodes/critic.node';
 import { env } from '@config/env';
 
 const MAX_ITERATIONS = env.agentMaxIterations;
+const MAX_RETRIES = env.agentMaxRetries;
 
 enum Nodes {
   SUPERVISOR = 'supervisor',
@@ -46,7 +47,7 @@ const graph = new StateGraph(AgentStateAnnotation)
   .addConditionalEdges(Nodes.CRITIC, (state) => {
     if (state.done) return END;
     if ((state.iteration ?? 0) >= MAX_ITERATIONS) return END;
-    if ((state.consecutiveRetries ?? 0) >= 5) return END; // Circuit breaker fallback
+    if ((state.consecutiveRetries ?? 0) >= MAX_RETRIES) return END; // Circuit breaker fallback
     if (state.status === 'running') return Nodes.EXECUTE; // next step in plan
     return Nodes.SUPERVISOR; // retry — re-plan
   });

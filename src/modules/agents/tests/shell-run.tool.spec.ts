@@ -38,7 +38,9 @@ describe('shellRunTool — allowed commands', () => {
   });
 
   it('returns ERROR prefix with non-zero exit code', async () => {
-    const result = await shellRunTool.invoke({ command: 'ls /nonexistent_path_xyz_abc' });
+    const result = await shellRunTool.invoke({
+      command: 'ls /nonexistent_path_xyz_abc',
+    });
     expect(result).toMatch(/ERROR|No such file/);
   });
 });

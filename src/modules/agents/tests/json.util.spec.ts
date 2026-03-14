@@ -19,19 +19,24 @@ describe('extractJson', () => {
   });
 
   it('extracts first {…} block from prose', () => {
-    const raw = 'Here is my response: {"status":"complete","summary":"done"} and nothing else.';
+    const raw =
+      'Here is my response: {"status":"complete","summary":"done"} and nothing else.';
     const result = extractJson<{ status: string; summary: string }>(raw);
     expect(result.status).toBe('complete');
     expect(result.summary).toBe('done');
   });
 
   it('throws when no valid JSON can be found', () => {
-    expect(() => extractJson('this is just plain text with no json')).toThrow(SyntaxError);
+    expect(() => extractJson('this is just plain text with no json')).toThrow(
+      SyntaxError,
+    );
   });
 
   it('parses nested objects', () => {
     const raw = '{"steps":[{"step_id":1,"tool":"search"}]}';
-    const result = extractJson<{ steps: Array<{ step_id: number; tool: string }> }>(raw);
+    const result = extractJson<{
+      steps: Array<{ step_id: number; tool: string }>;
+    }>(raw);
     expect(result.steps).toHaveLength(1);
     expect(result.steps[0].tool).toBe('search');
   });

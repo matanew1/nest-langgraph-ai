@@ -13,7 +13,10 @@ interface AstChunk {
   name?: string;
   summary: string;
   code_snippet: string;
-  loc: { start: { line: number; column: number }; end: { line: number; column: number } };
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
 }
 
 function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
@@ -22,12 +25,20 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
   const ext = fullPath.split('.').pop()?.toLowerCase() || '';
 
   if (!SUPPORTED_EXTENSIONS.includes(`.${ext}`)) {
-    throw new Error(`Unsupported file type: ${ext}. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+    throw new Error(
+      `Unsupported file type: ${ext}. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`,
+    );
   }
 
   const ast = parser.parse(code, {
     sourceType: 'module',
-    plugins: ['typescript', 'jsx', 'decorators-legacy', 'exportDefaultFrom', 'exportNamespaceFrom'],
+    plugins: [
+      'typescript',
+      'jsx',
+      'decorators-legacy',
+      'exportDefaultFrom',
+      'exportNamespaceFrom',
+    ],
     tokens: false,
     ranges: true,
   }) as t.File;
@@ -50,7 +61,8 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         type: 'function',
         name,
         summary: `${name}(): ${node.params.length} params, ${loc.end.line - loc.start.line + 1} lines`,
-        code_snippet: snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
+        code_snippet:
+          snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
         loc: { start: loc.start, end: loc.end },
       });
       count++;
@@ -61,14 +73,16 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         type: 'class',
         name,
         summary: `${name}: ${node.body.body.length} members, ${loc.end.line - loc.start.line + 1} lines`,
-        code_snippet: snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
+        code_snippet:
+          snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
         loc: { start: loc.start, end: loc.end },
       });
       count++;
     } else if (t.isVariableDeclaration(node) && node.declarations.length > 0) {
-      const ids = node.declarations.map(decl => {
+      const ids = node.declarations.map((decl) => {
         if (t.isIdentifier(decl.id)) return decl.id.name;
-        if (t.isObjectPattern(decl.id) || t.isArrayPattern(decl.id)) return 'destructured';
+        if (t.isObjectPattern(decl.id) || t.isArrayPattern(decl.id))
+          return 'destructured';
         return 'complex';
       });
       chunks.push({
@@ -76,7 +90,8 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         type: 'variable',
         name: ids.join(', '),
         summary: `Vars: ${ids.join(', ')}`,
-        code_snippet: snippet.slice(0, 200) + (snippet.length > 200 ? '...' : ''),
+        code_snippet:
+          snippet.slice(0, 200) + (snippet.length > 200 ? '...' : ''),
         loc: { start: loc.start, end: loc.end },
       });
       count++;
@@ -84,9 +99,9 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
 
     // Traverse children
     if (t.isProgram(node)) {
-      node.body.forEach(child => traverse(child));
+      node.body.forEach((child) => traverse(child));
     } else if (t.isBlock(node)) {
-      node.body.forEach(child => traverse(child));
+      node.body.forEach((child) => traverse(child));
     }
   }
 
@@ -97,18 +112,28 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
 
 export const astParseTool = new DynamicStructuredTool({
   name: 'ast_parse',
-  description: 'Parse JS/TS file to semantic AST chunks (functions/classes/vars). Use for structural code analysis.',
+  description:
+    'Parse JS/TS file to semantic AST chunks (functions/classes/vars). Use for structural code analysis.',
   schema: z.object({
     path: z.string().describe('Path to JS/TS file'),
-    maxChunks: z.number().int().min(1).max(50).optional().default(20).describe('Max chunks'),
+    maxChunks: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .optional()
+      .default(20)
+      .describe('Max chunks'),
   }),
   func: async ({ path, maxChunks }) => {
     try {
       const chunks = extractAstChunks(path, maxChunks);
-      return `AST parsed: ${chunks.length} chunks from ${path}\n` + JSON.stringify(chunks, null, 2);
+      return (
+        `AST parsed: ${chunks.length} chunks from ${path}\n` +
+        JSON.stringify(chunks, null, 2)
+      );
     } catch (error) {
       return `ERROR: ${(error as Error).message}`;
     }
   },
 });
-

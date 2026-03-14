@@ -1,9 +1,16 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { buildCriticPrompt } from '../prompts/agent.prompts';
-import { prettyJson, logPhaseStart, logPhaseEnd, startTimer, preview } from '@utils/pretty-log.util';
+import {
+  prettyJson,
+  logPhaseStart,
+  logPhaseEnd,
+  startTimer,
+  preview,
+} from '@utils/pretty-log.util';
 import { extractJson } from '@utils/json.util';
 import { AgentState } from '../state/agent.state';
+import { env } from '@config/env';
 
 const logger = new Logger('Critic');
 
@@ -34,7 +41,11 @@ export async function criticNode(
 
     // ── COMPLETE ──
     if (decision.status === 'complete') {
-      logPhaseEnd('CRITIC', `COMPLETE: ${preview(decision.summary ?? '', 100)}`, elapsed());
+      logPhaseEnd(
+        'CRITIC',
+        `COMPLETE: ${preview(decision.summary ?? '', 100)}`,
+        elapsed(),
+      );
       return {
         status: 'complete',
         done: true,
@@ -50,17 +61,20 @@ export async function criticNode(
 
       if (nextStepIndex >= plan.length) {
         logPhaseEnd('CRITIC', 'COMPLETE (no more steps)', elapsed());
-      return {
-        status: 'complete',
-        done: true,
-        finalAnswer:
-          decision.reason ?? state.toolResult ?? 'Task completed.',
-        consecutiveRetries: 0,
-      };
-    }
+        return {
+          status: 'complete',
+          done: true,
+          finalAnswer: decision.reason ?? state.toolResult ?? 'Task completed.',
+          consecutiveRetries: 0,
+        };
+      }
 
       const nextStep = plan[nextStepIndex];
-      logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} [${nextStep.tool}]`, elapsed());
+      logPhaseEnd(
+        'CRITIC',
+        `NEXT → step ${nextStepIndex + 1} [${nextStep.tool}]`,
+        elapsed(),
+      );
 
       return {
         status: 'running',
@@ -76,15 +90,23 @@ export async function criticNode(
     if (decision.status === 'retry') {
       const currentRetries = state.consecutiveRetries ?? 0;
       const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
-      if (currentRetries >= 3) {
-        logPhaseEnd('CRITIC', `CIRCUIT BREAKER: ${currentRetries} retries on step ${stepId + 1}`, elapsed());
+      if (currentRetries >= env.agentMaxRetries) {
+        logPhaseEnd(
+          'CRITIC',
+          `CIRCUIT BREAKER: ${currentRetries} retries on step ${stepId + 1}`,
+          elapsed(),
+        );
         return {
           status: 'error',
           done: true,
           finalAnswer: `Circuit breaker triggered: stuck in retry loop (${currentRetries} attempts) on step ${stepId + 1}.`,
         };
       }
-      logPhaseEnd('CRITIC', `RETRY [${currentRetries + 1}/3]: ${decision.reason}`, elapsed());
+      logPhaseEnd(
+        'CRITIC',
+        `RETRY [${currentRetries + 1}/3]: ${decision.reason}`,
+        elapsed(),
+      );
       return {
         status: 'retry',
         done: false,
@@ -117,19 +139,27 @@ export async function criticNode(
     if (looksLikeError) {
       const currentRetries = state.consecutiveRetries ?? 0;
       const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
-      if (currentRetries >= 3) {
-        logPhaseEnd('CRITIC', `CIRCUIT BREAKER (heuristic): ${currentRetries} retries on step ${stepId + 1}`, elapsed());
+      if (currentRetries >= env.agentMaxRetries) {
+        logPhaseEnd(
+          'CRITIC',
+          `CIRCUIT BREAKER (heuristic): ${currentRetries} retries on step ${stepId + 1}`,
+          elapsed(),
+        );
         return {
           status: 'error',
           done: true,
           finalAnswer: `Circuit breaker (heuristic): stuck retry (${currentRetries} attempts) on step ${stepId + 1}.`,
         };
       }
-      logPhaseEnd('CRITIC', `RETRY (heuristic) [${currentRetries + 1}/3]`, elapsed());
-      return { 
-        status: 'retry', 
+      logPhaseEnd(
+        'CRITIC',
+        `RETRY (heuristic) [${currentRetries + 1}/3]`,
+        elapsed(),
+      );
+      return {
+        status: 'retry',
         done: false,
-        consecutiveRetries: currentRetries + 1 
+        consecutiveRetries: currentRetries + 1,
       };
     }
 
@@ -145,21 +175,25 @@ export async function criticNode(
       };
     }
     const nextStep = plan[nextStepIndex];
-    logPhaseEnd('CRITIC', `NEXT → step ${nextStepIndex + 1} (heuristic)`, elapsed());
-      return {
-        status: 'running',
-        currentStep: nextStepIndex,
-        selectedTool: nextStep.tool,
-        toolParams: nextStep.input,
-        toolInput: prettyJson(nextStep.input),
-        consecutiveRetries: 0, // Reset on advance
-      };
+    logPhaseEnd(
+      'CRITIC',
+      `NEXT → step ${nextStepIndex + 1} (heuristic)`,
+      elapsed(),
+    );
+    return {
+      status: 'running',
+      currentStep: nextStepIndex,
+      selectedTool: nextStep.tool,
+      toolParams: nextStep.input,
+      toolInput: prettyJson(nextStep.input),
+      consecutiveRetries: 0, // Reset on advance
+    };
   } catch {
     logPhaseEnd('CRITIC', 'PARSE FAILED → retry', elapsed());
     logger.error(`Raw response: ${preview(raw, 500)}`);
     const currentRetries = state.consecutiveRetries ?? 0;
     const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
-    if (currentRetries >= 3) {
+    if (currentRetries >= env.agentMaxRetries) {
       return {
         status: 'error',
         done: true,

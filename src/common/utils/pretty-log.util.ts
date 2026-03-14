@@ -5,7 +5,10 @@ import { Logger } from '@nestjs/common';
  * Pretty-prints any data (objects, JSON, strings) for logging with optional truncation.
  * Uses JSON.stringify(null, 2) for objects, util.inspect for complex types.
  */
-export function prettyJson(data: unknown, maxLength: number = Infinity): string {
+export function prettyJson(
+  data: unknown,
+  maxLength: number = Infinity,
+): string {
   if (data === null || data === undefined) return String(data);
 
   // Handle primitives
@@ -57,7 +60,11 @@ export function logPhaseStart(phase: string, detail: string): void {
 /**
  * Log a phase completion with timing.
  */
-export function logPhaseEnd(phase: string, outcome: string, durationMs: number): void {
+export function logPhaseEnd(
+  phase: string,
+  outcome: string,
+  durationMs: number,
+): void {
   flowLogger.log(`✓ ${phase} completed in ${durationMs}ms → ${outcome}`);
 }
 
@@ -68,4 +75,3 @@ export function startTimer(): () => number {
   const start = Date.now();
   return () => Date.now() - start;
 }
-

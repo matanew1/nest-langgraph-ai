@@ -9,7 +9,9 @@ const logger = new Logger('FilePatchTool');
 export const filePatchTool = tool(
   async ({ path, find, replace }) => {
     const resolved = sandboxPath(path);
-    logger.log(`Patching "${resolved}": find ${find.length} chars → replace ${replace.length} chars`);
+    logger.log(
+      `Patching "${resolved}": find ${find.length} chars → replace ${replace.length} chars`,
+    );
 
     let content: string;
     try {

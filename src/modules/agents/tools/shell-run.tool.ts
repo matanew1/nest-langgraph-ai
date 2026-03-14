@@ -10,21 +10,21 @@ const MAX_OUTPUT = 200_000;
 
 // Patterns that could cause irreversible damage or exfiltration
 const DENIED_PATTERNS = [
-  /\brm\s+-rf?\b/,           // rm -rf / rm -r
-  /\brmdir\b/,               // rmdir
-  /\bdd\b/,                  // dd (disk operations)
-  /\bmkfs\b/,                // format filesystems
-  /\bformat\b/,              // format
-  /\bshred\b/,               // shred files
-  /\bcurl\b/,                // outbound network
-  /\bwget\b/,                // outbound network
-  /\bnc\b|\bnetcat\b/,       // netcat
-  /\bssh\b|\bscp\b/,        // remote access
-  /\bchmod\s+777\b/,         // world-writable
-  /\bsudo\b|\bsu\b/,         // privilege escalation
-  /\bpasswd\b/,              // password changes
-  />/,                       // output redirection (use write_file instead)
-  /\|\s*bash\b|\|\s*sh\b/,  // piping to shell
+  /\brm\s+-rf?\b/, // rm -rf / rm -r
+  /\brmdir\b/, // rmdir
+  /\bdd\b/, // dd (disk operations)
+  /\bmkfs\b/, // format filesystems
+  /\bformat\b/, // format
+  /\bshred\b/, // shred files
+  /\bcurl\b/, // outbound network
+  /\bwget\b/, // outbound network
+  /\bnc\b|\bnetcat\b/, // netcat
+  /\bssh\b|\bscp\b/, // remote access
+  /\bchmod\s+777\b/, // world-writable
+  /\bsudo\b|\bsu\b/, // privilege escalation
+  /\bpasswd\b/, // password changes
+  />/, // output redirection (use write_file instead)
+  /\|\s*bash\b|\|\s*sh\b/, // piping to shell
 ];
 
 function isDenied(command: string): string | null {

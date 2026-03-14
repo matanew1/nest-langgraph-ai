@@ -65,10 +65,9 @@ export const AgentStateAnnotation = Annotation.Root({
 
   /** Circuit breaker: consecutive retries on same step */
   consecutiveRetries: Annotation<number>({
-    reducer: Math.max,
+    reducer: (_, curr) => curr,
     default: () => 0,
   }),
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
-

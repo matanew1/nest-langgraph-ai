@@ -19,8 +19,18 @@ jest.mock('../prompts/agent.prompts', () => ({
 const { invokeLlm } = require('@llm/llm.provider');
 
 const plan: PlanStep[] = [
-  { step_id: 1, description: 'step one', tool: 'search', input: { query: 'test' } },
-  { step_id: 2, description: 'step two', tool: 'read_file', input: { path: 'file.txt' } },
+  {
+    step_id: 1,
+    description: 'step one',
+    tool: 'search',
+    input: { query: 'test' },
+  },
+  {
+    step_id: 2,
+    description: 'step two',
+    tool: 'read_file',
+    input: { path: 'file.txt' },
+  },
 ];
 
 const baseState: Partial<AgentState> = {
@@ -36,7 +46,9 @@ describe('criticNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('advances to next_step when there are more steps', async () => {
-    invokeLlm.mockResolvedValue('{"status":"next_step","reason":"step succeeded"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"next_step","reason":"step succeeded"}',
+    );
 
     const result = await criticNode(baseState as AgentState);
 
@@ -57,7 +69,9 @@ describe('criticNode', () => {
   });
 
   it('returns done=true and finalAnswer on complete', async () => {
-    invokeLlm.mockResolvedValue('{"status":"complete","summary":"task accomplished"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"complete","summary":"task accomplished"}',
+    );
 
     const result = await criticNode(baseState as AgentState);
 
@@ -67,7 +81,9 @@ describe('criticNode', () => {
   });
 
   it('returns retry on retry status', async () => {
-    invokeLlm.mockResolvedValue('{"status":"retry","reason":"bad result","suggested_fix":"try again"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"retry","reason":"bad result","suggested_fix":"try again"}',
+    );
 
     const result = await criticNode(baseState as AgentState);
 
@@ -77,7 +93,9 @@ describe('criticNode', () => {
   });
 
   it('returns done=true on error status', async () => {
-    invokeLlm.mockResolvedValue('{"status":"error","message":"impossible task"}');
+    invokeLlm.mockResolvedValue(
+      '{"status":"error","message":"impossible task"}',
+    );
 
     const result = await criticNode(baseState as AgentState);
 
@@ -89,7 +107,10 @@ describe('criticNode', () => {
   it('heuristic retry when tool result starts with ERROR', async () => {
     invokeLlm.mockResolvedValue('{"status":"unknown_status"}');
 
-    const errorState = { ...baseState, toolResult: 'ERROR something went wrong' } as AgentState;
+    const errorState = {
+      ...baseState,
+      toolResult: 'ERROR something went wrong',
+    } as AgentState;
     const result = await criticNode(errorState);
 
     expect(result.status).toBe('retry');

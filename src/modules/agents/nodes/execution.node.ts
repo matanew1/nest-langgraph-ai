@@ -2,7 +2,13 @@ import { Logger } from '@nestjs/common';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
 import { env } from '@config/env';
-import { prettyJson, preview, logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
+import {
+  prettyJson,
+  preview,
+  logPhaseStart,
+  logPhaseEnd,
+  startTimer,
+} from '@utils/pretty-log.util';
 
 const logger = new Logger('Executor');
 
@@ -18,8 +24,15 @@ export async function executionNode(
   // Substitute __PREVIOUS_RESULT__ placeholders with actual previous tool result
   const toolParams: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(rawParams)) {
-    if (typeof value === 'string' && value.includes('__PREVIOUS_RESULT__') && state.toolResult) {
-      toolParams[key] = value.replaceAll('__PREVIOUS_RESULT__', state.toolResult);
+    if (
+      typeof value === 'string' &&
+      value.includes('__PREVIOUS_RESULT__') &&
+      state.toolResult
+    ) {
+      toolParams[key] = value.replaceAll(
+        '__PREVIOUS_RESULT__',
+        state.toolResult,
+      );
     } else {
       toolParams[key] = value;
     }
@@ -28,7 +41,10 @@ export async function executionNode(
   const stepNum = (state.currentStep ?? 0) + 1;
   const totalSteps = (state.plan ?? []).length;
 
-  logPhaseStart('EXECUTOR', `step ${stepNum}/${totalSteps} | tool="${toolName}"`);
+  logPhaseStart(
+    'EXECUTOR',
+    `step ${stepNum}/${totalSteps} | tool="${toolName}"`,
+  );
   logger.log(`Params: ${preview(prettyJson(rawParams), 200)}`);
 
   const tool = toolRegistry.get(toolName);
@@ -53,19 +69,23 @@ export async function executionNode(
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), env.toolTimeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, env.toolTimeoutMs);
     let result: string;
     try {
       result = (await tool.invoke(toolParams, {
         signal: controller.signal,
       })) as string;
-      if (controller.signal.aborted) {
-        throw new Error(
-          `Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`,
-        );
-      }
     } finally {
       clearTimeout(timer);
+    }
+    if (timedOut) {
+      throw new Error(
+        `Tool "${toolName}" timed out after ${env.toolTimeoutMs}ms`,
+      );
     }
 
     const resultPreview = preview(result, 300);

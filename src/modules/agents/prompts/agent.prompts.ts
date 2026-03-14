@@ -63,15 +63,19 @@ function formatAttempts(state: AgentState): string {
 
   if (displayRecent.length === 0) return '';
 
-  const lines = displayRecent.map((a, i) =>
-    `${i + 1}. tool="${a.tool}" input=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 150)}...`
+  const lines = displayRecent.map(
+    (a, i) =>
+      `${i + 1}. tool="${a.tool}" input=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 150)}...`,
   );
   return `\nPrevious attempts:${trimNote}\n${lines.join('\n')}`;
 }
 
 function getAvailableTools(state: AgentState): string {
   const erroredToolNames = new Set(
-    (state.attempts ?? []).filter((a) => a.error).map((a) => a.tool),
+    (state.attempts ?? [])
+      .slice(-1)
+      .filter((a) => a.error)
+      .map((a) => a.tool),
   );
   return toolRegistry
     .getToolsWithParams()

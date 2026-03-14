@@ -59,7 +59,8 @@ export class AgentsService {
           .finally(() => clearTimeout(timeoutHandle)),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
-            () => reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
+            () =>
+              reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
             graphTimeoutMs,
           );
         }),
@@ -81,7 +82,9 @@ export class AgentsService {
         );
       }
 
-      const status = result.finalAnswer ? 'COMPLETE' : 'PARTIAL (max iterations)';
+      const status = result.finalAnswer
+        ? 'COMPLETE'
+        : 'PARTIAL (max iterations)';
       const steps = (result.attempts ?? []).length;
 
       this.logger.log(SEPARATOR);
@@ -112,7 +115,9 @@ export class AgentsService {
       const controller = new AbortController();
 
       const emit = (node: string, data: Record<string, unknown>) => {
-        subscriber.next({ data: JSON.stringify({ node, data } satisfies StreamEvent) });
+        subscriber.next({
+          data: JSON.stringify({ node, data } satisfies StreamEvent),
+        });
       };
 
       (async () => {
@@ -123,8 +128,15 @@ export class AgentsService {
           );
           for await (const event of eventStream) {
             if (controller.signal.aborted) break;
-            if (event.event === 'on_chain_end' && event.name && event.name !== 'LangGraph') {
-              emit(event.name, (event.data?.output ?? {}) as Record<string, unknown>);
+            if (
+              event.event === 'on_chain_end' &&
+              event.name &&
+              event.name !== 'LangGraph'
+            ) {
+              emit(
+                event.name,
+                (event.data?.output ?? {}) as Record<string, unknown>,
+              );
             }
           }
           if (!controller.signal.aborted) subscriber.complete();

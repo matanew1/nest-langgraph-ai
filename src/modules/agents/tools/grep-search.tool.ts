@@ -31,7 +31,9 @@ export const grepSearchTool = tool(
     parts.push('-e', `"${pattern.replace(/"/g, '\\"')}"`, `"${resolved}"`);
 
     const command = parts.join(' ');
-    logger.log(`Searching: pattern="${pattern}" path="${resolved}" glob="${glob ?? '*'}"`);
+    logger.log(
+      `Searching: pattern="${pattern}" path="${resolved}" glob="${glob ?? '*'}"`,
+    );
 
     return new Promise<string>((resolve) => {
       exec(

@@ -20,7 +20,12 @@ jest.mock('../tools/index', () => ({
 const { toolRegistry } = require('../tools/index');
 
 const plan: PlanStep[] = [
-  { step_id: 1, description: 'search step', tool: 'search', input: { query: 'test' } },
+  {
+    step_id: 1,
+    description: 'search step',
+    tool: 'search',
+    input: { query: 'test' },
+  },
 ];
 
 const baseState: Partial<AgentState> = {
