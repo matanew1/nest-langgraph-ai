@@ -71,7 +71,7 @@ export class AgentsService {
         done: false,
       };
 
-      let timeoutHandle: NodeJS.Timeout;
+      let timeoutHandle: any;
       const result: any = await Promise.race([
         this.app
           .invoke(initialState, config)
