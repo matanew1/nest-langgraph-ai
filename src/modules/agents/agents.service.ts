@@ -115,4 +115,9 @@ export class AgentsService {
       );
     }
   }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    this.logger.log(`🗑️ Deleting session state for ID: ${sessionId}`);
+    return this.checkpointer.deleteThread(sessionId);
+  }
 }

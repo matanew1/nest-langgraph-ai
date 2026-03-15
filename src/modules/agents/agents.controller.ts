@@ -3,8 +3,10 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Delete,
   Post,
   UseGuards,
+  Param,
 } from '@nestjs/common';
 import { AgentsService, AgentRunResult } from './agents.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -44,5 +46,21 @@ export class AgentsController {
   })
   async run(@Body() body: RunAgentDto): Promise<AgentRunResult> {
     return this.agentsService.run(body.prompt, body.sessionId);
+  }
+
+  @Delete('session/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an agent session state from Redis' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Session state deleted successfully.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Failed to delete session state.',
+    type: ErrorResponseDto,
+  })
+  async deleteSession(@Param('sessionId') sessionId: string): Promise<void> {
+    return this.agentsService.deleteSession(sessionId);
   }
 }

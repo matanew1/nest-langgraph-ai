@@ -8,6 +8,7 @@ import {
 import { RunnableConfig } from '@langchain/core/runnables';
 import { Redis } from 'ioredis';
 import { env } from '@config/env';
+import { NotFoundException } from '@nestjs/common';
 
 /**
  * Modern LangGraph Serde protocol requires:
@@ -96,11 +97,22 @@ export class RedisSaver extends BaseCheckpointSaver {
   }
 
   public async deleteThread(threadId: string): Promise<void> {
-    const latestId = await this.client.get(this.getThreadKey(threadId));
+    // Check if thread exists by looking up the thread key
+    const threadKey = this.getThreadKey(threadId);
+    const threadExists = await this.client.exists(threadKey);
+
+    if (!threadExists) throw new NotFoundException('Thread ID not found');
+
+    // Get the latest checkpoint ID for the thread and delete associated keys
+    const latestId = await this.client.get(threadKey);
+    
     if (latestId) {
+      // Delete the checkpoint and metadata keys associated with the latest checkpoint ID
       await this.client.del(this.getCheckpointKey(latestId));
+      // It's possible that metadata might not exist if the checkpoint was never saved, so we can ignore errors here
       await this.client.del(this.getMetadataKey(latestId));
     }
+
     await this.client.del(this.getThreadKey(threadId));
   }
 
