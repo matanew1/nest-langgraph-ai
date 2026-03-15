@@ -54,6 +54,10 @@ export class RedisSaver extends BaseCheckpointSaver {
     return `agent:checkpoint_metadata:${checkpointId}`;
   }
 
+  private getThreadCheckpointsKey(threadId: string): string {
+    return `agent:thread:${threadId}:checkpoints`;
+  }
+
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const threadId = config.configurable?.thread_id;
     if (!threadId) {
@@ -101,25 +105,34 @@ export class RedisSaver extends BaseCheckpointSaver {
   }
 
   public async deleteThread(threadId: string): Promise<void> {
-    // Check if thread exists by looking up the thread key
-    const threadKey = this.getThreadKey(threadId);
-    const threadExists = await this.client.exists(threadKey);
+    const threadCheckpointsKey = this.getThreadCheckpointsKey(threadId);
+    const checkpointIds = await this.client.smembers(threadCheckpointsKey);
 
-    if (!threadExists) throw new NotFoundException('Thread ID not found');
-
-    // Get the latest checkpoint ID for the thread and delete associated keys
-    const latestId = await this.client.get(threadKey);
-    
-    if (latestId) {
-      // Delete the checkpoint and metadata keys associated with the latest checkpoint ID
-      await this.client.del(this.getCheckpointKey(latestId));
-      // It's possible that metadata might not exist if the checkpoint was never saved, so we can ignore errors here
-      await this.client.del(this.getMetadataKey(latestId));
+    // For backward compatibility, check the old thread key if the set is empty
+    if (checkpointIds.length === 0) {
+      const latestId = await this.client.get(this.getThreadKey(threadId));
+      if (latestId) {
+        checkpointIds.push(latestId);
+      }
     }
 
-    await this.client.del(this.getThreadKey(threadId));
-  }
+    if (checkpointIds.length === 0) {
+      throw new NotFoundException(`Thread ID "${threadId}" not found or has no associated checkpoints.`);
+    }
 
+    const pipeline = this.client.pipeline();
+
+    for (const checkpointId of checkpointIds) {
+      pipeline.del(this.getCheckpointKey(checkpointId));
+      pipeline.del(this.getMetadataKey(checkpointId));
+    }
+
+    pipeline.del(this.getThreadKey(threadId));
+    pipeline.del(threadCheckpointsKey);
+    await pipeline.exec();
+
+    this.logger.log(`🗑️ Deleted session state and ${checkpointIds.length} checkpoint(s) for ID: ${threadId}`);
+  }
   public async putWrites(
     _config: RunnableConfig,
     _writes: Array<[string, any]>,
@@ -137,6 +150,7 @@ export class RedisSaver extends BaseCheckpointSaver {
     const threadKey = this.getThreadKey(threadId);
     const checkpointKey = this.getCheckpointKey(checkpoint.id);
     const metadataKey = this.getMetadataKey(checkpoint.id);
+    const threadCheckpointsKey = this.getThreadCheckpointsKey(threadId);
 
     // Get the serialized [type, bytes] from dumpsTyped
     const [, checkpointBytes] = await this.serde.dumpsTyped(checkpoint);
@@ -147,10 +161,13 @@ export class RedisSaver extends BaseCheckpointSaver {
       pipeline.set(checkpointKey, Buffer.from(checkpointBytes as any), 'EX', this.ttlSeconds);
       pipeline.set(metadataKey, Buffer.from(metadataBytes as any), 'EX', this.ttlSeconds);
       pipeline.set(threadKey, checkpoint.id, 'EX', this.ttlSeconds);
+      pipeline.sadd(threadCheckpointsKey, checkpoint.id);
+      pipeline.expire(threadCheckpointsKey, this.ttlSeconds);
     } else {
       pipeline.set(checkpointKey, Buffer.from(checkpointBytes as any));
       pipeline.set(metadataKey, Buffer.from(metadataBytes as any));
       pipeline.set(threadKey, checkpoint.id);
+      pipeline.sadd(threadCheckpointsKey, checkpoint.id);
     }
     await pipeline.exec();
 
