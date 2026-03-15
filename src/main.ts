@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { env } from './common/config/env';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -33,6 +35,12 @@ async function bootstrap() {
 
   // Return consistent JSON error envelopes for all unhandled exceptions
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Apply the logging interceptor to all routes
+  app.useGlobalInterceptors(new LoggingInterceptor());
+
+  // Global timeout of 60 seconds
+  app.useGlobalInterceptors(new TimeoutInterceptor(60000));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Nest LangGraph AI')

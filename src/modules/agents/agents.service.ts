@@ -29,7 +29,6 @@ export class AgentsService {
   private app: ReturnType<typeof agentWorkflow.compile>;
 
   constructor(@Inject(REDIS_CLIENT) private readonly redisClient: Redis) {
-    // Note: Ensure your RedisSaver matches the v1.0.0 async SerializerProtocol we updated earlier
     this.checkpointer = new RedisSaver(this.redisClient);
     this.app = agentWorkflow.compile({ checkpointer: this.checkpointer as any });
   }
@@ -53,28 +52,12 @@ export class AgentsService {
 
     try {
       const graphTimeoutMs = env.groqTimeoutMs * env.agentMaxIterations * 4;
-
-      /**
-       * FIX: Resetting State for New Prompt
-       * Because LangGraph restores the previous state from Redis, we must 
-       * explicitly nullify the 'finalAnswer' and 'done' status. 
-       * Otherwise, the service returns the old result before the graph even runs.
-       */
-      const initialState: Partial<AgentState> = { 
-        input: prompt, 
-        iteration: 0,
-        status: 'plan_required',
-        currentStep: 0,
-        plan: [],
-        finalAnswer: null as any, // Explicitly clear old answer
-        toolResult: null as any,   // Explicitly clear old tool output
-        done: false,
-      };
+      const initialState = this._createInitialState(prompt);
 
       let timeoutHandle: any;
       const result: any = await Promise.race([
         this.app
-          .invoke(initialState, config)
+          .invoke(initialState as any, config)
           .finally(() => clearTimeout(timeoutHandle)),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
@@ -119,5 +102,26 @@ export class AgentsService {
   async deleteSession(sessionId: string): Promise<void> {
     this.logger.log(`🗑️ Deleting session state for ID: ${sessionId}`);
     return this.checkpointer.deleteThread(sessionId);
+  }
+
+  /**
+   * Creates the initial state for a new agent run, explicitly nullifying
+   * fields that might persist from a previous run in the same session.
+   * This is necessary because the checkpointer restores the last known state.
+   * @param prompt The user's input prompt.
+   * @returns A partial AgentState object for invocation.
+   */
+  private _createInitialState(prompt: string): Partial<AgentState> {
+    return {
+      input: prompt,
+      iteration: 0,
+      status: 'plan_required',
+      currentStep: 0,
+      plan: [],
+      finalAnswer: undefined as any, // Explicitly clear old answer
+      toolResult: undefined as any,   // Explicitly clear old tool output
+      done: false,
+      consecutiveRetries: 0,
+    };
   }
 }

@@ -9,6 +9,7 @@ import { RunnableConfig } from '@langchain/core/runnables';
 import { Redis } from 'ioredis';
 import { env } from '@config/env';
 import { Logger, NotFoundException } from '@nestjs/common';
+import { Buffer } from 'buffer';
 
 /**
  * Modern LangGraph Serde protocol requires:
@@ -143,12 +144,12 @@ export class RedisSaver extends BaseCheckpointSaver {
 
     const pipeline = this.client.pipeline();
     if (this.ttlSeconds > 0) {
-      pipeline.set(checkpointKey, checkpointBytes as any, 'EX', this.ttlSeconds);
-      pipeline.set(metadataKey, metadataBytes as any, 'EX', this.ttlSeconds);
+      pipeline.set(checkpointKey, Buffer.from(checkpointBytes as any), 'EX', this.ttlSeconds);
+      pipeline.set(metadataKey, Buffer.from(metadataBytes as any), 'EX', this.ttlSeconds);
       pipeline.set(threadKey, checkpoint.id, 'EX', this.ttlSeconds);
     } else {
-      pipeline.set(checkpointKey, checkpointBytes as any);
-      pipeline.set(metadataKey, metadataBytes as any);
+      pipeline.set(checkpointKey, Buffer.from(checkpointBytes as any));
+      pipeline.set(metadataKey, Buffer.from(metadataBytes as any));
       pipeline.set(threadKey, checkpoint.id);
     }
     await pipeline.exec();
