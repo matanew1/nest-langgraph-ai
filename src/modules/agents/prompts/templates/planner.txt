@@ -31,7 +31,9 @@ RULES:
 9. git_info: Use for repository context (status, log, diff, branches).
 10. file_patch: Use to modify part of a file (find/replace) instead of rewriting the whole file.
 11. Keep plans minimal — fewest steps possible.
-12. Always escape special characters.
+12. `http_get` / `http_post`: Use for interacting with external APIs or websites.
+13. `system_info`: Use to understand the OS, memory, or other details of the environment where the agent is running.
+14. Always escape special characters in JSON inputs.
 
 Output JSON:
 {"objective":"<task>","steps":[{"step_id":1,"description":"<what this step does>","tool":"<tool_name>","input":{...}}],"expected_result":"<what success looks like>"}

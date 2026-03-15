@@ -8,7 +8,7 @@ import {
 import { RunnableConfig } from '@langchain/core/runnables';
 import { Redis } from 'ioredis';
 import { env } from '@config/env';
-import { NotFoundException } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 
 /**
  * Modern LangGraph Serde protocol requires:
@@ -32,6 +32,7 @@ class DefaultSerializer implements SerializerProtocol {
 
 export class RedisSaver extends BaseCheckpointSaver {
   private client: Redis;
+  private readonly logger = new Logger(RedisSaver.name);
   private readonly ttlSeconds: number;
 
   constructor(redisClient: Redis) {
@@ -71,6 +72,8 @@ export class RedisSaver extends BaseCheckpointSaver {
     ]);
 
     if (!checkpointData) return undefined;
+
+    this.logger.log(`📥 Loaded checkpoint for thread "${threadId}" (id: ${checkpointId})`);
 
     // Use the async loadsTyped with the 'json' type
     const checkpoint = (await this.serde.loadsTyped(
@@ -140,12 +143,12 @@ export class RedisSaver extends BaseCheckpointSaver {
 
     const pipeline = this.client.pipeline();
     if (this.ttlSeconds > 0) {
-      pipeline.set(checkpointKey, Buffer.from(checkpointBytes), 'EX', this.ttlSeconds);
-      pipeline.set(metadataKey, Buffer.from(metadataBytes), 'EX', this.ttlSeconds);
+      pipeline.set(checkpointKey, checkpointBytes as any, 'EX', this.ttlSeconds);
+      pipeline.set(metadataKey, metadataBytes as any, 'EX', this.ttlSeconds);
       pipeline.set(threadKey, checkpoint.id, 'EX', this.ttlSeconds);
     } else {
-      pipeline.set(checkpointKey, Buffer.from(checkpointBytes));
-      pipeline.set(metadataKey, Buffer.from(metadataBytes));
+      pipeline.set(checkpointKey, checkpointBytes as any);
+      pipeline.set(metadataKey, metadataBytes as any);
       pipeline.set(threadKey, checkpoint.id);
     }
     await pipeline.exec();
