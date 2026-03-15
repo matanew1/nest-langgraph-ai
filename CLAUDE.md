@@ -6,7 +6,7 @@ This file provides context for AI assistants working on the `nest-langgraph-ai` 
 
 ## Project Overview
 
-A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint; the system autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
+A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint. The system is **stateful**, allowing for multi-turn conversations using a session ID. It autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
 
 **Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Groq LLM, Tavily Search, Redis (IORedis), Qdrant (vector DB), TypeScript 5.7, Jest 30
 
@@ -24,6 +24,7 @@ src/
 │   │   │   ├── agent.prompts.ts   # Template loader, render(), prompt builders
 │   │   │   └── templates/         # .txt prompt templates (supervisor, planner, critic)
 │   │   ├── state/          # LangGraph annotated state type
+│   │   ├── utils/          # Agent-specific utilities (e.g., RedisSaver)
 │   │   ├── tools/          # Tool implementations + ToolRegistry
 │   │   ├── agents.controller.ts
 │   │   ├── agents.service.ts
@@ -115,6 +116,7 @@ Create a `.env` file at the project root. All variables are validated on startup
 | `GROQ_TIMEOUT_MS`        | No       | `30000`                                      | LLM call timeout in ms (AbortController)              |
 | `AGENT_MAX_ITERATIONS`   | No       | `3`                                          | Max graph iterations (1–10)                           |
 | `TOOL_TIMEOUT_MS`        | No       | `15000`                                      | Per-tool invocation timeout in ms                     |
+| `AGENT_MAX_RETRIES`      | No       | `3`                                          | Max consecutive retries on a single step before failing. |
 | `AGENT_WORKING_DIR`      | No       | `process.cwd()`                              | Sandbox root for all file tool operations             |
 | `CACHE_TTL_SECONDS`      | No       | `60`                                         | Redis cache TTL for agent responses                   |
 | `CRITIC_RESULT_MAX_CHARS`| No       | `8000`                                       | Max chars from tool result passed to critic prompt    |
@@ -244,6 +246,9 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `detect_root_cause` | `detect-root-cause.tool.ts` | `{"service":"<svc>","earliest_time":"-1h","pattern":"<keyword>"}` | Search Splunk for errors and produce a structured RCA report |
 | `suggest_fix`       | `suggest-fix.tool.ts`       | `{"root_cause":"<text>","service":"<svc>","tech_stack":"<e.g. TypeScript/NestJS>","validate_with_splunk":false}` | Generate immediate mitigation + permanent fix plan |
 | `ast_parse`        | `ast-parse.tool.ts`        | `{"path":"<JS/TS file>","maxChunks":10}`                                       | Parse JS/TS to semantic AST chunks (functions/classes/vars) |
+| `system_info`    | `system-info.tool.ts`   | `{}`                                                            | Get information about the current system environment (OS, CPU, memory, uptime). |
+| `http_get`       | `http-get.tool.ts`      | `{"url":"<valid http url>"}`                                    | Perform an HTTP GET request to a specific URL and return the response body (JSON or text). |
+| `http_post`      | `http-post.tool.ts`     | `{"url":"<url>","body":"<json string>"}`                        | Perform an HTTP POST request to a URL with a JSON body. |
 
 Splunk tools share a common client in `tools/splunk.client.ts` (`splunkSearch()` + `formatEvents()`).
 
@@ -286,14 +291,20 @@ Qdrant integration for semantic vector storage. Not wired into the main agent lo
 
 ### POST `/agents/run`
 
-Runs the full agent loop and returns the final answer.
+Runs the agent loop. For new conversations, it returns a `sessionId`. For existing conversations, provide the `sessionId` to continue from the previous state.
 
 ```json
 // Request
-{ "prompt": "What is the current price of Bitcoin?" }
+{
+  "prompt": "What is the current price of Bitcoin?",
+  "sessionId": "optional-session-id-to-continue-conversation"
+}
 
 // Response 200
-{ "result": "The current price of Bitcoin is approximately $X..." }
+{
+  "result": "The current price of Bitcoin is approximately $X...",
+  "sessionId": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
 
 // Response 500
 { "statusCode": 500, "timestamp": "...", "path": "/api/agents/run", "message": "..." }

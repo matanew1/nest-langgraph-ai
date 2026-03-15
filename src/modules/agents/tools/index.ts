@@ -11,6 +11,9 @@ import { grepSearchTool } from './grep-search.tool';
 import { filePatchTool } from './file-patch.tool';
 import { drawioTool } from './drawio.tool';
 import { astParseTool } from './ast-parse.tool';
+import { systemInfoTool } from './system-info.tool';
+import { httpGetTool } from './http-get.tool';
+import { httpPostTool } from './http-post.tool';
 
 // Param hints tell the LLM what JSON shape each tool expects so it can
 // produce correctly-structured params in the supervisor/planner responses.
@@ -57,5 +60,9 @@ toolRegistry.register(
   astParseTool,
   '{"path":"<JS/TS file path>","maxChunks":10}',
 );
+
+toolRegistry.register(systemInfoTool, '{}');
+toolRegistry.register(httpGetTool, '{"url":"<valid http url>"}');
+toolRegistry.register(httpPostTool, '{"url":"<url>","body":"<json string>"}');
 
 export { toolRegistry };
