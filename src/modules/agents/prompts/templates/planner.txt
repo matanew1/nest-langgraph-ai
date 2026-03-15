@@ -31,6 +31,7 @@ RULES:
 9. git_info: Use for repository context (status, log, diff, branches).
 10. file_patch: Use to modify part of a file (find/replace) instead of rewriting the whole file.
 11. Keep plans minimal — fewest steps possible.
+12. Always escape special characters.
 
 Output JSON:
 {"objective":"<task>","steps":[{"step_id":1,"description":"<what this step does>","tool":"<tool_name>","input":{...}}],"expected_result":"<what success looks like>"}

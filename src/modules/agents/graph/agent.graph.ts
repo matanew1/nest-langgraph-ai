@@ -54,4 +54,5 @@ const graph = new StateGraph(AgentStateAnnotation)
     return Nodes.SUPERVISOR; // retry — re-plan
   });
 
-export const agentGraph = graph.compile();
+export const agentWorkflow = graph;
+export const agentGraph = agentWorkflow.compile();

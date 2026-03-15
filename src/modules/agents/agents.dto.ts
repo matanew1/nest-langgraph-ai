@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RunAgentDto {
@@ -13,6 +19,15 @@ export class RunAgentDto {
   @MinLength(1)
   @MaxLength(4000)
   prompt: string;
+
+  @ApiProperty({
+    description: 'The session ID for continuing a conversation',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  sessionId?: string;
 }
 
 export class RunAgentResponseDto {
@@ -21,4 +36,10 @@ export class RunAgentResponseDto {
     example: 'Here are some best practices for NestJS: ...',
   })
   result: string;
+
+  @ApiProperty({
+    description: 'The session ID for the conversation',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+  })
+  sessionId: string;
 }
