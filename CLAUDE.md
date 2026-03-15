@@ -427,12 +427,14 @@ Always use these aliases in imports rather than long relative paths.
 
 ## CI/CD
 
-Jenkins runs the pipeline via `Jenkinsfile` at the project root:
-1. `npm ci --legacy-peer-deps`
-2. `npm run build`
-3. `npm test -- --passWithNoTests`
+GitHub Actions workflow (`.github/workflows/ci.yml`):
+- Triggers: push/PR to `main`
+- Node.js 20 on Ubuntu
+- Steps: checkout, npm ci --legacy-peer-deps, npm run build, npm test --coverage
+- Coverage uploaded to Codecov
+- No secrets required for tests
 
-The pipeline runs inside a `node:20-alpine` Docker agent. Secrets `groq-api-key` and `tavily-api-key` must be configured as Jenkins credentials.
+Repo: https://github.com/matanbardugo/nest-langgraph-ai/actions
 
 ---
 

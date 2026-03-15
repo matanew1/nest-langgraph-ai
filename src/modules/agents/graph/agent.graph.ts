@@ -28,11 +28,13 @@ enum Nodes {
  *                                                             → END (complete / error / max iterations)
  */
 const graph = new StateGraph(AgentStateAnnotation)
+  // nodes
   .addNode(Nodes.SUPERVISOR, supervisorNode)
   .addNode(Nodes.RESEARCHER, researcherNode)
   .addNode(Nodes.PLANNER, plannerNode)
   .addNode(Nodes.EXECUTE, executionNode)
   .addNode(Nodes.CRITIC, criticNode)
+  // edges
   .addEdge(START, Nodes.SUPERVISOR)
   .addConditionalEdges(Nodes.SUPERVISOR, (state) => {
     if (state.done) return END;

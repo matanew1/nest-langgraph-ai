@@ -1,6 +1,8 @@
-# nest-langgraph-ai
+# nest-langgraph-ai [![CI](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml)
 
 A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using Groq's Llama 4 Scout model and a rich toolset.
+
+**CI/CD:** GitHub Actions (build, test, coverage)
 
 ## Architecture
 
