@@ -26,13 +26,13 @@ export async function supervisorNode(
 
   logPhaseStart(
     'SUPERVISOR',
-    `iteration=${iteration} | input="${preview(state.input, 80)}"`,
+    `iteration=${iteration} | input="${preview(state.input)}"`,
   );
 
   const prompt = buildSupervisorPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw)}`);
 
   try {
     const decision = extractJson<SupervisorDecision>(raw);
@@ -49,7 +49,7 @@ export async function supervisorNode(
     }
 
     const task = decision.task ?? state.input;
-    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(task, 80)}"`, elapsed());
+    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(task)}"`, elapsed());
 
     return {
       status: 'plan_required',

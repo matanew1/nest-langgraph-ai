@@ -5,13 +5,17 @@ import {
   HttpStatus,
   Delete,
   Post,
+  Get,
+  Query,
   UseGuards,
   Param,
 } from '@nestjs/common';
-import { AgentsService, AgentRunResult } from './agents.service';
+import { Sse, MessageEvent } from '@nestjs/common';
+import { Observable, from, map } from 'rxjs';
+import { AgentsService, AgentRunResult, StreamEvent } from './agents.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { RunAgentDto, RunAgentResponseDto } from './agents.dto';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { RunAgentDto, RunAgentResponseDto, StreamAgentDto } from './agents.dto';
+import { ApiBody, ApiOperation, ApiQuery, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
 import { ApiSessionIdParam } from '@common/decorators/api-session-id-param.decorator';
@@ -32,6 +36,44 @@ export class AgentsController {
   })
   async run(@Body() body: RunAgentDto): Promise<AgentRunResult> {
     return this.agentsService.run(body.prompt, body.sessionId);
+  }
+
+  @Get('stream')
+  @Sse()
+  @ApiOperation({ 
+    summary: 'Stream the AI agent execution in real-time via SSE',
+    description: 'Server-Sent Events endpoint for progressive agent updates (steps, tool calls, chunks). Supports Swagger UI streaming.'
+  })
+  @ApiQuery({ name: 'prompt', type: 'string', required: true })
+  @ApiQuery({ name: 'sessionId', type: 'string', required: false })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'SSE stream',
+    content: {
+      'text/event-stream': {
+        schema: {
+          type: 'object',
+          properties: {
+            data: { type: 'string' },
+            event: { type: 'string', enum: ['step', 'tool_call', 'chunk', 'final', 'error'] },
+            id: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  stream(
+    @Query() query: StreamAgentDto,
+  ): Observable<MessageEvent> {
+    return from(this.agentsService.streamRun(query.prompt, query.sessionId)).pipe(
+      map((event: StreamEvent) => {
+        return {
+          data: JSON.stringify(event),
+          id: event.sessionId,
+          type: event.type,
+        } as unknown as MessageEvent;
+      }),
+    );
   }
 
   @Delete('session/:sessionId')

@@ -45,7 +45,7 @@ export async function executionNode(
     'EXECUTOR',
     `step ${stepNum}/${totalSteps} | tool="${toolName}"`,
   );
-  logger.log(`Params: ${preview(prettyJson(rawParams), 200)}`);
+  logger.log(`Params: ${preview(prettyJson(rawParams))}`);
 
   const tool = toolRegistry.get(toolName);
 
@@ -88,7 +88,7 @@ export async function executionNode(
       );
     }
 
-    const resultPreview = preview(result, 300);
+    const resultPreview = preview(result);
     logPhaseEnd('EXECUTOR', `OK (${result.length} chars)`, elapsed());
     logger.debug(`Result:\n${resultPreview}`);
 

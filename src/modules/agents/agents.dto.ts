@@ -43,3 +43,34 @@ export class RunAgentResponseDto {
   })
   sessionId: string;
 }
+
+export class StreamAgentDto {
+  @ApiProperty({
+    description: 'The prompt to send to the AI agent for streaming',
+    example: 'Search for NestJS best practices',
+    minLength: 1,
+    maxLength: 4000,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(4000)
+  prompt: string;
+
+  @ApiProperty({
+    description: 'The session ID for continuing a streaming conversation',
+    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  sessionId?: string;
+}
+
+export interface StreamEventDto {
+  type: 'step' | 'tool_call' | 'chunk' | 'final' | 'error';
+  data: string;
+  sessionId: string;
+  step?: number;
+  done: boolean;
+}

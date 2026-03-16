@@ -29,12 +29,23 @@ export async function criticNode(
   const stepNum = (state.currentStep ?? 0) + 1;
   const totalSteps = (state.plan ?? []).length;
 
-  logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
+logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
+
+  // AUTO-COMPLETE: If plan exhausted, finish without LLM
+  if ((state.currentStep ?? 0) >= totalSteps) {
+    logPhaseEnd('CRITIC', 'AUTO-COMPLETE (plan exhausted)', elapsed());
+    return {
+      status: 'complete',
+      done: true,
+      finalAnswer: `Completed all ${totalSteps} steps in the plan. Final tool result: ${preview(state.toolResult ?? 'N/A')}`,
+      consecutiveRetries: 0,
+    };
+  }
 
   const prompt = buildCriticPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw)}`);
 
   try {
     const decision = extractJson<CriticDecision>(raw);
@@ -43,7 +54,7 @@ export async function criticNode(
     if (decision.status === 'complete') {
       logPhaseEnd(
         'CRITIC',
-        `COMPLETE: ${preview(decision.summary ?? '', 100)}`,
+        `COMPLETE: ${preview(decision.summary ?? '')}`,
         elapsed(),
       );
       return {
@@ -190,7 +201,7 @@ export async function criticNode(
     };
   } catch {
     logPhaseEnd('CRITIC', 'PARSE FAILED → retry', elapsed());
-    logger.error(`Raw response: ${preview(raw, 500)}`);
+    logger.error(`Raw response: ${preview(raw)}`);
     const currentRetries = state.consecutiveRetries ?? 0;
     const stepId = state.plan?.[state.currentStep ?? 0]?.step_id ?? -1;
     if (currentRetries >= env.agentMaxRetries) {

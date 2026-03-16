@@ -34,7 +34,7 @@ export function prettyJson(
 /**
  * Truncate string with preview ellipsis.
  */
-export function preview(str: string, maxLength: number = 200): string {
+export function preview(str: string, maxLength: number = 5000): string {
   if (str.length <= maxLength) return str;
   return str.slice(0, maxLength) + '…';
 }

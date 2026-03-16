@@ -26,12 +26,12 @@ export async function plannerNode(
   const elapsed = startTimer();
   const objective = state.executionPlan ?? state.input;
 
-  logPhaseStart('PLANNER', `objective="${preview(objective, 80)}"`);
+  logPhaseStart('PLANNER', `objective="${preview(objective)}"`);
 
   const prompt = buildPlannerPrompt(state);
   const raw = await invokeLlm(prompt);
 
-  logger.debug(`LLM response:\n${preview(raw, 300)}`);
+  logger.debug(`LLM response:\n${preview(raw)}`);
 
   try {
     const plan = extractJson<PlanDecision>(raw);
@@ -82,7 +82,7 @@ export async function plannerNode(
     };
   } catch {
     logPhaseEnd('PLANNER', 'PARSE FAILED', elapsed());
-    logger.error(`Raw response: ${preview(raw, 500)}`);
+    logger.error(`Raw response: ${preview(raw)}`);
     return {
       status: 'error',
       done: true,
