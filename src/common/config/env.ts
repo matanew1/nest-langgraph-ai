@@ -27,9 +27,6 @@ const envSchema = Joi.object({
 
 interface EnvVariables {
   PORT: number;
-  GROQ_API_KEY: string;
-  GROQ_MODEL: string;
-  GROQ_TIMEOUT_MS: number;
   MISTRAL_API_KEY: string;
   MISTRAL_MODEL: string;
   MISTRAL_TIMEOUT_MS: number;
@@ -64,8 +61,6 @@ export const env = {
   mistralKey: validatedEnv.MISTRAL_API_KEY,
   mistralModel: validatedEnv.MISTRAL_MODEL,
   mistralTimeoutMs: validatedEnv.MISTRAL_TIMEOUT_MS,
-  groqModel: validatedEnv.GROQ_MODEL,
-  groqTimeoutMs: validatedEnv.GROQ_TIMEOUT_MS,
   tavilyKey: validatedEnv.TAVILY_API_KEY,
   redisHost: validatedEnv.REDIS_HOST,
   redisPort: validatedEnv.REDIS_PORT,

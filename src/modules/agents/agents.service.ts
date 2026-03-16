@@ -54,7 +54,7 @@ export class AgentsService {
     };
 
     try {
-      const graphTimeoutMs = env.groqTimeoutMs * env.agentMaxIterations * 4;
+      const graphTimeoutMs = (env.mistralTimeoutMs * env.agentMaxIterations * 4) || 120000;
       const initialState = this._createInitialState(prompt);
 
       let timeoutHandle: any;

@@ -17,7 +17,7 @@ export const llm = new ChatMistralAI({
  */
 export async function invokeLlm(
   prompt: string,
-  timeoutMs: number = env.groqTimeoutMs,
+  timeoutMs: number = env.mistralTimeoutMs,
 ): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
