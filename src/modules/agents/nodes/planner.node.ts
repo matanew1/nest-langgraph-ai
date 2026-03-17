@@ -21,10 +21,15 @@ export async function plannerNode(
 
   logPhaseStart('PLANNER', `objective="${preview(objective)}"`);
 
-  const prompt = buildPlannerPrompt(state);
-  const raw = await invokeLlm(prompt);
-
-  logger.debug(`LLM response:\n${preview(raw)}`);
+  let raw: string;
+  if (state.jsonRepairResult !== undefined) {
+    raw = state.jsonRepairResult;
+    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
+  } else {
+    const prompt = buildPlannerPrompt(state);
+    raw = await invokeLlm(prompt);
+    logger.debug(`LLM response:\n${preview(raw)}`);
+  }
 
   try {
     const parsed = extractJson<unknown>(raw);
@@ -40,6 +45,7 @@ export async function plannerNode(
       return {
         phase: 'fatal',
         finalAnswer: 'Failed to create an execution plan.',
+        jsonRepairResult: undefined,
       };
     }
 
@@ -59,6 +65,7 @@ export async function plannerNode(
       expectedResult: plan.expected_result,
       objective: plan.objective,
       phase: 'validate_plan',
+      jsonRepairResult: undefined,
     };
   } catch (e) {
     logPhaseEnd('PLANNER', 'PARSE FAILED → json_repair', elapsed());

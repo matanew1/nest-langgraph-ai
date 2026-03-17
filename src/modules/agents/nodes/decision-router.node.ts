@@ -1,6 +1,6 @@
 import type { AgentState } from '../state/agent.state';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
-import { AGENT_LIMITS } from '../graph/agent.config';
+import { getAgentLimits } from '../graph/agent.config';
 
 /**
  * Deterministic routing step.
@@ -20,6 +20,8 @@ export async function decisionRouterNode(
     replans: 0,
     stepRetries: 0,
   };
+
+  const AGENT_LIMITS = getAgentLimits();
 
   // Hard stops
   if (counters.turn >= AGENT_LIMITS.turns) {
@@ -89,16 +91,16 @@ export async function decisionRouterNode(
     return { phase: 'route' };
   }
 
-  // If we have a repaired JSON payload, route back to the originating phase by
-  // stashing it in jsonRepairResult and letting that node re-run.
-  // (We implement this by setting phase to the originating phase; nodes must
-  // check jsonRepairResult and use it instead of calling the LLM again.)
-  if (state.jsonRepairResult && state.phase === 'route') {
-    const raw = state.jsonRepairResult;
-    // Default back to supervisor if unknown.
-    logPhaseEnd('DECISION_ROUTER', 'ROUTE → replay with repaired JSON', elapsed());
+  // If we have a repaired JSON payload, route back to the originating phase so
+  // the originating node re-runs and picks up jsonRepairResult instead of
+  // calling the LLM again.
+  if (state.jsonRepairResult !== undefined) {
+    const fromPhase = state.jsonRepairFromPhase;
+    logPhaseEnd('DECISION_ROUTER', `ROUTE → replay repaired JSON at phase=${fromPhase}`, elapsed());
     return {
-      jsonRepairResult: raw,
+      phase: fromPhase,
+      jsonRepairResult: state.jsonRepairResult,
+      jsonRepairFromPhase: undefined,
     };
   }
 

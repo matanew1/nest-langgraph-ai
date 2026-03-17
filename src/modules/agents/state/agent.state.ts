@@ -111,6 +111,11 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),
+  /** The phase that triggered the json repair (used to route back after repair) */
+  jsonRepairFromPhase: Annotation<AgentPhase | undefined>({
+    reducer: (_, b) => b,
+    default: () => undefined,
+  }),
   /** Critic decision output passed to router */
   criticDecision: Annotation<CriticDecisionState | undefined>({
     reducer: (_, curr) => curr,

@@ -24,10 +24,15 @@ export async function criticNode(
 
   logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
 
-  const prompt = buildCriticPrompt(state);
-  const raw = await invokeLlm(prompt);
-
-  logger.debug(`LLM response:\n${preview(raw)}`);
+  let raw: string;
+  if (state.jsonRepairResult !== undefined) {
+    raw = state.jsonRepairResult;
+    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
+  } else {
+    const prompt = buildCriticPrompt(state);
+    raw = await invokeLlm(prompt);
+    logger.debug(`LLM response:\n${preview(raw)}`);
+  }
 
   try {
     const parsed = extractJson<unknown>(raw);
@@ -37,6 +42,7 @@ export async function criticNode(
     return {
       phase: 'route',
       criticDecision: decision,
+      jsonRepairResult: undefined,
     };
   } catch (e) {
     logPhaseEnd('CRITIC', 'PARSE FAILED → json_repair', elapsed());

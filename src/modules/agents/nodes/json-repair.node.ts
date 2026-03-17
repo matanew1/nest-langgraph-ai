@@ -63,6 +63,7 @@ export async function jsonRepairNode(
     logPhaseEnd('JSON_REPAIR', 'OK', elapsed());
     return {
       jsonRepairResult: repairedStr,
+      jsonRepairFromPhase: req.fromPhase,
       jsonRepair: undefined,
     };
   } catch (e) {

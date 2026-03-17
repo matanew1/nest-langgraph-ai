@@ -23,10 +23,15 @@ export async function supervisorNode(
     `input="${preview(state.input)}"`,
   );
 
-  const prompt = buildSupervisorPrompt(state);
-  const raw = await invokeLlm(prompt);
-
-  logger.debug(`LLM response:\n${preview(raw)}`);
+  let raw: string;
+  if (state.jsonRepairResult !== undefined) {
+    raw = state.jsonRepairResult;
+    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
+  } else {
+    const prompt = buildSupervisorPrompt(state);
+    raw = await invokeLlm(prompt);
+    logger.debug(`LLM response:\n${preview(raw)}`);
+  }
 
   try {
     const parsed = extractJson<unknown>(raw);
@@ -37,6 +42,7 @@ export async function supervisorNode(
       return {
         phase: 'fatal',
         finalAnswer: decision.message ?? 'Task cannot be completed.',
+        jsonRepairResult: undefined,
         errors: [
           {
             code: 'unknown',
@@ -56,6 +62,7 @@ export async function supervisorNode(
     return {
       phase: 'research',
       objective,
+      jsonRepairResult: undefined,
     };
   } catch (e) {
     logPhaseEnd('SUPERVISOR', 'PARSE FAILED → json_repair', elapsed());
