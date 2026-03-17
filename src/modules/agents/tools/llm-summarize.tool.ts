@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { invokeLlm } from '@llm/llm.provider';
 import { z } from 'zod';
+import { env } from '@config/env';
 
 /**
  * llm_summarize — feed content to the LLM and get an AI-generated analysis back.
@@ -26,7 +27,12 @@ export const llmSummarizeTool = new DynamicStructuredTool({
       ),
   }),
   func: async ({ content, instruction }): Promise<string> => {
-    const prompt = `${instruction}\n\n---\n\n${content}`;
+    const maxChars = env.promptMaxSummaryChars;
+    const truncated =
+      content.length > maxChars
+        ? content.slice(0, maxChars) + '\n[...truncated]'
+        : content;
+    const prompt = `${instruction}\n\n---\n\n${truncated}`;
     return invokeLlm(prompt);
   },
 });
