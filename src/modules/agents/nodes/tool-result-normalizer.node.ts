@@ -1,6 +1,7 @@
 import type { AgentState } from '../state/agent.state';
 import { toToolResult } from '../tools/tool-result';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
+import { env } from '@config/env';
 
 /**
  * Converts raw tool output (`toolResultRaw`) into a structured ToolResult envelope.
@@ -19,7 +20,7 @@ export async function toolResultNormalizerNode(
   const result = toToolResult({
     tool,
     raw,
-    previewMaxChars: 6000,
+    previewMaxChars: env.criticResultMaxChars,
     rawMaxChars: 200_000,
   });
 
