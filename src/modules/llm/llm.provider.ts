@@ -24,7 +24,14 @@ export async function invokeLlm(
 
   try {
     const res = await llm.invoke(prompt, { signal: controller.signal });
-    return res.content as string;
+    const content = res.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((c) => (typeof c === 'string' ? c : (c as { text?: string }).text ?? ''))
+        .join('');
+    }
+    return String(content);
   } catch (err) {
     if (controller.signal.aborted) {
       logger.error(`LLM call timed out after ${timeoutMs}ms`);
