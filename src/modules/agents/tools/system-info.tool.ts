@@ -3,7 +3,7 @@ import { z } from 'zod';
 import * as os from 'os';
 
 export const systemInfoTool = tool(
-  async () => {
+  () => {
     const info = {
       platform: os.platform(),
       release: os.release(),

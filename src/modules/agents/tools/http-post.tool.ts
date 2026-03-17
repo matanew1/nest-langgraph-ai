@@ -23,7 +23,7 @@ export const httpPostTool = tool(
           const parsed =
             typeof headers === 'string' ? JSON.parse(headers) : headers;
           requestHeaders = { ...requestHeaders, ...parsed };
-        } catch (e) {
+        } catch {
           logger.warn(`Failed to parse headers JSON: ${headers}`);
         }
       }

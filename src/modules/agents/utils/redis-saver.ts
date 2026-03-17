@@ -17,16 +17,16 @@ import { Buffer } from 'buffer';
  * 2. loadsTyped takes (contentType, data) and returns Promise<any>
  */
 class DefaultSerializer implements SerializerProtocol {
-  async dumpsTyped(obj: any): Promise<[string, Uint8Array]> {
+  dumpsTyped(obj: any): Promise<[string, Uint8Array]> {
     const data = new TextEncoder().encode(JSON.stringify(obj));
-    return ['json', data];
+    return Promise.resolve(['json', data]);
   }
 
-  async loadsTyped(_type: string, data: string | Uint8Array): Promise<any> {
+  loadsTyped(_type: string, data: string | Uint8Array): Promise<any> {
     const decoded =
       typeof data === 'string' ? data : new TextDecoder().decode(data);
 
-    return JSON.parse(decoded);
+    return Promise.resolve(JSON.parse(decoded));
   }
 }
 
@@ -105,6 +105,7 @@ export class RedisSaver extends BaseCheckpointSaver {
   }
 
   async *list(): AsyncGenerator<CheckpointTuple> {
+    await Promise.resolve();
     yield* [];
   }
 
@@ -141,11 +142,16 @@ export class RedisSaver extends BaseCheckpointSaver {
       `🗑️ Deleted session state and ${checkpointIds.length} checkpoint(s) for ID: ${threadId}`,
     );
   }
-  public async putWrites(
+  public putWrites(
     _config: RunnableConfig,
     _writes: Array<[string, any]>,
     _taskId: string,
-  ): Promise<void> {}
+  ): Promise<void> {
+    void _config;
+    void _writes;
+    void _taskId;
+    return Promise.resolve();
+  }
 
   async put(
     config: RunnableConfig,

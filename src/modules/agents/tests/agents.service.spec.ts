@@ -1,35 +1,52 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
-import { RedisService } from '@redis/redis.service';
-import { agentGraph } from '../graph/agent.graph';
+import { REDIS_CLIENT } from '@redis/redis.constants';
+import { agentWorkflow } from '../graph/agent.graph';
 
 jest.mock('@config/env', () => ({
   env: {
     cacheTtlSeconds: 60,
-    redisHost: 'localhost',
-    redisPort: 6379,
+    mistralTimeoutMs: 5000,
+    agentMaxIterations: 3,
   },
 }));
 
 jest.mock('../graph/agent.graph', () => ({
-  agentGraph: {
-    invoke: jest.fn(),
+  agentWorkflow: {
+    compile: jest.fn(),
   },
 }));
 
-const mockRedisService = {
+const mockRedisClient = {
   get: jest.fn(),
   set: jest.fn(),
+  getBuffer: jest.fn(),
+  pipeline: jest.fn().mockReturnValue({
+    del: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    sadd: jest.fn().mockReturnThis(),
+    expire: jest.fn().mockReturnThis(),
+    exec: jest.fn().mockResolvedValue([]),
+  }),
+  smembers: jest.fn().mockResolvedValue([]),
 };
 
 describe('AgentsService', () => {
   let service: AgentsService;
+  const invoke = jest.fn();
 
   beforeEach(async () => {
+    const compileMock = (agentWorkflow as any)['compile'] as jest.Mock;
+    compileMock.mockReturnValue({
+      invoke,
+      stream: jest.fn(),
+      getState: jest.fn(),
+    } as any);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AgentsService,
-        { provide: RedisService, useValue: mockRedisService },
+        { provide: REDIS_CLIENT, useValue: mockRedisClient },
       ],
     }).compile();
 
@@ -47,19 +64,17 @@ describe('AgentsService', () => {
   describe('run', () => {
     it('should invoke the agent graph and return finalAnswer', async () => {
       const prompt = 'test prompt';
-      agentGraph.invoke.mockResolvedValue({ finalAnswer: 'The answer is 42' });
+      invoke.mockResolvedValue({ finalAnswer: 'The answer is 42' });
 
       const result = await service.run(prompt);
 
-      expect(agentGraph.invoke).toHaveBeenCalledWith({
-        input: prompt,
-        iteration: 0,
-      });
-      expect(result).toBe('The answer is 42');
+      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ input: prompt });
+      expect(result.result).toBe('The answer is 42');
+      expect(result.sessionId).toBeDefined();
     });
 
     it('should throw InternalServerErrorException when finalAnswer is missing', async () => {
-      agentGraph.invoke.mockResolvedValue({});
+      invoke.mockResolvedValue({});
 
       await expect(service.run('prompt')).rejects.toThrow(
         'The agent could not produce an answer',
@@ -67,7 +82,7 @@ describe('AgentsService', () => {
     });
 
     it('should wrap unexpected graph errors in InternalServerErrorException', async () => {
-      agentGraph.invoke.mockRejectedValue(new Error('LLM timeout'));
+      invoke.mockRejectedValue(new Error('LLM timeout'));
 
       await expect(service.run('prompt')).rejects.toThrow(
         'Agent execution failed: LLM timeout',
