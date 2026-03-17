@@ -46,7 +46,7 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
   const chunks: AstChunk[] = [];
   let count = 0;
 
-  function traverse(node: t.Node) {
+  function traverse(node: t.Node, parentClassName?: string) {
     if (maxChunks && count >= maxChunks) return;
 
     if (!node.loc) return;
@@ -56,11 +56,12 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
 
     if (t.isFunctionDeclaration(node)) {
       const name = node.id?.name || `fn_${chunks.length}`;
+      const label = parentClassName ? `${parentClassName}.${name}` : name;
       chunks.push({
         chunk_id: `fn_${chunks.length}`,
         type: 'function',
-        name,
-        summary: `${name}(): ${node.params.length} params, ${loc.end.line - loc.start.line + 1} lines`,
+        name: label,
+        summary: `${label}(): ${node.params.length} params, ${loc.end.line - loc.start.line + 1} lines`,
         code_snippet:
           snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
         loc: { start: loc.start, end: loc.end },
@@ -78,26 +79,87 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         loc: { start: loc.start, end: loc.end },
       });
       count++;
-    } else if (t.isVariableDeclaration(node) && node.declarations.length > 0) {
-      const ids = node.declarations.map((decl) => {
-        if (t.isIdentifier(decl.id)) return decl.id.name;
-        if (t.isObjectPattern(decl.id) || t.isArrayPattern(decl.id))
-          return 'destructured';
-        return 'complex';
-      });
+      // Traverse class body to extract methods
+      node.body.body.forEach((member) => traverse(member, name));
+    } else if (t.isClassMethod(node) || t.isClassPrivateMethod(node)) {
+      const className = parentClassName ?? 'UnknownClass';
+      const methodName = t.isIdentifier(node.key)
+        ? node.key.name
+        : t.isPrivateName(node.key)
+          ? `#${node.key.id.name}`
+          : `method_${chunks.length}`;
+      const label = `${className}.${methodName}`;
       chunks.push({
-        chunk_id: `var_${chunks.length}`,
-        type: 'variable',
-        name: ids.join(', '),
-        summary: `Vars: ${ids.join(', ')}`,
+        chunk_id: `method_${chunks.length}`,
+        type: 'method',
+        name: label,
+        summary: `${label}(): ${node.params.length} params, ${loc.end.line - loc.start.line + 1} lines`,
         code_snippet:
-          snippet.slice(0, 200) + (snippet.length > 200 ? '...' : ''),
+          snippet.slice(0, 400) + (snippet.length > 400 ? '...' : ''),
         loc: { start: loc.start, end: loc.end },
       });
       count++;
+    } else if (t.isExportNamedDeclaration(node) && node.declaration) {
+      // Unwrap and process the inner declaration
+      traverse(node.declaration, parentClassName);
+    } else if (t.isExportDefaultDeclaration(node) && node.declaration) {
+      traverse(node.declaration as t.Node, parentClassName);
+    } else if (t.isVariableDeclaration(node) && node.declarations.length > 0) {
+      // Check if any declarator has an arrow function initializer
+      for (const decl of node.declarations) {
+        if (
+          t.isIdentifier(decl.id) &&
+          decl.init &&
+          (t.isArrowFunctionExpression(decl.init) || t.isFunctionExpression(decl.init))
+        ) {
+          const name = decl.id.name;
+          const label = parentClassName ? `${parentClassName}.${name}` : name;
+          const declLoc = decl.loc ?? loc;
+          const declSnippet = code.slice(decl.start!, decl.end!);
+          chunks.push({
+            chunk_id: `fn_${chunks.length}`,
+            type: 'function',
+            name: label,
+            summary: `${label}(): ${decl.init.params.length} params, ${declLoc.end.line - declLoc.start.line + 1} lines`,
+            code_snippet:
+              declSnippet.slice(0, 400) + (declSnippet.length > 400 ? '...' : ''),
+            loc: { start: declLoc.start, end: declLoc.end },
+          });
+          count++;
+          if (maxChunks && count >= maxChunks) return;
+        }
+      }
+      // Fall through to also emit a variable chunk for non-arrow declarators
+      const nonFnIds = node.declarations
+        .filter(
+          (decl) =>
+            !(
+              t.isIdentifier(decl.id) &&
+              decl.init &&
+              (t.isArrowFunctionExpression(decl.init) || t.isFunctionExpression(decl.init))
+            ),
+        )
+        .map((decl) => {
+          if (t.isIdentifier(decl.id)) return decl.id.name;
+          if (t.isObjectPattern(decl.id) || t.isArrayPattern(decl.id))
+            return 'destructured';
+          return 'complex';
+        });
+      if (nonFnIds.length > 0 && !(maxChunks && count >= maxChunks)) {
+        chunks.push({
+          chunk_id: `var_${chunks.length}`,
+          type: 'variable',
+          name: nonFnIds.join(', '),
+          summary: `Vars: ${nonFnIds.join(', ')}`,
+          code_snippet:
+            snippet.slice(0, 200) + (snippet.length > 200 ? '...' : ''),
+          loc: { start: loc.start, end: loc.end },
+        });
+        count++;
+      }
     }
 
-    // Traverse children
+    // Traverse children (only top-level program body; class body handled above)
     if (t.isProgram(node)) {
       node.body.forEach((child) => traverse(child));
     } else if (t.isBlock(node)) {
