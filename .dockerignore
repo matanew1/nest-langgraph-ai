@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.vscode
+node_modules
+dist
+coverage
+.nyc_output
+.temp
+.tmp
+logs
+*.log
+.env
+docker/*.local.yml

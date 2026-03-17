@@ -181,13 +181,14 @@ npm install --legacy-peer-deps
 
 # 2. Configure
 cp .env.example .env
-# Edit .env with your MISTRAL_API_KEY, TAVILY_API_KEY, REDIS_HOST, REDIS_PORT
+# Edit .env with your MISTRAL_API_KEY and TAVILY_API_KEY
 
-# 3. Start Redis
-docker compose -f docker/docker-compose.yml up -d
+# 3. Start the full stack
+docker compose -f docker/docker-compose.yml up -d --build
 
-# 4. Run
-npm run start:dev
+# 4. Open the API
+# API:     http://localhost:3000/api
+# Swagger: http://localhost:3000/docs
 ```
 
 ## API
@@ -423,13 +424,14 @@ npm install --legacy-peer-deps
 
 # 2. Configure
 cp .env.example .env
-# Edit .env with your MISTRAL_API_KEY, TAVILY_API_KEY, REDIS_HOST, REDIS_PORT
+# Edit .env with your MISTRAL_API_KEY and TAVILY_API_KEY
 
-# 3. Start Redis
-docker compose -f docker/docker-compose.yml up -d
+# 3. Start the full stack
+docker compose -f docker/docker-compose.yml up -d --build
 
-# 4. Run
-npm run start:dev
+# 4. Open the API
+# API:     http://localhost:3000/api
+# Swagger: http://localhost:3000/docs
 ```
 
 ## API

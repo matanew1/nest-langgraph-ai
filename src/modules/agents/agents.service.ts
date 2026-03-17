@@ -42,14 +42,7 @@ export class AgentsService {
   async run(prompt: string, sessionId?: string): Promise<AgentRunResult> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
-
-    // Check cache first
     const cacheKey = this._getCacheKey(prompt);
-    const cachedResult = await this.redisClient.get(cacheKey);
-    if (cachedResult) {
-      this.logger.log(`🚀 AGENT RUN CACHE HIT | Prompt: "${preview(prompt)}"`);
-      return { result: cachedResult, sessionId: threadId };
-    }
 
     this.logger.log(`${SEPARATOR}`);
     this.logger.log(
@@ -65,6 +58,14 @@ export class AgentsService {
     };
 
     try {
+      // Check cache before invoking the graph, but keep Redis errors inside the
+      // request-level error handling path.
+      const cachedResult = await this.redisClient.get(cacheKey);
+      if (cachedResult) {
+        this.logger.log(`🚀 AGENT RUN CACHE HIT | Prompt: "${preview(prompt)}"`);
+        return { result: cachedResult, sessionId: threadId };
+      }
+
       const graphTimeoutMs =
         env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
       const previous = sessionId

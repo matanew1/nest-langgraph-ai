@@ -4,7 +4,10 @@ import { env } from '@config/env';
 
 const logger = new Logger('QdrantProvider');
 
-export const qdrantClient = new QdrantClient({ url: env.qdrantUrl });
+export const qdrantClient = new QdrantClient({
+  url: env.qdrantUrl,
+  checkCompatibility: env.qdrantCheckCompatibility,
+});
 
 let connectPromise: Promise<void> | undefined;
 
