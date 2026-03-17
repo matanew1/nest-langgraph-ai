@@ -40,8 +40,10 @@ async function bootstrap() {
   // Apply the logging interceptor to all routes
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Global timeout of 60 seconds
-  app.useGlobalInterceptors(new TimeoutInterceptor(60000));
+  // Dynamic timeout based on LLM timeout × max iterations × 4 LLM calls per iteration + buffer
+  const globalTimeoutMs =
+    env.mistralTimeoutMs * env.agentMaxIterations * 4 + 10_000;
+  app.useGlobalInterceptors(new TimeoutInterceptor(globalTimeoutMs));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Nest LangGraph AI')
