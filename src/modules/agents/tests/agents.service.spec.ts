@@ -6,8 +6,10 @@ import { agentWorkflow } from '../graph/agent.graph';
 jest.mock('@config/env', () => ({
   env: {
     cacheTtlSeconds: 60,
+    sessionTtlSeconds: 86400,
     mistralTimeoutMs: 5000,
     agentMaxIterations: 3,
+    agentMaxRetries: 3,
   },
 }));
 

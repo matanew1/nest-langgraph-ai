@@ -17,6 +17,7 @@ const envSchema = Joi.object({
   TOOL_TIMEOUT_MS: Joi.number().default(15_000),
   AGENT_WORKING_DIR: Joi.string().default(process.cwd()),
   CACHE_TTL_SECONDS: Joi.number().default(60),
+  SESSION_TTL_SECONDS: Joi.number().integer().min(1).default(86400),
   CRITIC_RESULT_MAX_CHARS: Joi.number().default(8_000),
   PROMPT_MAX_ATTEMPTS: Joi.number().default(5),
   PROMPT_MAX_SUMMARY_CHARS: Joi.number().default(2000),
@@ -40,6 +41,7 @@ interface EnvVariables {
   TOOL_TIMEOUT_MS: number;
   AGENT_WORKING_DIR: string;
   CACHE_TTL_SECONDS: number;
+  SESSION_TTL_SECONDS: number;
   CRITIC_RESULT_MAX_CHARS: number;
   PROMPT_MAX_ATTEMPTS: number;
   PROMPT_MAX_SUMMARY_CHARS: number;
@@ -71,6 +73,7 @@ export const env = {
   toolTimeoutMs: validatedEnv.TOOL_TIMEOUT_MS,
   agentWorkingDir: validatedEnv.AGENT_WORKING_DIR,
   cacheTtlSeconds: validatedEnv.CACHE_TTL_SECONDS,
+  sessionTtlSeconds: validatedEnv.SESSION_TTL_SECONDS,
   criticResultMaxChars: validatedEnv.CRITIC_RESULT_MAX_CHARS,
   promptMaxAttempts: validatedEnv.PROMPT_MAX_ATTEMPTS,
   promptMaxSummaryChars: validatedEnv.PROMPT_MAX_SUMMARY_CHARS,

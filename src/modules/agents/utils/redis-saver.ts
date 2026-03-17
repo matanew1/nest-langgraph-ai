@@ -3,6 +3,7 @@ import {
   Checkpoint,
   CheckpointTuple,
   CheckpointMetadata,
+  CheckpointListOptions,
   SerializerProtocol,
 } from '@langchain/langgraph-checkpoint';
 import { RunnableConfig } from '@langchain/core/runnables';
@@ -39,7 +40,7 @@ export class RedisSaver extends BaseCheckpointSaver {
   constructor(redisClient: Redis) {
     super(new DefaultSerializer());
     this.client = redisClient;
-    this.ttlSeconds = env.cacheTtlSeconds;
+    this.ttlSeconds = env.sessionTtlSeconds;
   }
 
   /**
@@ -163,9 +164,67 @@ export class RedisSaver extends BaseCheckpointSaver {
     };
   }
 
-  async *list(): AsyncGenerator<CheckpointTuple> {
-    await Promise.resolve();
-    yield* [];
+  async *list(
+    config: RunnableConfig,
+    _options?: CheckpointListOptions,
+  ): AsyncGenerator<CheckpointTuple> {
+    const threadId = config.configurable?.thread_id;
+    if (!threadId) return;
+
+    const historyKey = this.getThreadHistoryKey(threadId);
+    const checkpointIds = await this.client.zrevrange(historyKey, 0, -1);
+
+    for (const checkpointId of checkpointIds) {
+      const recordData = await this.client.getBuffer(
+        this.getCheckpointRecordKey(checkpointId),
+      );
+
+      if (recordData) {
+        const record = (await this.serde.loadsTyped(
+          'json',
+          recordData,
+        )) as { checkpoint: Checkpoint; metadata?: CheckpointMetadata };
+
+        yield {
+          config: {
+            configurable: { thread_id: threadId, checkpoint_id: checkpointId },
+          },
+          checkpoint: record.checkpoint,
+          metadata: (record.metadata ?? {}) as CheckpointMetadata,
+          pendingWrites: [],
+        };
+        continue;
+      }
+
+      // Backwards-compat fallback
+      const [checkpointData, metadataData] = await Promise.all([
+        this.client.getBuffer(this.getCheckpointKey(checkpointId)),
+        this.client.getBuffer(this.getMetadataKey(checkpointId)),
+      ]);
+
+      if (!checkpointData) continue;
+
+      const checkpoint = (await this.serde.loadsTyped(
+        'json',
+        checkpointData,
+      )) as Checkpoint;
+
+      const metadata = metadataData
+        ? ((await this.serde.loadsTyped(
+            'json',
+            metadataData,
+          )) as CheckpointMetadata)
+        : ({} as CheckpointMetadata);
+
+      yield {
+        config: {
+          configurable: { thread_id: threadId, checkpoint_id: checkpointId },
+        },
+        checkpoint,
+        metadata,
+        pendingWrites: [],
+      };
+    }
   }
 
   public async deleteThread(threadId: string): Promise<void> {

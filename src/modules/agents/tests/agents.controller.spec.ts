@@ -6,8 +6,11 @@ import { AgentsService } from '../agents.service';
 jest.mock('@config/env', () => ({
   env: {
     cacheTtlSeconds: 60,
+    sessionTtlSeconds: 86400,
     redisHost: 'localhost',
     redisPort: 6379,
+    agentMaxIterations: 3,
+    agentMaxRetries: 3,
   },
 }));
 
