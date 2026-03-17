@@ -1,40 +1,15 @@
 import { tool } from '@langchain/core/tools';
-import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { env } from '@config/env';
-import { ensureQdrantReady, qdrantClient } from '@vector-db/qdrant.provider';
-import { EmbeddingService } from '@vector-db/embedding.service';
-import { randomUUID } from 'crypto';
-
-const logger = new Logger('VectorUpsertTool');
-const embeddings = new EmbeddingService();
+import { upsertVectorMemory } from '@vector-db/vector-memory.util';
 
 export const vectorUpsertTool = tool(
   async ({ text, id, metadata }) => {
-    await ensureQdrantReady();
-
-    const vector = await embeddings.embed(text);
-    if (vector.length === 0)
-      return JSON.stringify({ ok: false, error: 'Empty text' });
-
-    const pointId = id ?? randomUUID();
-    const payload = metadata ?? { text };
-
-    logger.log(
-      `Upserting vector id=${pointId} size=${vector.length} into ${env.qdrantCollection}`,
-    );
-
-    await qdrantClient.upsert(env.qdrantCollection, {
-      wait: true,
-      points: [{ id: pointId, vector, payload }],
-    });
+    const result = await upsertVectorMemory({ text, id, metadata });
 
     return JSON.stringify(
       {
         ok: true,
-        id: pointId,
-        vectorSize: vector.length,
-        collection: env.qdrantCollection,
+        ...result,
       },
       null,
       2,

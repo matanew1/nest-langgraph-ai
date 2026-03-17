@@ -70,10 +70,10 @@ export class AgentsService {
 
       const graphTimeoutMs =
         env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
-      const previous = sessionId
-        ? await this._tryLoadPreviousState(threadId)
-        : undefined;
-      const initialState = createInitialAgentRunState(prompt, previous);
+      const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const initialState = createInitialAgentRunState(prompt, {
+        sessionMemory,
+      });
 
       let timeoutHandle: any;
       const result: any = await Promise.race([
@@ -109,6 +109,8 @@ export class AgentsService {
 
       const status = result.finalAnswer ? 'COMPLETE' : 'PARTIAL';
       const steps = Array.isArray(result.attempts) ? result.attempts.length : 0;
+
+      await this._persistSessionMemory(threadId, prompt, result, sessionMemory);
 
       this.logger.log(SEPARATOR);
       this.logger.log(
@@ -148,10 +150,10 @@ export class AgentsService {
     };
 
     try {
-      const previous = sessionId
-        ? await this._tryLoadPreviousState(threadId)
-        : undefined;
-      const initialState = createInitialAgentRunState(prompt, previous);
+      const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const initialState = createInitialAgentRunState(prompt, {
+        sessionMemory,
+      });
 
       yield {
         type: 'step',
@@ -189,10 +191,11 @@ export class AgentsService {
       const finalState = await this.app.getState({
         configurable: { thread_id: threadId },
       });
-      const finalAnswer = finalState.values.finalAnswer;
+      const finalValues = finalState.values as Partial<AgentState>;
+      const finalAnswer = finalValues.finalAnswer;
       if (
-        (finalState.values.phase === AGENT_PHASES.COMPLETE ||
-          finalState.values.phase === AGENT_PHASES.FATAL) &&
+        (finalValues.phase === AGENT_PHASES.COMPLETE ||
+          finalValues.phase === AGENT_PHASES.FATAL) &&
         finalAnswer
       ) {
         yield {
@@ -205,14 +208,21 @@ export class AgentsService {
         yield {
           type: 'error',
           data:
-            finalState.values.finalAnswer ||
-            finalState.values.toolResult?.preview ||
-            finalState.values.toolResultRaw ||
+            finalValues.finalAnswer ||
+            finalValues.toolResult?.preview ||
+            finalValues.toolResultRaw ||
             'Task ended without proper final answer.',
           sessionId: threadId,
           done: true,
         };
       }
+
+      await this._persistSessionMemory(
+        threadId,
+        prompt,
+        finalValues,
+        sessionMemory,
+      );
 
       const totalTime = elapsed();
       this.logger.log(`🏁 AGENT STREAM COMPLETE | ${totalTime}ms`);
@@ -239,24 +249,71 @@ export class AgentsService {
     return `agent:cache:${hash}`;
   }
 
-  /**
-   * Load the latest checkpointed state for a thread, if any.
-   *
-   * This is essential for session continuity: LangGraph can resume from a
-   * prior checkpoint, but we must avoid overwriting restored values with a
-   * fully "blank" initial state.
-   */
-  private async _tryLoadPreviousState(
+  private async _tryLoadSessionMemory(
     threadId: string,
-  ): Promise<Partial<AgentState> | undefined> {
+  ): Promise<string | undefined> {
     try {
-      const state = await this.app.getState({
-        configurable: { thread_id: threadId },
-      });
-      return (state?.values ?? undefined) as Partial<AgentState> | undefined;
+      return await this.checkpointer.getThreadMemory(threadId);
     } catch {
       return undefined;
     }
   }
 
+  private async _persistSessionMemory(
+    threadId: string,
+    prompt: string,
+    result: Partial<AgentState>,
+    previousMemory?: string,
+  ): Promise<void> {
+    const entry = this._buildSessionMemoryEntry(prompt, result);
+    if (!entry) return;
+
+    const merged = this._mergeSessionMemory(previousMemory, entry);
+
+    try {
+      await this.checkpointer.setThreadMemory(threadId, merged);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to persist session memory: ${message}`);
+    }
+  }
+
+  private _buildSessionMemoryEntry(
+    prompt: string,
+    result: Partial<AgentState>,
+  ): string | undefined {
+    const objective = (result.objective ?? prompt).trim();
+    const answer =
+      result.finalAnswer ??
+      result.toolResult?.preview ??
+      result.toolResultRaw ??
+      undefined;
+
+    if (!objective || !answer) return undefined;
+
+    return [
+      `[${new Date().toISOString()}]`,
+      `Objective: ${preview(objective, 160)}`,
+      `Outcome: ${preview(answer, 280)}`,
+    ].join('\n');
+  }
+
+  private _mergeSessionMemory(
+    previousMemory: string | undefined,
+    entry: string,
+  ): string {
+    const existingEntries = previousMemory
+      ? previousMemory
+          .split('\n---\n')
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : [];
+
+    const merged = [entry, ...existingEntries.filter((item) => item !== entry)]
+      .slice(0, 3)
+      .join('\n---\n');
+
+    const maxChars = Math.max(env.promptMaxSummaryChars, 1200);
+    return merged.length <= maxChars ? merged : merged.slice(0, maxChars);
+  }
 }

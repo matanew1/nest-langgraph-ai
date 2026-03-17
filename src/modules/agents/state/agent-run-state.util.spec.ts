@@ -19,6 +19,8 @@ describe('agent-run-state.util', () => {
       jsonRepairResult: undefined,
       finalAnswer: undefined,
       projectContext: undefined,
+      memoryContext: undefined,
+      sessionMemory: undefined,
       attempts: [],
       counters: {
         turn: 0,
@@ -31,36 +33,18 @@ describe('agent-run-state.util', () => {
     });
   });
 
-  it('preserves reusable context from the previous session state', () => {
+  it('loads explicit session memory but resets prior run state', () => {
     expect(
       createInitialAgentRunState('new prompt', {
-        projectContext: 'cached tree',
-        attempts: [
-          {
-            tool: 'read_file',
-            step: 1,
-            params: { path: 'README.md' },
-            result: {
-              ok: true,
-              kind: 'text',
-              raw: 'hello',
-              preview: 'hello',
-              meta: { truncated: false, length: 5 },
-            },
-          },
-        ],
-        finalAnswer: 'old answer',
-      } as any),
+        sessionMemory: 'Earlier decision: keep Redis optional at boot.',
+      }),
     ).toMatchObject({
       input: 'new prompt',
       phase: AGENT_PHASES.SUPERVISOR,
-      projectContext: 'cached tree',
-      attempts: [
-        {
-          tool: 'read_file',
-          step: 1,
-        },
-      ],
+      projectContext: undefined,
+      memoryContext: undefined,
+      sessionMemory: 'Earlier decision: keep Redis optional at boot.',
+      attempts: [],
       finalAnswer: undefined,
       plan: [],
       counters: {

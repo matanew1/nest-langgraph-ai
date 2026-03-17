@@ -1,7 +1,10 @@
 import { AGENT_PHASES, type AgentPhase } from './agent-phase';
-import type { AgentError, AgentState, PlanStep } from './agent.state';
-
-type AgentStateUpdates = Omit<Partial<AgentState>, 'phase'>;
+import type {
+  AgentError,
+  AgentState,
+  AgentStateUpdates,
+  PlanStep,
+} from './agent.state';
 
 export function transitionToPhase(
   phase: AgentPhase,

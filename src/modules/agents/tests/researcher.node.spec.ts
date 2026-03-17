@@ -1,8 +1,15 @@
 import { researcherNode } from '../nodes/researcher.node';
 import { AgentState } from '../state/agent.state';
+import { AGENT_PHASES } from '../state/agent-phase';
 
 const mockTreeInvoke = jest.fn();
 const mockGitInvoke = jest.fn();
+const mockBuildVectorResearchContext = jest.fn();
+
+jest.mock('@vector-db/vector-memory.util', () => ({
+  buildVectorResearchContext: (...args: unknown[]) =>
+    mockBuildVectorResearchContext(...args),
+}));
 
 jest.mock('../tools/index', () => ({
   toolRegistry: {
@@ -22,16 +29,24 @@ const baseState: Partial<AgentState> = {
 describe('researcherNode', () => {
   afterEach(() => jest.clearAllMocks());
 
+  beforeEach(() => {
+    mockBuildVectorResearchContext.mockResolvedValue(
+      '## Vector memory (Qdrant)\nRelevant memories: none found.',
+    );
+  });
+
   it('returns projectContext with file tree and git status', async () => {
     mockTreeInvoke.mockResolvedValue('src/\n  index.ts');
     mockGitInvoke.mockResolvedValue('On branch main\nnothing to commit');
 
     const result = await researcherNode(baseState as AgentState);
 
+    expect(result.phase).toBe(AGENT_PHASES.PLAN);
     expect(result.projectContext).toContain('Project file tree');
     expect(result.projectContext).toContain('src/');
     expect(result.projectContext).toContain('Git status');
     expect(result.projectContext).toContain('On branch main');
+    expect(result.memoryContext).toContain('Vector memory');
   });
 
   it('includes (unavailable) sections when tools throw', async () => {
@@ -60,11 +75,14 @@ describe('researcherNode', () => {
     const stateWithContext = {
       ...baseState,
       projectContext: 'already gathered',
+      sessionMemory: 'Remembered prior decision',
     } as AgentState;
 
     const result = await researcherNode(stateWithContext);
 
-    expect(result).toEqual({ phase: 'plan' });
+    expect(result.phase).toBe(AGENT_PHASES.PLAN);
+    expect(result.projectContext).toBe('already gathered');
+    expect(result.memoryContext).toContain('Session memory');
     expect(mockTreeInvoke).not.toHaveBeenCalled();
     expect(mockGitInvoke).not.toHaveBeenCalled();
   });

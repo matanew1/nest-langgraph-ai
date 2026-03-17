@@ -8,6 +8,17 @@ export const JSON_ONLY =
 export const SELF_REFLECTION =
   'Silently verify before output: (1) starts with {  (2) ends with }  (3) no text outside the JSON  (4) no hallucinated tools.';
 
+export function formatPromptSection(
+  value: string | undefined,
+  fallback: string,
+  maxChars = env.promptMaxSummaryChars,
+): string {
+  if (!value || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, maxChars)}\n...[truncated]`;
+}
+
 export function formatAttempts(state: AgentState): string {
   const all = state.attempts ?? [];
   const recent = all.slice(-env.promptMaxAttempts);

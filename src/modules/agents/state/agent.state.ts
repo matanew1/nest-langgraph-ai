@@ -53,6 +53,30 @@ export interface CriticDecisionState {
   suggestedPlanFix?: string;
 }
 
+export interface AgentStateShape {
+  input: string;
+  phase: AgentPhase;
+  objective?: string;
+  plan: PlanStep[];
+  currentStep: number;
+  expectedResult?: string;
+  selectedTool?: string;
+  toolParams?: Record<string, unknown>;
+  toolResultRaw?: string;
+  toolResult?: ToolResult;
+  finalAnswer?: string;
+  projectContext?: string;
+  memoryContext?: string;
+  sessionMemory?: string;
+  counters: AgentCounters;
+  errors: AgentError[];
+  jsonRepair?: JsonRepairRequest;
+  jsonRepairResult?: string;
+  jsonRepairFromPhase?: AgentPhase;
+  criticDecision?: CriticDecisionState;
+  attempts: Attempt[];
+}
+
 export const AgentStateAnnotation = Annotation.Root({
   /** Original user request */
   input: Annotation<string>,
@@ -87,6 +111,10 @@ export const AgentStateAnnotation = Annotation.Root({
   finalAnswer: Annotation<string | undefined>,
   /** Project context gathered by the researcher node (file tree, git status) */
   projectContext: Annotation<string | undefined>,
+  /** Retrieved memory context for this run (session memory + vector recall) */
+  memoryContext: Annotation<string | undefined>,
+  /** Short deterministic cross-turn memory loaded from Redis */
+  sessionMemory: Annotation<string | undefined>,
   /** Bounded counters to prevent deadlocks and infinite loops */
   counters: Annotation<AgentCounters>({
     reducer: (_, curr) => curr,
@@ -124,5 +152,6 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 });
 
-export type AgentState = typeof AgentStateAnnotation.State;
+export type AgentState = typeof AgentStateAnnotation.State & AgentStateShape;
+export type AgentStateUpdates = Omit<Partial<AgentStateShape>, 'phase'>;
 export type { AgentPhase } from './agent-phase';

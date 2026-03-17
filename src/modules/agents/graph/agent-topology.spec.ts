@@ -20,7 +20,7 @@ describe('agent-topology', () => {
   it('routes fatal states to fatal recovery', () => {
     expect(
       resolveRouterTarget({ phase: 'fatal', jsonRepair: undefined } as any),
-    ).toBe(AGENT_GRAPH_NODES.FATAL_RECOVERY);
+    ).toBe(AGENT_GRAPH_NODES.TERMINAL_RESPONSE);
   });
 
   it('prioritizes the json repair node when jsonRepair is set', () => {
@@ -43,8 +43,7 @@ describe('agent-topology', () => {
   });
 
   it('returns every non-router node back to the router', () => {
-    expect(ROUTER_RETURN_NODES).toContain(AGENT_GRAPH_NODES.CLARIFICATION);
-    expect(ROUTER_RETURN_NODES).toContain(AGENT_GRAPH_NODES.FATAL_RECOVERY);
+    expect(ROUTER_RETURN_NODES).toContain(AGENT_GRAPH_NODES.TERMINAL_RESPONSE);
     expect(ROUTER_RETURN_NODES).not.toContain(AGENT_GRAPH_NODES.ROUTER);
   });
 });

@@ -94,11 +94,13 @@ describe('decisionRouterNode', () => {
     const state: Partial<AgentState> = {
       ...baseState,
       projectContext: 'old context',
+      memoryContext: 'old memory context',
       criticDecision: { decision: 'replan', reason: 'bad plan' },
     };
     const result = await decisionRouterNode(state as AgentState);
-    expect(result.phase).toBe('plan');
+    expect(result.phase).toBe('research');
     expect(result.projectContext).toBeUndefined();
+    expect(result.memoryContext).toBeUndefined();
   });
 
   it('terminates as fatal when max recovery turns exceeded', async () => {

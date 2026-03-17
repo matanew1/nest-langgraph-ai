@@ -2,9 +2,13 @@ import { AGENT_PHASES } from './agent-phase';
 import { DEFAULT_AGENT_COUNTERS } from './agent-state.helpers';
 import type { AgentState } from './agent.state';
 
+interface InitialAgentRunStateOptions {
+  sessionMemory?: string;
+}
+
 export function createInitialAgentRunState(
   prompt: string,
-  previous?: Partial<AgentState>,
+  options: InitialAgentRunStateOptions = {},
 ): Partial<AgentState> {
   return {
     input: prompt,
@@ -21,8 +25,10 @@ export function createInitialAgentRunState(
     jsonRepair: undefined,
     jsonRepairResult: undefined,
     finalAnswer: undefined,
-    projectContext: previous?.projectContext,
-    attempts: previous?.attempts ?? [],
+    projectContext: undefined,
+    memoryContext: undefined,
+    sessionMemory: options.sessionMemory,
+    attempts: [],
     counters: { ...DEFAULT_AGENT_COUNTERS },
     errors: [],
   };

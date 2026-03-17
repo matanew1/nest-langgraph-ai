@@ -1,14 +1,13 @@
 import { END } from '@langchain/langgraph';
-import { clarificationNode } from '../nodes/clarification.node';
 import { criticNode } from '../nodes/critic.node';
 import { decisionRouterNode } from '../nodes/decision-router.node';
 import { executionNode } from '../nodes/execution.node';
-import { fatalRecoveryNode } from '../nodes/fatal-recovery.node';
 import { jsonRepairNode } from '../nodes/json-repair.node';
 import { planValidatorNode } from '../nodes/plan-validator.node';
 import { plannerNode } from '../nodes/planner.node';
 import { researcherNode } from '../nodes/researcher.node';
 import { supervisorNode } from '../nodes/supervisor.node';
+import { terminalResponseNode } from '../nodes/terminal-response.node';
 import {
   AGENT_PHASES,
   ROUTABLE_AGENT_PHASES,
@@ -27,8 +26,7 @@ export const AGENT_GRAPH_NODES = {
   TOOL_RESULT_NORMALIZER: 'tool_result_normalizer',
   CRITIC: 'critic',
   JSON_REPAIR: 'json_repair',
-  FATAL_RECOVERY: 'fatal_recovery',
-  CLARIFICATION: 'clarification',
+  TERMINAL_RESPONSE: 'terminal_response',
   ROUTER: 'router',
 } as const;
 
@@ -51,8 +49,7 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   [AGENT_GRAPH_NODES.TOOL_RESULT_NORMALIZER]: toolResultNormalizerNode,
   [AGENT_GRAPH_NODES.CRITIC]: criticNode,
   [AGENT_GRAPH_NODES.JSON_REPAIR]: jsonRepairNode,
-  [AGENT_GRAPH_NODES.FATAL_RECOVERY]: fatalRecoveryNode,
-  [AGENT_GRAPH_NODES.CLARIFICATION]: clarificationNode,
+  [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: terminalResponseNode,
   [AGENT_GRAPH_NODES.ROUTER]: decisionRouterNode,
 };
 
@@ -68,8 +65,8 @@ const ROUTABLE_PHASE_NODE_MAP: Record<
   [AGENT_PHASES.NORMALIZE_TOOL_RESULT]:
     AGENT_GRAPH_NODES.TOOL_RESULT_NORMALIZER,
   [AGENT_PHASES.JUDGE]: AGENT_GRAPH_NODES.CRITIC,
-  [AGENT_PHASES.FATAL_RECOVERY]: AGENT_GRAPH_NODES.FATAL_RECOVERY,
-  [AGENT_PHASES.CLARIFICATION]: AGENT_GRAPH_NODES.CLARIFICATION,
+  [AGENT_PHASES.FATAL_RECOVERY]: AGENT_GRAPH_NODES.TERMINAL_RESPONSE,
+  [AGENT_PHASES.CLARIFICATION]: AGENT_GRAPH_NODES.TERMINAL_RESPONSE,
 };
 
 export const ROUTER_RETURN_NODES = (
@@ -82,7 +79,7 @@ export function resolveRouterTarget(
   if (state.phase === AGENT_PHASES.COMPLETE) return END;
   if (state.jsonRepair) return AGENT_GRAPH_NODES.JSON_REPAIR;
   if (state.phase === AGENT_PHASES.FATAL) {
-    return AGENT_GRAPH_NODES.FATAL_RECOVERY;
+    return AGENT_GRAPH_NODES.TERMINAL_RESPONSE;
   }
 
   if (

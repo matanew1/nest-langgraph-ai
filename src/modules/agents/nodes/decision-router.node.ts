@@ -147,9 +147,10 @@ export async function decisionRouterNode(
   }
 
   if (decision.decision === 'replan') {
-    logPhaseEnd('DECISION_ROUTER', 'REPLAN → plan', elapsed());
-    return transitionToPhase(AGENT_PHASES.PLAN, {
+    logPhaseEnd('DECISION_ROUTER', 'REPLAN → research', elapsed());
+    return transitionToPhase(AGENT_PHASES.RESEARCH, {
       projectContext: undefined,
+      memoryContext: undefined,
       counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
       criticDecision: undefined,
     });

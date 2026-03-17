@@ -1,39 +1,19 @@
 import { tool } from '@langchain/core/tools';
-import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { env } from '@config/env';
-import { ensureQdrantReady, qdrantClient } from '@vector-db/qdrant.provider';
-import { EmbeddingService } from '@vector-db/embedding.service';
-
-const logger = new Logger('VectorSearchTool');
-const embeddings = new EmbeddingService();
+import { searchVectorMemories } from '@vector-db/vector-memory.util';
 
 export const vectorSearchTool = tool(
   async ({ query, topK }) => {
-    await ensureQdrantReady();
-
-    const vector = await embeddings.embed(query);
-    if (vector.length === 0)
-      return JSON.stringify({ ok: false, error: 'Empty query' });
-
-    const k = topK ?? 5;
-    logger.log(`Searching topK=${k} in ${env.qdrantCollection}`);
-
-    const results = await qdrantClient.search(env.qdrantCollection, {
-      vector,
-      limit: k,
-      with_payload: true,
+    const effectiveTopK = topK ?? 5;
+    const results = await searchVectorMemories(query, {
+      topK: effectiveTopK,
     });
 
     return JSON.stringify(
       {
         ok: true,
-        topK: k,
-        results: results.map((r) => ({
-          id: String(r.id),
-          score: r.score,
-          metadata: r.payload ?? {},
-        })),
+        topK: effectiveTopK,
+        results,
       },
       null,
       2,

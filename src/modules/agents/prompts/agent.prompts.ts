@@ -2,6 +2,7 @@ import { env } from '@config/env';
 import type { AgentState } from '../state/agent.state';
 import {
   formatAttempts,
+  formatPromptSection,
   getAvailableTools,
   JSON_ONLY,
   SELF_REFLECTION,
@@ -22,6 +23,11 @@ export const buildSupervisorPrompt = (state: AgentState): string =>
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
+    sessionMemory: formatPromptSection(
+      state.sessionMemory,
+      '(none available)',
+      env.promptMaxSummaryChars,
+    ),
     input: state.input,
   });
 
@@ -33,7 +39,16 @@ export const buildPlannerPrompt = (state: AgentState): string =>
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
     objective: state.objective ?? state.input,
-    projectContext: state.projectContext ?? '(not available)',
+    projectContext: formatPromptSection(
+      state.projectContext,
+      '(not available)',
+      env.promptMaxSummaryChars * 2,
+    ),
+    memoryContext: formatPromptSection(
+      state.memoryContext ?? state.sessionMemory,
+      '(none available)',
+      env.promptMaxSummaryChars,
+    ),
   });
 
 export const buildCriticPrompt = (state: AgentState): string => {
@@ -54,12 +69,14 @@ export const buildCriticPrompt = (state: AgentState): string => {
     JSON_ONLY,
     SELF_REFLECTION,
     objective: state.objective ?? state.input,
+    expectedResult: state.expectedResult ?? '(not specified)',
     currentStep: String(currentStep + 1),
     totalSteps: String(totalSteps),
     stepDescription: plan[currentStep]?.description ?? 'N/A',
     selectedTool: state.selectedTool ?? 'unknown',
     successSignal: toolResult?.ok ? 'YES' : 'NO',
     resultPreview,
+    attempts: formatAttempts(state) || '\nPrevious attempts:\n(none)',
     stepContext: isLastStep
       ? '*** THIS IS THE LAST STEP ***'
       : `More steps remain after this one (${totalSteps - currentStep - 1} left).`,

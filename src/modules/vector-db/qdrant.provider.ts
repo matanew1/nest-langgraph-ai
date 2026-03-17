@@ -11,7 +11,7 @@ export const qdrantClient = new QdrantClient({
 
 let connectPromise: Promise<void> | undefined;
 
-function getVectorSizeFromCollectionInfo(info: unknown): number | undefined {
+export function getVectorSizeFromCollectionInfo(info: unknown): number | undefined {
   if (!info || typeof info !== 'object') return undefined;
   const obj = info as Record<string, unknown>;
 
@@ -81,7 +81,21 @@ export async function connectQdrant(
   }
 }
 
-export function ensureQdrantReady(): Promise<void> {
-  if (!connectPromise) connectPromise = connectQdrant();
+export function ensureQdrantReady(
+  client: Pick<
+    QdrantClient,
+    'getCollections' | 'createCollection' | 'getCollection'
+  > = qdrantClient,
+): Promise<void> {
+  if (client !== qdrantClient) {
+    return connectQdrant(client);
+  }
+
+  if (!connectPromise) {
+    connectPromise = connectQdrant(client).catch((error: unknown) => {
+      connectPromise = undefined;
+      throw error;
+    });
+  }
   return connectPromise;
 }

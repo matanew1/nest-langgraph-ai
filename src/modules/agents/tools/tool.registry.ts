@@ -48,16 +48,6 @@ export class ToolRegistry {
     }));
   }
 
-  getDescriptions(): string {
-    return this.list()
-      .map((tool) => `- ${tool.name}: ${tool.description}`)
-      .join('\n');
-  }
-
-  getParamHint(name: string): string {
-    return this.paramHints.get(name) ?? '';
-  }
-
   describeForPrompt(options?: {
     excludeNames?: Iterable<string>;
   }): string {
