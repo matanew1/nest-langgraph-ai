@@ -9,6 +9,8 @@ import { jsonRepairNode } from '../nodes/json-repair.node';
 import { planValidatorNode } from '../nodes/plan-validator.node';
 import { toolResultNormalizerNode } from '../nodes/tool-result-normalizer.node';
 import { decisionRouterNode } from '../nodes/decision-router.node';
+import { fatalRecoveryNode } from '../nodes/fatal-recovery.node';
+import { clarificationNode } from '../nodes/clarification.node';
 
 enum Nodes {
   SUPERVISOR = 'supervisor',
@@ -19,6 +21,8 @@ enum Nodes {
   TOOL_RESULT_NORMALIZER = 'tool_result_normalizer',
   CRITIC = 'critic',
   JSON_REPAIR = 'json_repair',
+  FATAL_RECOVERY = 'fatal_recovery',
+  CLARIFICATION = 'clarification',
   ROUTER = 'router',
 }
 
@@ -38,6 +42,8 @@ const graph = new StateGraph(AgentStateAnnotation)
   .addNode(Nodes.TOOL_RESULT_NORMALIZER, toolResultNormalizerNode)
   .addNode(Nodes.CRITIC, criticNode)
   .addNode(Nodes.JSON_REPAIR, jsonRepairNode)
+  .addNode(Nodes.FATAL_RECOVERY, fatalRecoveryNode)
+  .addNode(Nodes.CLARIFICATION, clarificationNode)
   .addNode(Nodes.ROUTER, decisionRouterNode)
   // edges
   .addEdge(START, Nodes.SUPERVISOR)
@@ -50,7 +56,8 @@ const graph = new StateGraph(AgentStateAnnotation)
   .addEdge(Nodes.CRITIC, Nodes.ROUTER)
   .addEdge(Nodes.JSON_REPAIR, Nodes.ROUTER)
   .addConditionalEdges(Nodes.ROUTER, (state) => {
-    if (state.phase === 'complete' || state.phase === 'fatal') return END;
+    if (state.phase === 'complete') return END;
+    if (state.phase === 'fatal') return Nodes.FATAL_RECOVERY;
     if (state.jsonRepair) return Nodes.JSON_REPAIR;
     switch (state.phase) {
       case 'supervisor':
@@ -67,6 +74,10 @@ const graph = new StateGraph(AgentStateAnnotation)
         return Nodes.TOOL_RESULT_NORMALIZER;
       case 'judge':
         return Nodes.CRITIC;
+      case 'fatal_recovery':
+        return Nodes.FATAL_RECOVERY;
+      case 'clarification':
+        return Nodes.CLARIFICATION;
       case 'route':
       default:
         // If router didn't change phase, go back to supervisor as a safe fallback.

@@ -14,6 +14,7 @@ const envSchema = Joi.object({
   CORS_ORIGIN: Joi.string().default('*'),
   AGENT_MAX_ITERATIONS: Joi.number().integer().min(1).max(10).default(3),
   AGENT_MAX_RETRIES: Joi.number().integer().min(1).max(10).default(3),
+  AGENT_MAX_RETBACKS: Joi.number().integer().min(1).max(10).default(3),
   TOOL_TIMEOUT_MS: Joi.number().default(15_000),
   AGENT_WORKING_DIR: Joi.string().default(process.cwd()),
   CACHE_TTL_SECONDS: Joi.number().default(60),
@@ -40,6 +41,7 @@ interface EnvVariables {
   CORS_ORIGIN: string;
   AGENT_MAX_ITERATIONS: number;
   AGENT_MAX_RETRIES: number;
+  AGENT_MAX_RETBACKS: number;
   TOOL_TIMEOUT_MS: number;
   AGENT_WORKING_DIR: string;
   CACHE_TTL_SECONDS: number;
@@ -74,6 +76,7 @@ export const env = {
   corsOrigin: validatedEnv.CORS_ORIGIN,
   agentMaxIterations: validatedEnv.AGENT_MAX_ITERATIONS,
   agentMaxRetries: validatedEnv.AGENT_MAX_RETRIES,
+  agentMaxRetbacks: validatedEnv.AGENT_MAX_RETBACKS,
   toolTimeoutMs: validatedEnv.TOOL_TIMEOUT_MS,
   agentWorkingDir: validatedEnv.AGENT_WORKING_DIR,
   cacheTtlSeconds: validatedEnv.CACHE_TTL_SECONDS,

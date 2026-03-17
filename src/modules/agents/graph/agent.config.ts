@@ -16,6 +16,8 @@ export function getAgentLimits() {
     replans: env.agentMaxIterations,
     /** Max retries of the same step before terminating as fatal. */
     stepRetries: env.agentMaxRetries,
+    /** Max consecutive supervisor fallbacks before terminating as fatal. */
+    supervisorFallbacks: env.agentMaxRetbacks,
   };
 }
 

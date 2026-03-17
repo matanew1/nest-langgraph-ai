@@ -4,6 +4,7 @@ import { sandboxPath } from '@utils/path.util';
 import * as parser from '@babel/parser';
 import * as t from '@babel/types';
 import { readFileSync } from 'node:fs';
+import { extractStateGraphNodes } from './state-graph-extractor';
 
 const SUPPORTED_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx'];
 
@@ -148,14 +149,27 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
             return 'destructured';
           return 'complex';
         });
-      if (nonFnIds.length > 0 && !(maxChunks && count >= maxChunks)) {
+        // Detect StateGraph fluent builders and extract .addNode calls
+        for (const decl of node.declarations) {
+          if (t.isIdentifier(decl.id) && decl.init && t.isCallExpression(decl.init)) {
+            const stateNodes = extractStateGraphNodes(decl.init as t.CallExpression, code);
+            if (stateNodes.length > 0) {
+              stateNodes.forEach((nodeChunk) => {
+                chunks.push(nodeChunk);
+                count++;
+                if (maxChunks && count >= maxChunks) return;
+              });
+            }
+          }
+        }
+        if (nonFnIds.length > 0 && !(maxChunks && count >= maxChunks)) {
         chunks.push({
           chunk_id: `var_${chunks.length}`,
           type: 'variable',
           name: nonFnIds.join(', '),
           summary: `Vars: ${nonFnIds.join(', ')}`,
           code_snippet:
-            snippet.slice(0, 200) + (snippet.length > 200 ? '...' : ''),
+            snippet.slice(0, 500) + (snippet.length > 500 ? '...' : ''),
           loc: { start: loc.start, end: loc.end },
         });
         count++;
@@ -178,7 +192,7 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
 export const astParseTool = new DynamicStructuredTool({
   name: 'ast_parse',
   description:
-    'Parse JS/TS file to semantic AST chunks (functions/classes/vars). Use for structural code analysis.',
+'Parse JS/TS file to semantic AST chunks (functions/classes/methods/vars/StateGraph nodes). Use for structural code analysis, including LangGraph workflows.',
   schema: z.object({
     path: z.string().describe('Path to JS/TS file'),
     maxChunks: z

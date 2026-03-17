@@ -42,6 +42,7 @@ FILE EDITING RULES (CRITICAL for file_patch):
 - For file_patch.find, COPY EXACT STRINGS from prior read_file or grep_search results. Never invent placeholders.
 - Before file_patch: 1) read_file(path), 2) grep_search(pattern=your_find, path=path) to confirm 1 match.
 - If grep_search finds 0 matches, replan with different find string.
+- GRAPH NODES: To find LangGraph node definitions, grep \".addNode\" or \"enum Nodes\" (matches src/modules/agents/graph/agent.graph.ts).
 - REAL EXAMPLE from README.md:
   {"step_id":3,"description":"Insert mermaid after Architecture header","tool":"file_patch","input":{"path":"README.md","find":"## Architecture\n\n```\nUser Prompt","replace":"## Architecture\n\n```\nUser Prompt[...]\n\n```mermaid\n__PREVIOUS_RESULT__\n```"}}
 
@@ -59,6 +60,4 @@ EXAMPLE — summarize a known set of files into markdown:
 {"objective":"Summarize selected files into summary.md","steps":[{"step_id":1,"description":"Read files","tool":"read_files_batch","input":{"paths":["src/main.ts","src/app.module.ts"]}},{"step_id":2,"description":"Generate AI summaries","tool":"llm_summarize","input":{"content":"__PREVIOUS_RESULT__","instruction":"Write a short summary per file (2-3 sentences) describing purpose and key behavior. Format as markdown."}},{"step_id":3,"description":"Save summaries to file","tool":"write_file","input":{"path":"summary.md","content":"__PREVIOUS_RESULT__"}}],"expected_result":"summary.md contains summaries for the selected files"}
 
 EXAMPLE — find and patch a string in a specific file:
-{"objective":"Rename oldFunc to newFunc in one file","steps":[{"step_id":1,"description":"Find occurrences","tool":"grep_search","input":{"pattern":"oldFunc","path":"src","glob":"*.ts"}},{"step_id":2,"description":"Patch the target file segment","tool":"file_patch","input":{"path":"src/path/to/file.ts","find":"oldFunc","replace":"newFunc"}}],"expected_result":"The target file contains newFunc instead of oldFunc"}
-
-{{SELF_REFLECTION}}
+{"objective":"Rename oldFunc to newFunc in one file","steps":[{"step_id":1,"description":"Find occurrences","tool":"grep_search","input":{"pattern":"oldFunc","path":"src","glob":"*.ts"}},{"step_id":2,"description":"Patch the target file segment","tool":"file_patch","input":{"path":"src/path/to/file.ts","find":"oldFunc","replace":"newFunc"}}],"expected_result":"The target file contains newFunc instead of oldFunc"}\n\nEXAMPLE — analyze graph nodes:\n{"objective":"Find graph node definitions","steps":[{"step_id":1,"description":"Grep for node defs","tool":"grep_search","input":{"pattern":"addNode|enum Nodes","path":"src/modules/agents/graph","glob":"*.ts"}},{"step_id":2,"description":"Read matching file if needed","tool":"read_file","input":{"path":"__PREVIOUS_RESULT__"}}],"expected_result":"Located exact .addNode calls and Nodes enum"}\n\n{{SELF_REFLECTION}}

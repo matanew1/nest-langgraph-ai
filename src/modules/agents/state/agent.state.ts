@@ -18,13 +18,16 @@ export type AgentPhase =
   | 'judge'
   | 'route'
   | 'complete'
-  | 'fatal';
+  | 'fatal'
+  | 'fatal_recovery'
+  | 'clarification';
 
 export interface AgentCounters {
   turn: number;
   toolCalls: number;
   replans: number;
   stepRetries: number;
+  supervisorFallbacks: number;
 }
 
 export interface AgentError {
@@ -99,7 +102,7 @@ export const AgentStateAnnotation = Annotation.Root({
   /** Bounded counters to prevent deadlocks and infinite loops */
   counters: Annotation<AgentCounters>({
     reducer: (_, curr) => curr,
-    default: () => ({ turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+    default: () => ({ turn: 0, toolCalls: 0, replans: 0, stepRetries: 0, supervisorFallbacks: 0 }),
   }),
   /** Structured error history (bounded) */
   errors: Annotation<AgentError[]>({

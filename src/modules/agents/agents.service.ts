@@ -285,7 +285,7 @@ export class AgentsService {
       attempts: previous?.attempts ?? [],
 
       // Always reset loop counters/errors for this new prompt.
-      counters: { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 },
+      counters: { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0, supervisorFallbacks: 0 },
       errors: [],
     };
   }

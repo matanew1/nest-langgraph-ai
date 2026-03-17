@@ -37,8 +37,7 @@ export async function supervisorNode(
     if (decision.status === 'reject') {
       logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
       return {
-        phase: 'fatal',
-        finalAnswer: decision.message ?? 'Task cannot be completed.',
+        phase: 'clarification',
         jsonRepairResult: undefined,
         errors: [
           {

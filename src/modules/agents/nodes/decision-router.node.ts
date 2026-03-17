@@ -19,6 +19,7 @@ export async function decisionRouterNode(
     toolCalls: 0,
     replans: 0,
     stepRetries: 0,
+    supervisorFallbacks: 0,
   };
 
   const AGENT_LIMITS = getAgentLimits();
@@ -84,6 +85,21 @@ export async function decisionRouterNode(
       ],
     };
   }
+  if (counters.supervisorFallbacks >= AGENT_LIMITS.supervisorFallbacks) {
+    logPhaseEnd('DECISION_ROUTER', 'FATAL: max supervisor fallbacks', elapsed());
+    return {
+      phase: 'fatal',
+      finalAnswer: `Stopped: exceeded max supervisor fallbacks (${AGENT_LIMITS.supervisorFallbacks}).`,
+      errors: [
+        {
+          code: 'timeout',
+          message: 'Exceeded max supervisor fallbacks',
+          atPhase: 'route',
+          details: { counters, limits: AGENT_LIMITS },
+        },
+      ],
+    };
+  }
 
   // JSON repair path: originating node sets jsonRepair + phase=route.
   if (state.jsonRepair) {
@@ -111,6 +127,18 @@ export async function decisionRouterNode(
   const decision = state.criticDecision;
   if (!decision) {
     // If there is no critic decision yet, continue to next deterministic phase.
+    // If the phase is 'route' (meaning no node changed it), it's a supervisor fallback.
+    if (state.phase === 'route') {
+      logPhaseEnd('DECISION_ROUTER', 'NO DECISION → SUPERVISOR FALLBACK', elapsed());
+      return {
+        phase: 'supervisor',
+        counters: {
+          ...counters,
+          supervisorFallbacks: counters.supervisorFallbacks + 1,
+          turn: counters.turn + 1,
+        },
+      };
+    }
     logPhaseEnd('DECISION_ROUTER', 'NO DECISION → continue', elapsed());
     return {};
   }
