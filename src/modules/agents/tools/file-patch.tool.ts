@@ -20,8 +20,27 @@ export const filePatchTool = tool(
       return `ERROR: file "${path}" does not exist or cannot be read.`;
     }
 
-    if (!content.includes(find)) {
-      return `ERROR: the exact "find" string was not found in "${path}". The file has ${content.length} chars. Make sure the find string matches exactly (including whitespace).`;
+    // Count occurrences of the find string
+    let occurrenceCount = 0;
+    let searchPos = 0;
+    while (true) {
+      const idx = content.indexOf(find, searchPos);
+      if (idx === -1) break;
+      occurrenceCount++;
+      searchPos = idx + 1;
+    }
+
+    if (occurrenceCount === 0) {
+      return JSON.stringify({
+        ok: false,
+        error: `Pattern not found in file`,
+      });
+    }
+    if (occurrenceCount > 1) {
+      return JSON.stringify({
+        ok: false,
+        error: `Pattern found ${occurrenceCount} times; provide more context to make it unique`,
+      });
     }
 
     const updated = content.replace(find, replace);
