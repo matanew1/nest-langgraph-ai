@@ -11,7 +11,12 @@ jest.mock('@config/env', () => ({
 jest.mock('@graph/agent.config', () => ({
   AGENT_LIMITS: { turns: 25, toolCalls: 50, replans: 5, stepRetries: 5 },
   AGENT_PLAN_LIMITS: { maxSteps: 20 },
-  getAgentLimits: () => ({ turns: 25, toolCalls: 50, replans: 5, stepRetries: 5 }),
+  getAgentLimits: () => ({
+    turns: 25,
+    toolCalls: 50,
+    replans: 5,
+    stepRetries: 5,
+  }),
 }));
 
 const plan: PlanStep[] = [

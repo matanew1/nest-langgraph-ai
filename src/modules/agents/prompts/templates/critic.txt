@@ -35,6 +35,7 @@ IMPORTANT:
   - If a `vector_search` result is low-quality/irrelevant (low scores or wrong topic), prefer `replan` with a refined query instead of guessing.
   - If a `vector_upsert` failed due to Qdrant connectivity, suggest a plan fix to validate Qdrant is running and retry once; do not loop.
   - If there is an embedding/Qdrant vector size mismatch, treat it as non-retriable until config/collection is fixed (replan with a clear fix).
-  - If `file_patch` failed with "the exact \"find\" string was not found", this is deterministic — choose `replan` (read the file / grep first), not `retry_step`.
+  - If `file_patch` failed with "the exact \"find\" string was not found", this is deterministic — choose `replan` ONCE MAX (read the file / grep first), not `retry_step`.
+  - LOOP PROTECTION (check attempts history): If >2 replans OR repeated identical file_patch fails → `complete`/`fatal`. Use toolResult/summary as finalAnswer.
 
 {{SELF_REFLECTION}}
