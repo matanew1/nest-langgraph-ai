@@ -1,6 +1,7 @@
 import {
   Injectable,
   InternalServerErrorException,
+  BadRequestException,
   Logger,
   HttpException,
   Inject,
@@ -14,6 +15,12 @@ import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
 import { AGENT_PHASES } from './state/agent-phase';
 import { createInitialAgentRunState } from './state/agent-run-state.util';
+import {
+  beginExecutionStep,
+  failAgentRun,
+  transitionToPhase,
+} from './state/agent-transition.util';
+import { upsertVectorMemory } from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
 import * as crypto from 'crypto';
@@ -44,7 +51,6 @@ export class AgentsService {
   async run(prompt: string, sessionId?: string): Promise<AgentRunResult> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
-    const cacheKey = this._getCacheKey(prompt);
 
     this.logger.log(`${SEPARATOR}`);
     this.logger.log(
@@ -60,19 +66,28 @@ export class AgentsService {
     };
 
     try {
+      const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const cacheKey = await this._buildCacheKey(
+        prompt,
+        threadId,
+        sessionMemory,
+      );
+
       // Check cache before invoking the graph, but keep Redis errors inside the
       // request-level error handling path.
       const cachedResult = await this.redisClient.get(cacheKey);
       if (cachedResult) {
-        this.logger.log(`🚀 AGENT RUN CACHE HIT | Prompt: "${preview(prompt)}"`);
+        this.logger.log(
+          `🚀 AGENT RUN CACHE HIT | Prompt: "${preview(prompt)}"`,
+        );
         return { result: cachedResult, sessionId: threadId };
       }
 
       const graphTimeoutMs =
         env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
-      const sessionMemory = await this._tryLoadSessionMemory(threadId);
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
+        sessionId: threadId,
       });
 
       let timeoutHandle: any;
@@ -111,6 +126,14 @@ export class AgentsService {
       const steps = Array.isArray(result.attempts) ? result.attempts.length : 0;
 
       await this._persistSessionMemory(threadId, prompt, result, sessionMemory);
+
+      if (result.phase === AGENT_PHASES.COMPLETE) {
+        void this._autoUpsertVectorMemory(
+          prompt,
+          result,
+          await this._getRepoFingerprint(),
+        );
+      }
 
       this.logger.log(SEPARATOR);
       this.logger.log(
@@ -153,34 +176,60 @@ export class AgentsService {
       const sessionMemory = await this._tryLoadSessionMemory(threadId);
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
+        sessionId: threadId,
       });
 
       yield {
-        type: 'step',
+        type: 'status',
         data: `Starting agent execution...`,
         sessionId: threadId,
-        step: 0,
         done: false,
       };
 
       const stream = await this.app.stream(initialState as any, config);
       for await (const event of stream) {
         const node = Object.keys(event)[0];
-        const stateSnapshot = (event as any)[node] as Partial<AgentState>;
+        const snap = event[node] as Partial<AgentState>;
 
-        // Stream step/chunk updates (no early final)
-        if (stateSnapshot.phase === AGENT_PHASES.EXECUTE) {
+        if (snap.phase === AGENT_PHASES.EXECUTE && snap.selectedTool) {
           yield {
-            type: 'step',
-            data: `Executing step ${stateSnapshot.currentStep}: ${stateSnapshot.selectedTool || node}`,
+            type: 'tool_call_started',
+            data: `${snap.selectedTool} (step ${snap.currentStep})`,
             sessionId: threadId,
-            step: stateSnapshot.currentStep as number,
+            step: snap.currentStep as number,
             done: false,
           };
-        } else if (stateSnapshot.toolResultRaw) {
+        } else if (snap.phase === AGENT_PHASES.NORMALIZE_TOOL_RESULT) {
           yield {
-            type: 'chunk',
-            data: preview(stateSnapshot.toolResultRaw, 200),
+            type: 'tool_call_finished',
+            data: preview(snap.toolResultRaw ?? '', 200),
+            sessionId: threadId,
+            done: false,
+          };
+        } else if (
+          snap.phase === AGENT_PHASES.PLAN &&
+          (snap as any).plan?.length
+        ) {
+          yield {
+            type: 'plan',
+            data: JSON.stringify((snap as any).plan),
+            sessionId: threadId,
+            done: false,
+          };
+        } else if (
+          snap.phase === AGENT_PHASES.AWAIT_PLAN_REVIEW &&
+          (snap as any).reviewRequest
+        ) {
+          yield {
+            type: 'review_required',
+            data: JSON.stringify((snap as any).reviewRequest),
+            sessionId: threadId,
+            done: false,
+          };
+        } else {
+          yield {
+            type: 'status',
+            data: `Phase: ${snap.phase ?? node}`,
             sessionId: threadId,
             done: false,
           };
@@ -224,6 +273,14 @@ export class AgentsService {
         sessionMemory,
       );
 
+      if (finalValues.phase === AGENT_PHASES.COMPLETE) {
+        void this._autoUpsertVectorMemory(
+          prompt,
+          finalValues,
+          await this._getRepoFingerprint(),
+        );
+      }
+
       const totalTime = elapsed();
       this.logger.log(`🏁 AGENT STREAM COMPLETE | ${totalTime}ms`);
     } catch (err: any) {
@@ -235,7 +292,7 @@ export class AgentsService {
         sessionId: threadId,
         done: true,
       };
-      throw new InternalServerErrorException(`Stream failed: ${message}`);
+      // Do not re-throw — SSE generators must close cleanly without an unhandled rejection.
     }
   }
 
@@ -244,8 +301,103 @@ export class AgentsService {
     return this.checkpointer.deleteThread(sessionId);
   }
 
-  private _getCacheKey(prompt: string): string {
-    const hash = crypto.createHash('sha256').update(prompt).digest('hex');
+  async approvePlan(sessionId: string): Promise<AgentRunResult> {
+    const config = {
+      configurable: { thread_id: sessionId },
+      recursionLimit: 200,
+    };
+    const snapshot = await this.app.getState(config);
+    const values = snapshot.values as Partial<AgentState>;
+
+    if (!values.reviewRequest) {
+      throw new BadRequestException('No pending plan review for this session.');
+    }
+    const first = values.plan?.[0];
+    if (!first) {
+      throw new BadRequestException('Session has an empty plan.');
+    }
+
+    await this.app.updateState(
+      config,
+      beginExecutionStep(first, 0, { reviewRequest: undefined }),
+    );
+    const result: any = await this.app.invoke(null, config);
+    return { result: result.finalAnswer ?? 'Completed.', sessionId };
+  }
+
+  async rejectPlan(sessionId: string): Promise<void> {
+    const config = {
+      configurable: { thread_id: sessionId },
+      recursionLimit: 200,
+    };
+    const snapshot = await this.app.getState(config);
+    const values = snapshot.values as Partial<AgentState>;
+
+    if (!values.reviewRequest) {
+      throw new BadRequestException('No pending plan review for this session.');
+    }
+
+    await this.app.updateState(
+      config,
+      failAgentRun('Plan rejected by user.', {
+        code: 'unknown',
+        message: 'User rejected the plan',
+        atPhase: AGENT_PHASES.AWAIT_PLAN_REVIEW,
+      }),
+    );
+  }
+
+  async replanSession(sessionId: string): Promise<AgentRunResult> {
+    const config = {
+      configurable: { thread_id: sessionId },
+      recursionLimit: 200,
+    };
+    const snapshot = await this.app.getState(config);
+    const values = snapshot.values as Partial<AgentState>;
+
+    if (!values.reviewRequest) {
+      throw new BadRequestException('No pending plan review for this session.');
+    }
+
+    await this.app.updateState(
+      config,
+      transitionToPhase(AGENT_PHASES.RESEARCH, {
+        reviewRequest: undefined,
+        plan: [],
+      }),
+    );
+    const result: any = await this.app.invoke(null, config);
+    return { result: result.finalAnswer ?? 'Completed.', sessionId };
+  }
+
+  private _repoFingerprintCache?: string;
+
+  private async _getRepoFingerprint(): Promise<string> {
+    if (this._repoFingerprintCache) return this._repoFingerprintCache;
+    try {
+      const { execSync } = await import('node:child_process');
+      this._repoFingerprintCache = execSync('git rev-parse HEAD', {
+        encoding: 'utf8',
+      })
+        .trim()
+        .slice(0, 12);
+    } catch {
+      this._repoFingerprintCache = 'nogit';
+    }
+    return this._repoFingerprintCache;
+  }
+
+  private async _buildCacheKey(
+    prompt: string,
+    sessionId: string,
+    sessionMemory?: string,
+  ): Promise<string> {
+    const gitHash = await this._getRepoFingerprint();
+    const memHash = sessionMemory
+      ? crypto.createHash('md5').update(sessionMemory).digest('hex').slice(0, 8)
+      : 'nomem';
+    const body = `${sessionId}:${gitHash}:${memHash}:${prompt}`;
+    const hash = crypto.createHash('sha256').update(body).digest('hex');
     return `agent:cache:${hash}`;
   }
 
@@ -296,6 +448,30 @@ export class AgentsService {
       `Objective: ${preview(objective, 160)}`,
       `Outcome: ${preview(answer, 280)}`,
     ].join('\n');
+  }
+
+  private async _autoUpsertVectorMemory(
+    prompt: string,
+    result: Partial<AgentState>,
+    repoFingerprint: string,
+  ): Promise<void> {
+    const answer = result.finalAnswer;
+    if (!answer) return;
+    const objective = (result.objective ?? prompt).slice(0, 300);
+    const text = `Objective: ${objective}\nSolution: ${answer.slice(0, 600)}`;
+    try {
+      await upsertVectorMemory({
+        text,
+        metadata: {
+          repoFingerprint,
+          timestamp: Date.now(),
+          salience: 0.8,
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Auto vector upsert failed: ${message}`);
+    }
   }
 
   private _mergeSessionMemory(

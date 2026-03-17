@@ -51,6 +51,29 @@ export const buildPlannerPrompt = (state: AgentState): string =>
     ),
   });
 
+export const buildChatPrompt = (state: AgentState): string => {
+  const memory = state.sessionMemory
+    ? `\n\nPrevious conversation summary:\n${state.sessionMemory.slice(0, 600)}`
+    : '';
+  return `You are a helpful assistant. Answer the user's question directly and concisely.${memory}\n\nUser: ${state.input}\n\nAssistant:`;
+};
+
+export const buildGeneratorPrompt = (state: AgentState): string => {
+  const steps = (state.attempts ?? [])
+    .map(
+      (a, i) =>
+        `Step ${i + 1} [${a.tool}]: ${a.result?.preview ?? JSON.stringify(a.result)}`,
+    )
+    .join('\n');
+  return [
+    `You are a technical assistant. The user's objective was:`,
+    state.objective ?? state.input,
+    `\nThe agent completed the following steps:\n${steps || '(none)'}`,
+    `\nSynthesize a clear, complete, user-facing answer. Be concise. Do not include raw tool output unless it is the answer itself.`,
+    `\nAnswer:`,
+  ].join('\n');
+};
+
 export const buildCriticPrompt = (state: AgentState): string => {
   const plan = state.plan ?? [];
   const currentStep = state.currentStep ?? 0;

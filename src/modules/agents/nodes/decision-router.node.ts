@@ -8,7 +8,6 @@ import {
 } from '../state/agent-state.helpers';
 import {
   beginExecutionStep,
-  completeAgentRun,
   failAgentRun,
   replayRepairedJson,
   transitionToPhase,
@@ -52,15 +51,12 @@ export async function decisionRouterNode(
 
     if (current >= limit) {
       logPhaseEnd('DECISION_ROUTER', `FATAL: ${check.label}`, elapsed());
-      return failAgentRun(
-        `Stopped: exceeded ${check.label} (${limit}).`,
-        {
-          code: 'timeout',
-          message: `Exceeded ${check.label}`,
-          atPhase: AGENT_PHASES.ROUTE,
-          details: { counters, limits: AGENT_LIMITS },
-        },
-      );
+      return failAgentRun(`Stopped: exceeded ${check.label} (${limit}).`, {
+        code: 'timeout',
+        message: `Exceeded ${check.label}`,
+        atPhase: AGENT_PHASES.ROUTE,
+        details: { counters, limits: AGENT_LIMITS },
+      });
     }
   }
 
@@ -88,7 +84,11 @@ export async function decisionRouterNode(
     // If there is no critic decision yet, continue to next deterministic phase.
     // If the phase is 'route' (meaning no node changed it), it's a supervisor fallback.
     if (state.phase === AGENT_PHASES.ROUTE) {
-      logPhaseEnd('DECISION_ROUTER', 'NO DECISION → SUPERVISOR FALLBACK', elapsed());
+      logPhaseEnd(
+        'DECISION_ROUTER',
+        'NO DECISION → SUPERVISOR FALLBACK',
+        elapsed(),
+      );
       return transitionToPhase(AGENT_PHASES.SUPERVISOR, {
         counters: incrementAgentCounters(counters, {
           supervisorFallbacks: 1,
@@ -111,11 +111,14 @@ export async function decisionRouterNode(
       const nextStepIndex = currentStep + 1;
       const nextStep = plan[nextStepIndex];
       if (!nextStep) {
-        logPhaseEnd('DECISION_ROUTER', 'COMPLETE (plan exhausted)', elapsed());
-        return completeAgentRun(
-          decision.finalAnswer ?? state.toolResult?.preview ?? 'Completed.',
-          { criticDecision: undefined },
+        logPhaseEnd(
+          'DECISION_ROUTER',
+          'COMPLETE (plan exhausted) → GENERATE',
+          elapsed(),
         );
+        return transitionToPhase(AGENT_PHASES.GENERATE, {
+          criticDecision: undefined,
+        });
       }
 
       logPhaseEnd(
@@ -128,8 +131,8 @@ export async function decisionRouterNode(
       });
     }
 
-    logPhaseEnd('DECISION_ROUTER', 'COMPLETE', elapsed());
-    return completeAgentRun(decision.finalAnswer ?? 'Completed.', {
+    logPhaseEnd('DECISION_ROUTER', 'COMPLETE → GENERATE', elapsed());
+    return transitionToPhase(AGENT_PHASES.GENERATE, {
       criticDecision: undefined,
     });
   }
@@ -170,8 +173,12 @@ export async function decisionRouterNode(
   // advance
   const nextStepIndex = currentStep + 1;
   if (nextStepIndex >= plan.length) {
-    logPhaseEnd('DECISION_ROUTER', 'COMPLETE (plan exhausted)', elapsed());
-    return completeAgentRun(state.toolResult?.preview ?? 'Completed.', {
+    logPhaseEnd(
+      'DECISION_ROUTER',
+      'ADVANCE (plan exhausted) → GENERATE',
+      elapsed(),
+    );
+    return transitionToPhase(AGENT_PHASES.GENERATE, {
       criticDecision: undefined,
     });
   }

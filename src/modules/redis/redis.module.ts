@@ -28,9 +28,7 @@ export class RedisModule implements OnModuleInit, OnApplicationShutdown {
   constructor(@Inject(REDIS_CLIENT) private readonly redisClient: Redis) {}
 
   async onModuleInit() {
-    if (
-      ['connect', 'connecting', 'ready'].includes(this.redisClient.status)
-    ) {
+    if (['connect', 'connecting', 'ready'].includes(this.redisClient.status)) {
       return;
     }
 

@@ -4,6 +4,7 @@ import type { AgentState } from './agent.state';
 
 interface InitialAgentRunStateOptions {
   sessionMemory?: string;
+  sessionId?: string;
 }
 
 export function createInitialAgentRunState(
@@ -13,9 +14,11 @@ export function createInitialAgentRunState(
   return {
     input: prompt,
     phase: AGENT_PHASES.SUPERVISOR,
+    sessionId: options.sessionId,
     currentStep: 0,
     plan: [],
     objective: undefined,
+    reviewRequest: undefined,
     expectedResult: undefined,
     selectedTool: undefined,
     toolParams: undefined,

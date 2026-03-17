@@ -46,7 +46,9 @@ describe('VectorModule', () => {
     const errorSpy = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
-    mockQdrantClient.getCollections.mockRejectedValue(new Error('fetch failed'));
+    mockQdrantClient.getCollections.mockRejectedValue(
+      new Error('fetch failed'),
+    );
 
     await expect(
       new VectorModule(mockQdrantClient as any).onModuleInit(),

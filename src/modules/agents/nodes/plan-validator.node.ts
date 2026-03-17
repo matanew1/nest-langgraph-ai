@@ -1,9 +1,11 @@
-import type { AgentState, PlanStep } from '../state/agent.state';
+import type { AgentState } from '../state/agent.state';
 import { AGENT_PHASES } from '../state/agent-phase';
 import {
   beginExecutionStep,
   failAgentRun,
+  requestPlanReview,
 } from '../state/agent-transition.util';
+import { env } from '@config/env';
 import { toolRegistry } from '../tools';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { AGENT_PLAN_LIMITS } from '../graph/agent.config';
@@ -177,5 +179,11 @@ export async function planValidatorNode(
 
   const first = steps[0];
   logPhaseEnd('PLAN_VALIDATOR', 'OK', elapsed());
+
+  if (env.requirePlanReview && state.sessionId) {
+    logPhaseEnd('PLAN_VALIDATOR', 'AWAIT_PLAN_REVIEW', elapsed());
+    return requestPlanReview(state.sessionId, state);
+  }
+
   return beginExecutionStep(first, 0);
 }

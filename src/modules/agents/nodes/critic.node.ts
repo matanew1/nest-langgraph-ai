@@ -46,7 +46,7 @@ export async function criticNode(
       fromPhase: AGENT_PHASES.JUDGE,
       raw,
       schema:
-        '{"decision":"advance|retry_step|replan|complete|fatal","reason":"string","finalAnswer?":"string","suggestedPlanFix?":"string"}',
+        '{"decision":"advance|retry_step|replan|complete|fatal","reason":"string","finalAnswer?":"string"}',
       message: `Critic JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
     });
   }

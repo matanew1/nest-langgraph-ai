@@ -39,7 +39,7 @@ describe('AgentsService', () => {
   const invoke = jest.fn();
 
   beforeEach(async () => {
-    const compileMock = (agentWorkflow as any)['compile'] as jest.Mock;
+    const compileMock = agentWorkflow['compile'] as jest.Mock;
     compileMock.mockReturnValue({
       invoke,
       stream: jest.fn(),

@@ -35,7 +35,10 @@ export class HealthController {
 
   @Get('dependencies')
   @ApiOperation({ summary: 'Detailed dependency diagnostics endpoint' })
-  @ApiResponse({ status: 200, description: 'Required and optional dependencies' })
+  @ApiResponse({
+    status: 200,
+    description: 'Required and optional dependencies',
+  })
   dependencies(): Promise<DependencyReportResponse> {
     return this.healthService.getDependencyReport();
   }

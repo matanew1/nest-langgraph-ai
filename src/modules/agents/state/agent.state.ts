@@ -50,13 +50,20 @@ export interface CriticDecisionState {
   decision: 'advance' | 'retry_step' | 'replan' | 'complete' | 'fatal';
   reason: string;
   finalAnswer?: string;
-  suggestedPlanFix?: string;
+}
+
+export interface ReviewRequest {
+  sessionId: string;
+  plan: PlanStep[];
+  objective?: string;
 }
 
 export interface AgentStateShape {
   input: string;
   phase: AgentPhase;
+  sessionId?: string;
   objective?: string;
+  reviewRequest?: ReviewRequest;
   plan: PlanStep[];
   currentStep: number;
   expectedResult?: string;
@@ -85,8 +92,15 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (_, curr) => curr,
     default: () => 'supervisor',
   }),
+  /** Session ID threaded into state so nodes can reference it */
+  sessionId: Annotation<string | undefined>,
   /** Normalized objective derived by supervisor */
   objective: Annotation<string | undefined>,
+  /** Set by plan-validator when REQUIRE_PLAN_REVIEW is enabled; cleared on resume */
+  reviewRequest: Annotation<ReviewRequest | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
   /** Multi-step execution plan created by the planner */
   plan: Annotation<PlanStep[]>({
     reducer: (_, curr) => curr,

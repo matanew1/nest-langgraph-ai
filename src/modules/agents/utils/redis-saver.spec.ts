@@ -157,9 +157,9 @@ class FakeRedis {
     const entries = this.zsets.get(key) ?? [];
     if (entries.length === 0) return;
 
-    const normalizedStart = start < 0 ? Math.max(entries.length + start, 0) : start;
-    const normalizedEnd =
-      end < 0 ? Math.max(entries.length + end, -1) : end;
+    const normalizedStart =
+      start < 0 ? Math.max(entries.length + start, 0) : start;
+    const normalizedEnd = end < 0 ? Math.max(entries.length + end, -1) : end;
 
     if (normalizedStart > normalizedEnd || normalizedEnd < 0) return;
 
@@ -177,9 +177,7 @@ class FakeRedis {
     if (reverse) base.reverse();
 
     const normalizedEnd = end < 0 ? base.length + end : end;
-    return base
-      .slice(start, normalizedEnd + 1)
-      .map((entry) => entry.member);
+    return base.slice(start, normalizedEnd + 1).map((entry) => entry.member);
   }
 }
 

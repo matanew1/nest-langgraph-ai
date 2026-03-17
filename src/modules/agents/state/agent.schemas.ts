@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const supervisorOutputSchema = z
   .object({
     status: z.enum(['ok', 'reject']),
+    mode: z.enum(['agent', 'chat']).optional(),
     objective: z.string().min(1).optional(),
     message: z.string().min(1).optional(),
     missing_capabilities: z.array(z.string()).optional(),
@@ -47,7 +48,6 @@ export const criticDecisionSchema = z
     decision: z.enum(['advance', 'retry_step', 'replan', 'complete', 'fatal']),
     reason: z.string().min(1),
     finalAnswer: z.string().min(1).optional(),
-    suggestedPlanFix: z.string().min(1).optional(),
   })
   .strict()
   .superRefine((val, ctx) => {

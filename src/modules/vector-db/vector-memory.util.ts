@@ -43,7 +43,10 @@ function normalizePayload(payload: unknown): Record<string, unknown> {
     : {};
 }
 
-function safeJsonPreview(value: unknown, maxChars = DEFAULT_TEXT_PREVIEW_CHARS): string {
+function safeJsonPreview(
+  value: unknown,
+  maxChars = DEFAULT_TEXT_PREVIEW_CHARS,
+): string {
   const text =
     typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 
@@ -74,12 +77,6 @@ function getPayloadText(payload: Record<string, unknown>): string | undefined {
 
   if (metadata.length === 0) return undefined;
   return safeJsonPreview(Object.fromEntries(metadata));
-}
-
-function formatMetadata(payload: Record<string, unknown>): string | undefined {
-  const metadata = Object.entries(payload).filter(([key]) => key !== 'text');
-  if (metadata.length === 0) return undefined;
-  return safeJsonPreview(Object.fromEntries(metadata), 180);
 }
 
 export async function getVectorCollectionSnapshot(
@@ -176,40 +173,21 @@ export async function buildVectorResearchContext(
   query: string,
 ): Promise<string> {
   try {
-    const [snapshot, memories] = await Promise.all([
-      getVectorCollectionSnapshot(),
-      searchVectorMemories(query),
-    ]);
-
-    const lines = [
-      '## Vector memory (Qdrant)',
-      `Collection: ${snapshot.name} | status=${snapshot.status} | points=${snapshot.pointsCount ?? 'unknown'} | indexed=${snapshot.indexedVectorsCount ?? 'unknown'} | vectorSize=${snapshot.vectorSize ?? 'unknown'}`,
-    ];
-
-    if (snapshot.warnings.length > 0) {
-      lines.push(`Warnings: ${snapshot.warnings.join(' | ')}`);
-    }
+    const memories = await searchVectorMemories(query);
 
     if (memories.length === 0) {
-      lines.push(`Relevant memories for "${query}": none found.`);
-      return lines.join('\n');
+      return `## Relevant past memories:\nNone found for "${query}".`;
     }
 
-    lines.push(`Relevant memories for "${query}":`);
+    const lines = ['## Relevant past memories:'];
     for (const [index, memory] of memories.entries()) {
-      const metadata = formatMetadata(memory.payload);
-      lines.push(
-        `${index + 1}. score=${memory.score.toFixed(3)} id=${memory.id} ${memory.text ?? '(no text payload)'}`,
-      );
-      if (metadata) {
-        lines.push(`   metadata=${metadata}`);
-      }
+      lines.push(`${index + 1}. ${memory.text ?? '(no text payload)'}`);
     }
 
     return lines.join('\n');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(`Vector research context unavailable: ${message}`);
-    return `## Vector memory (Qdrant)\n(unavailable: ${message})`;
+    return `## Relevant past memories:\n(unavailable: ${message})`;
   }
 }

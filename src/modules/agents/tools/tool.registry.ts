@@ -48,9 +48,7 @@ export class ToolRegistry {
     }));
   }
 
-  describeForPrompt(options?: {
-    excludeNames?: Iterable<string>;
-  }): string {
+  describeForPrompt(options?: { excludeNames?: Iterable<string> }): string {
     const excluded = new Set(options?.excludeNames ?? []);
 
     return this.list()

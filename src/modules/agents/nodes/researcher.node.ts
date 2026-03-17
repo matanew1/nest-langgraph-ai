@@ -59,7 +59,9 @@ export async function researcherNode(
     if (gitTool) {
       try {
         const status = (await gitTool.invoke({ action: 'status' })) as string;
-        workspaceSections.push(`## Git status\n${status || '(clean working tree)'}`);
+        workspaceSections.push(
+          `## Git status\n${status || '(clean working tree)'}`,
+        );
       } catch (e) {
         logger.error('Failed to fetch git status', e);
         workspaceSections.push('## Git status\n(unavailable)');

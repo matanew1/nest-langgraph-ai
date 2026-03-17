@@ -12,12 +12,20 @@ interface AstChunk {
   };
 }
 
-export function extractStateGraphNodes(init: t.CallExpression, code: string): AstChunk[] {
+export function extractStateGraphNodes(
+  init: t.CallExpression,
+  code: string,
+): AstChunk[] {
   const chunks: AstChunk[] = [];
   let chain: t.Expression = init;
 
   // Traverse the fluent chain collecting .addNode calls
-  while (t.isCallExpression(chain) && t.isMemberExpression(chain.callee) && t.isIdentifier(chain.callee.property) && chain.callee.property.name === 'addNode') {
+  while (
+    t.isCallExpression(chain) &&
+    t.isMemberExpression(chain.callee) &&
+    t.isIdentifier(chain.callee.property) &&
+    chain.callee.property.name === 'addNode'
+  ) {
     const arg = chain.arguments[0];
     let nodeName = 'unknown';
     if (t.isMemberExpression(arg) && t.isIdentifier(arg.property)) {
@@ -34,10 +42,11 @@ export function extractStateGraphNodes(init: t.CallExpression, code: string): As
         type: 'state_node',
         name: nodeName,
         summary: `StateGraph.addNode(${nodeName})`,
-        code_snippet: snippet.slice(0, 500) + (snippet.length > 500 ? '...' : ''),
-        loc: { 
-          start: chain.loc.start, 
-          end: chain.loc.end 
+        code_snippet:
+          snippet.slice(0, 500) + (snippet.length > 500 ? '...' : ''),
+        loc: {
+          start: chain.loc.start,
+          end: chain.loc.end,
         },
       });
     }
@@ -45,9 +54,13 @@ export function extractStateGraphNodes(init: t.CallExpression, code: string): As
   }
 
   // Validate the chain starts with new StateGraph(...)
-  if (t.isCallExpression(chain) && chain.callee.type === 'NewExpression' && t.isIdentifier(chain.callee.callee) && chain.callee.callee.name === 'StateGraph') {
+  if (
+    t.isCallExpression(chain) &&
+    chain.callee.type === 'NewExpression' &&
+    t.isIdentifier(chain.callee.callee) &&
+    chain.callee.callee.name === 'StateGraph'
+  ) {
     return chunks;
   }
   return [];
 }
-

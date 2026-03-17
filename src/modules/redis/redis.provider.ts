@@ -23,9 +23,7 @@ redis.on('connect', () => logger.log('Redis connected'));
 redis.on('ready', () => logger.log('Redis ready'));
 redis.on('error', (err: Error) => {
   const message = err.message || 'Unknown Redis error';
-  logger.error(
-    `Redis error (${env.redisHost}:${env.redisPort}): ${message}`,
-  );
+  logger.error(`Redis error (${env.redisHost}:${env.redisPort}): ${message}`);
 });
 redis.on('close', () => logger.warn('Redis connection closed'));
 redis.on('reconnecting', () => logger.warn('Redis reconnecting…'));

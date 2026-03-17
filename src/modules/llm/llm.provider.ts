@@ -42,7 +42,7 @@ export async function invokeLlm(
 
       const res = await llm.invoke(prompt, { signal: controller.signal });
       const content = res.content;
-      
+
       if (typeof content === 'string') return content;
       if (Array.isArray(content)) {
         return content
@@ -54,7 +54,7 @@ export async function invokeLlm(
       return String(content);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      
+
       if (controller.signal.aborted) {
         logger.error(
           `LLM call timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
@@ -66,7 +66,10 @@ export async function invokeLlm(
       }
 
       // Don't retry if it's a fatal error (e.g., authentication, invalid request)
-      if (lastError.message.includes('401') || lastError.message.includes('400')) {
+      if (
+        lastError.message.includes('401') ||
+        lastError.message.includes('400')
+      ) {
         throw lastError;
       }
 

@@ -4,6 +4,7 @@ import type {
   AgentState,
   AgentStateUpdates,
   PlanStep,
+  ReviewRequest,
 } from './agent.state';
 
 export function transitionToPhase(
@@ -59,6 +60,18 @@ export function requestClarification(
     ...updates,
     errors: [error],
   });
+}
+
+export function requestPlanReview(
+  sessionId: string,
+  state: Pick<AgentState, 'plan' | 'objective'>,
+): Partial<AgentState> {
+  const reviewRequest: ReviewRequest = {
+    sessionId,
+    plan: state.plan,
+    objective: state.objective,
+  };
+  return transitionToPhase(AGENT_PHASES.AWAIT_PLAN_REVIEW, { reviewRequest });
 }
 
 export function requestJsonRepair(args: {

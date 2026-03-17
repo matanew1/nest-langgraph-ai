@@ -64,7 +64,16 @@ export class AgentsController {
             data: { type: 'string' },
             event: {
               type: 'string',
-              enum: ['step', 'tool_call', 'chunk', 'final', 'error'],
+              enum: [
+                'status',
+                'plan',
+                'tool_call_started',
+                'tool_call_finished',
+                'llm_token',
+                'review_required',
+                'final',
+                'error',
+              ],
             },
             id: { type: 'string' },
           },
@@ -95,5 +104,35 @@ export class AgentsController {
   })
   async deleteSession(@Param('sessionId') sessionId: string): Promise<void> {
     return this.agentsService.deleteSession(sessionId);
+  }
+
+  @Post('session/:sessionId/approve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Approve a pending plan and resume agent execution',
+  })
+  @ApiSessionIdParam()
+  async approvePlan(
+    @Param('sessionId') sessionId: string,
+  ): Promise<AgentRunResult> {
+    return this.agentsService.approvePlan(sessionId);
+  }
+
+  @Post('session/:sessionId/reject')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reject a pending plan and stop the agent run' })
+  @ApiSessionIdParam()
+  async rejectPlan(@Param('sessionId') sessionId: string): Promise<void> {
+    return this.agentsService.rejectPlan(sessionId);
+  }
+
+  @Post('session/:sessionId/replan')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reject the plan and trigger a full re-plan' })
+  @ApiSessionIdParam()
+  async replanSession(
+    @Param('sessionId') sessionId: string,
+  ): Promise<AgentRunResult> {
+    return this.agentsService.replanSession(sessionId);
   }
 }

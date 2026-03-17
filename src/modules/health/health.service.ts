@@ -41,8 +41,9 @@ export class HealthService {
 
   async getReadiness(): Promise<ReadinessResponse> {
     const details = await this.getRequiredDependencyStatuses();
-    const status =
-      Object.values(details).every((value) => value === 'ok') ? 'ok' : 'unhealthy';
+    const status = Object.values(details).every((value) => value === 'ok')
+      ? 'ok'
+      : 'unhealthy';
 
     return {
       status,
@@ -128,12 +129,16 @@ export class HealthService {
     DependencyReportResponse['optional']
   > {
     const now = Date.now();
-    if (this.optionalDependenciesCache && this.optionalDependenciesCache.expiresAt > now) {
+    if (
+      this.optionalDependenciesCache &&
+      this.optionalDependenciesCache.expiresAt > now
+    ) {
       return this.optionalDependenciesCache.value;
     }
 
     if (!this.optionalDependenciesPromise) {
-      this.optionalDependenciesPromise = this.refreshOptionalDependencyStatuses();
+      this.optionalDependenciesPromise =
+        this.refreshOptionalDependencyStatuses();
     }
 
     return this.optionalDependenciesPromise;

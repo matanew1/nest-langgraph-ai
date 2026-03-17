@@ -1,10 +1,7 @@
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import { ToolRegistry } from './tool.registry';
 
-function makeTool(
-  name: string,
-  description: string,
-): StructuredToolInterface {
+function makeTool(name: string, description: string): StructuredToolInterface {
   return {
     name,
     description,

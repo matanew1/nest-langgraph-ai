@@ -26,8 +26,8 @@ DECISION LOGIC:
 Output JSON schema (strict; no extra keys):
 
 {"decision":"advance","reason":"<why this step succeeded>"}
-{"decision":"retry_step","reason":"<what went wrong and why retry may work>","suggestedPlanFix":"<optional hint to adjust params/tool>"}
-{"decision":"replan","reason":"<why re-planning is needed>","suggestedPlanFix":"<what the new plan should change>"}
+{"decision":"retry_step","reason":"<what went wrong and why retry may work>"}
+{"decision":"replan","reason":"<why re-planning is needed>"}
 {"decision":"complete","reason":"<why done>","finalAnswer":"<user-facing answer>"}
 {"decision":"fatal","reason":"<why impossible/unsafe>","finalAnswer":"<user-facing error explanation>"}
 

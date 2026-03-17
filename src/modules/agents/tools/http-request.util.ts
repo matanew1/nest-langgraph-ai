@@ -179,7 +179,9 @@ async function assertHttpToolUrlAllowed(rawUrl: string): Promise<URL> {
     hostname.endsWith('.local') ||
     hostname.endsWith('.internal')
   ) {
-    throw new Error(`Host "${hostname}" is blocked by the outbound HTTP policy`);
+    throw new Error(
+      `Host "${hostname}" is blocked by the outbound HTTP policy`,
+    );
   }
 
   if (isIP(hostname)) {
@@ -222,7 +224,11 @@ export async function performHttpRequest(args: {
   let headers = args.headers;
 
   try {
-    for (let redirectCount = 0; redirectCount <= env.httpToolMaxRedirects; redirectCount++) {
+    for (
+      let redirectCount = 0;
+      redirectCount <= env.httpToolMaxRedirects;
+      redirectCount++
+    ) {
       const validatedUrl = await assertHttpToolUrlAllowed(currentUrl);
       const response = await fetch(validatedUrl.toString(), {
         method,

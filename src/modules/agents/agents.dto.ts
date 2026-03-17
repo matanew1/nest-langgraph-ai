@@ -68,7 +68,15 @@ export class StreamAgentDto {
 }
 
 export interface StreamEventDto {
-  type: 'step' | 'tool_call' | 'chunk' | 'final' | 'error';
+  type:
+    | 'status'
+    | 'plan'
+    | 'tool_call_started'
+    | 'tool_call_finished'
+    | 'llm_token'
+    | 'review_required'
+    | 'final'
+    | 'error';
   data: string;
   sessionId: string;
   step?: number;

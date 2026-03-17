@@ -7,20 +7,22 @@ jest.mock('@config/env', () => ({
 }));
 jest.mock('../tools', () => ({
   toolRegistry: {
-    describeForPrompt: jest.fn(({ excludeNames }: { excludeNames?: Iterable<string> }) => {
-      const excluded = new Set(excludeNames ?? []);
-      return [
-        ['search', '- search: search tool\n  params: {"query":"<q>"}'],
-        ['read_file', '- read_file: read file\n  params: {"path":"<p>"}'],
-        [
-          'write_file',
-          '- write_file: write file\n  params: {"path":"<p>","content":"<c>"}',
-        ],
-      ]
-        .filter(([name]) => !excluded.has(name))
-        .map(([, line]) => line)
-        .join('\n');
-    }),
+    describeForPrompt: jest.fn(
+      ({ excludeNames }: { excludeNames?: Iterable<string> }) => {
+        const excluded = new Set(excludeNames ?? []);
+        return [
+          ['search', '- search: search tool\n  params: {"query":"<q>"}'],
+          ['read_file', '- read_file: read file\n  params: {"path":"<p>"}'],
+          [
+            'write_file',
+            '- write_file: write file\n  params: {"path":"<p>","content":"<c>"}',
+          ],
+        ]
+          .filter(([name]) => !excluded.has(name))
+          .map(([, line]) => line)
+          .join('\n');
+      },
+    ),
   },
 }));
 

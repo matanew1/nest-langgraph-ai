@@ -51,8 +51,20 @@ export async function supervisorNode(
     }
 
     const objective = decision.objective ?? state.input;
-    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(objective)}"`, elapsed());
 
+    if (decision.mode === 'chat') {
+      logPhaseEnd(
+        'SUPERVISOR',
+        `CHAT MODE → "${preview(objective)}"`,
+        elapsed(),
+      );
+      return transitionToPhase(AGENT_PHASES.CHAT, {
+        objective,
+        jsonRepairResult: undefined,
+      });
+    }
+
+    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(objective)}"`, elapsed());
     return transitionToPhase(AGENT_PHASES.RESEARCH, {
       objective,
       jsonRepairResult: undefined,
@@ -63,7 +75,7 @@ export async function supervisorNode(
       fromPhase: AGENT_PHASES.SUPERVISOR,
       raw,
       schema:
-        '{"status":"ok|reject","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
+        '{"status":"ok|reject","mode?":"agent|chat","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
       message: `Supervisor JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
     });
   }

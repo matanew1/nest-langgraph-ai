@@ -4,61 +4,32 @@ flowchart LR
   START((START))
   END((END))
 
-  subgraph Planning["📝 Planning Phase"]
-    direction TB
-    PLANNER[PLANNER\nnodes/planner.node.ts]
-    PLAN_VALIDATOR[PLAN_VALIDATOR\nnodes/plan-validator.node.ts]
-  end
+  SUPERVISOR[SUPERVISOR\nnodes/supervisor.node.ts]
+  RESEARCHER[RESEARCHER\nnodes/researcher.node.ts]
+  PLANNER[PLANNER\nnodes/planner.node.ts]
+  PLAN_VALIDATOR[PLAN_VALIDATOR\nnodes/plan-validator.node.ts]
+  EXECUTE[EXECUTE\nnodes/execution.node.ts]
+  TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\nnodes/tool-result-normalizer.node.ts]
+  CRITIC[CRITIC\nnodes/critic.node.ts]
+  JSON_REPAIR[JSON_REPAIR\nnodes/json-repair.node.ts]
 
-  subgraph Execution["⚙️ Execution Phase"]
-    direction TB
-    EXECUTE[EXECUTE\nnodes/execution.node.ts]
-    TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\nnodes/tool-result-normalizer.node.ts]
-  end
-
-  subgraph Analysis["🔍 Analysis Phase"]
-    direction TB
-    RESEARCHER[RESEARCHER\nnodes/researcher.node.ts]
-    CRITIC[CRITIC\nnodes/critic.node.ts]
-    JSON_REPAIR[JSON_REPAIR\nnodes/json-repair.node.ts]
-  end
-
-  subgraph Control["🎯 Control Phase"]
-    direction TB
-    SUPERVISOR[SUPERVISOR\nnodes/supervisor.node.ts]
-    ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
-  end
-
-  %% Node styling
-  classDef planner fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
-  classDef supervisor fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
-  classDef router fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
-  classDef execution fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-  classDef analysis fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-  classDef startEnd fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#000,stroke-dasharray: 5 5
-  classDef conditionalEdge stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-
-  class PLANNER,PLAN_VALIDATOR planner
-  class SUPERVISOR supervisor
-  class ROUTER router
-  class EXECUTE,TOOL_RESULT_NORMALIZER execution
-  class RESEARCHER,CRITIC,JSON_REPAIR analysis
-  class START,END startEnd
+  ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
 
   %% Fixed edges (every node returns to ROUTER)
-  START -->|Initiates workflow| SUPERVISOR
-  SUPERVISOR -->|Supervisor output| ROUTER
-  PLANNER -->|Planning output| ROUTER
-  PLAN_VALIDATOR -->|Validation output| ROUTER
-  EXECUTE -->|Execution output| ROUTER
-  TOOL_RESULT_NORMALIZER -->|Normalized output| ROUTER
-  RESEARCHER -->|Research output| ROUTER
-  CRITIC -->|Critique output| ROUTER
-  JSON_REPAIR -->|Repaired output| ROUTER
+  START --> SUPERVISOR
+  SUPERVISOR --> ROUTER
+  RESEARCHER --> ROUTER
+  PLANNER --> ROUTER
+  PLAN_VALIDATOR --> ROUTER
+  EXECUTE --> ROUTER
+  TOOL_RESULT_NORMALIZER --> ROUTER
+  CRITIC --> ROUTER
+  JSON_REPAIR --> ROUTER
 
   %% Conditional edges from ROUTER
   ROUTER -->|phase = complete OR fatal| END
   ROUTER -->|jsonRepair flag set| JSON_REPAIR
+
   ROUTER -->|phase = supervisor| SUPERVISOR
   ROUTER -->|phase = research| RESEARCHER
   ROUTER -->|phase = plan| PLANNER
@@ -66,4 +37,6 @@ flowchart LR
   ROUTER -->|phase = execute| EXECUTE
   ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
   ROUTER -->|phase = judge| CRITIC
+
+  %% Fallback (when phase is route/unknown and no other condition matched)
   ROUTER -->|phase = route / default fallback| SUPERVISOR

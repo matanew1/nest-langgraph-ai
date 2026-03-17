@@ -54,7 +54,9 @@ export class RedisSaver extends BaseCheckpointSaver {
   }
 
   private encodeNamespace(namespace = ''): string {
-    return namespace ? encodeURIComponent(namespace) : this.defaultNamespaceToken;
+    return namespace
+      ? encodeURIComponent(namespace)
+      : this.defaultNamespaceToken;
   }
 
   private decodeNamespace(token: string): string {
@@ -142,7 +144,9 @@ export class RedisSaver extends BaseCheckpointSaver {
   private async loadPendingWrites(
     checkpointId: string,
   ): Promise<PendingWriteTuple[]> {
-    const data = await this.client.hgetall(this.getCheckpointWritesKey(checkpointId));
+    const data = await this.client.hgetall(
+      this.getCheckpointWritesKey(checkpointId),
+    );
     const entries = Object.entries(data).sort(([left], [right]) => {
       const [, leftIndex = '0'] = left.split(',');
       const [, rightIndex = '0'] = right.split(',');
@@ -195,8 +199,12 @@ export class RedisSaver extends BaseCheckpointSaver {
   }
 
   private async getTrackedNamespaces(threadId: string): Promise<string[]> {
-    const tokens = await this.client.smembers(this.getThreadNamespacesKey(threadId));
-    const namespaces = new Set(tokens.map((token) => this.decodeNamespace(token)));
+    const tokens = await this.client.smembers(
+      this.getThreadNamespacesKey(threadId),
+    );
+    const namespaces = new Set(
+      tokens.map((token) => this.decodeNamespace(token)),
+    );
     namespaces.add('');
     return Array.from(namespaces);
   }
@@ -285,7 +293,8 @@ export class RedisSaver extends BaseCheckpointSaver {
         if (
           options?.filter &&
           !Object.entries(options.filter).every(
-            ([key, value]) => (metadata as Record<string, unknown>)[key] === value,
+            ([key, value]) =>
+              (metadata as Record<string, unknown>)[key] === value,
           )
         ) {
           continue;
@@ -334,7 +343,7 @@ export class RedisSaver extends BaseCheckpointSaver {
     const pipeline = this.client.pipeline();
 
     if (this.ttlSeconds > 0) {
-      pipeline.set(recordKey, Buffer.from(recordBytes as Uint8Array), 'EX', this.ttlSeconds);
+      pipeline.set(recordKey, Buffer.from(recordBytes), 'EX', this.ttlSeconds);
       pipeline.set(latestKey, checkpoint.id, 'EX', this.ttlSeconds);
       pipeline.zadd(historyKey, Date.now(), checkpoint.id);
       pipeline.expire(historyKey, this.ttlSeconds);
@@ -347,7 +356,7 @@ export class RedisSaver extends BaseCheckpointSaver {
         pipeline.expire(legacySetKey, this.ttlSeconds);
       }
     } else {
-      pipeline.set(recordKey, Buffer.from(recordBytes as Uint8Array));
+      pipeline.set(recordKey, Buffer.from(recordBytes));
       pipeline.set(latestKey, checkpoint.id);
       pipeline.zadd(historyKey, Date.now(), checkpoint.id);
       pipeline.sadd(namespacesKey, this.encodeNamespace(checkpointNamespace));
@@ -401,9 +410,7 @@ export class RedisSaver extends BaseCheckpointSaver {
         channel,
         value,
       ]);
-      const encoded = Buffer.from(serializedWrite as Uint8Array).toString(
-        'base64',
-      );
+      const encoded = Buffer.from(serializedWrite).toString('base64');
 
       if (fieldIndex >= 0) {
         pipeline.hsetnx(writesKey, field, encoded);
@@ -442,7 +449,9 @@ export class RedisSaver extends BaseCheckpointSaver {
     );
     legacyIds.forEach((id) => checkpointIds.add(id));
 
-    const legacyLatest = await this.client.get(this.getLegacyThreadKey(threadId));
+    const legacyLatest = await this.client.get(
+      this.getLegacyThreadKey(threadId),
+    );
     if (legacyLatest) checkpointIds.add(legacyLatest);
 
     if (checkpointIds.size === 0) {

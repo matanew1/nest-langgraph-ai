@@ -149,20 +149,24 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
             return 'destructured';
           return 'complex';
         });
-        // Detect StateGraph fluent builders and extract .addNode calls
-        for (const decl of node.declarations) {
-          if (t.isIdentifier(decl.id) && decl.init && t.isCallExpression(decl.init)) {
-            const stateNodes = extractStateGraphNodes(decl.init as t.CallExpression, code);
-            if (stateNodes.length > 0) {
-              stateNodes.forEach((nodeChunk) => {
-                chunks.push(nodeChunk);
-                count++;
-                if (maxChunks && count >= maxChunks) return;
-              });
-            }
+      // Detect StateGraph fluent builders and extract .addNode calls
+      for (const decl of node.declarations) {
+        if (
+          t.isIdentifier(decl.id) &&
+          decl.init &&
+          t.isCallExpression(decl.init)
+        ) {
+          const stateNodes = extractStateGraphNodes(decl.init, code);
+          if (stateNodes.length > 0) {
+            stateNodes.forEach((nodeChunk) => {
+              chunks.push(nodeChunk);
+              count++;
+              if (maxChunks && count >= maxChunks) return;
+            });
           }
         }
-        if (nonFnIds.length > 0 && !(maxChunks && count >= maxChunks)) {
+      }
+      if (nonFnIds.length > 0 && !(maxChunks && count >= maxChunks)) {
         chunks.push({
           chunk_id: `var_${chunks.length}`,
           type: 'variable',
@@ -192,7 +196,7 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
 export const astParseTool = new DynamicStructuredTool({
   name: 'ast_parse',
   description:
-'Parse JS/TS file to semantic AST chunks (functions/classes/methods/vars/StateGraph nodes). Use for structural code analysis, including LangGraph workflows.',
+    'Parse JS/TS file to semantic AST chunks (functions/classes/methods/vars/StateGraph nodes). Use for structural code analysis, including LangGraph workflows.',
   schema: z.object({
     path: z.string().describe('Path to JS/TS file'),
     maxChunks: z

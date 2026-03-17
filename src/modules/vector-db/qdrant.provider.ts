@@ -11,7 +11,9 @@ export const qdrantClient = new QdrantClient({
 
 let connectPromise: Promise<void> | undefined;
 
-export function getVectorSizeFromCollectionInfo(info: unknown): number | undefined {
+export function getVectorSizeFromCollectionInfo(
+  info: unknown,
+): number | undefined {
   if (!info || typeof info !== 'object') return undefined;
   const obj = info as Record<string, unknown>;
 

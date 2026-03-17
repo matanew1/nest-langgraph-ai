@@ -19,7 +19,10 @@ const envSchema = Joi.object({
   HTTP_TOOL_ALLOWED_HOSTS: Joi.string().allow('').default(''),
   HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: Joi.boolean().default(false),
   HTTP_TOOL_MAX_REDIRECTS: Joi.number().integer().min(0).max(10).default(3),
-  HEALTH_EXTERNAL_CHECK_TIMEOUT_MS: Joi.number().integer().min(100).default(2_000),
+  HEALTH_EXTERNAL_CHECK_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .default(2_000),
   HEALTH_EXTERNAL_CACHE_TTL_MS: Joi.number().integer().min(0).default(60_000),
   AGENT_WORKING_DIR: Joi.string().default(process.cwd()),
   CACHE_TTL_SECONDS: Joi.number().default(60),
@@ -34,6 +37,7 @@ const envSchema = Joi.object({
   QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(384),
   NODE_ENV: Joi.string().default('development'),
   ENABLE_SWAGGER: Joi.string().default('false'),
+  REQUIRE_PLAN_REVIEW: Joi.boolean().default(false),
 }).unknown(true);
 
 interface EnvVariables {
@@ -66,6 +70,7 @@ interface EnvVariables {
   QDRANT_VECTOR_SIZE: number;
   NODE_ENV: string;
   ENABLE_SWAGGER: string;
+  REQUIRE_PLAN_REVIEW: boolean;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -107,4 +112,5 @@ export const env = {
   qdrantVectorSize: validatedEnv.QDRANT_VECTOR_SIZE,
   nodeEnv: validatedEnv.NODE_ENV,
   enableSwagger: validatedEnv.ENABLE_SWAGGER,
+  requirePlanReview: validatedEnv.REQUIRE_PLAN_REVIEW,
 };

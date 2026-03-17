@@ -27,7 +27,8 @@ describe('http-request.util', () => {
       },
     }));
 
-    const util = require('./http-request.util') as typeof import('./http-request.util');
+    const util =
+      require('./http-request.util') as typeof import('./http-request.util');
     return {
       ...util,
       lookupMock,
