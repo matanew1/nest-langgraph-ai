@@ -55,13 +55,13 @@ describe('AgentsController', () => {
   describe('run', () => {
     it('should call agentsService.run and return the result', async () => {
       const prompt = 'test prompt';
-      const expectedResult = 'AI response';
-      mockAgentsService.run.mockResolvedValue(expectedResult);
+      const expected = { result: 'AI response', sessionId: 'session-123' };
+      mockAgentsService.run.mockResolvedValue(expected);
 
       const response = await controller.run({ prompt });
 
-      expect(mockAgentsService.run).toHaveBeenCalledWith(prompt);
-      expect(response).toEqual({ result: expectedResult });
+      expect(mockAgentsService.run).toHaveBeenCalledWith(prompt, undefined);
+      expect(response).toEqual(expected);
     });
 
     it('should propagate errors from the service', async () => {
