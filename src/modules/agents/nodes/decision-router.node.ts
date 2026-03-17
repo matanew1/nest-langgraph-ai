@@ -172,6 +172,7 @@ export async function decisionRouterNode(
     logPhaseEnd('DECISION_ROUTER', 'REPLAN → plan', elapsed());
     return {
       phase: 'plan',
+      projectContext: undefined,
       counters: {
         ...counters,
         replans: counters.replans + 1,

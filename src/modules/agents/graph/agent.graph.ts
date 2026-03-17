@@ -75,4 +75,3 @@ const graph = new StateGraph(AgentStateAnnotation)
   });
 
 export const agentWorkflow = graph;
-export const agentGraph = agentWorkflow.compile();
