@@ -10,21 +10,33 @@ import { tap } from 'rxjs/operators';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger('RequestDuration');
+  private readonly logger = new Logger('HTTP');
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const now = Date.now();
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest();
-    const { method, url } = request;
+    const { method, url, ip } = request;
     const controllerName = context.getClass().name;
     const handlerName = context.getHandler().name;
 
+    // Log the incoming request
+    this.logger.log(`Incoming Request: ${method} ${url} from ${ip} [${controllerName}.${handlerName}]`);
+
     return next.handle().pipe(
-      tap(() => {
-        this.logger.log(
-          `[${controllerName}] ${handlerName} (${method} ${url}) - ${Date.now() - now}ms`,
-        );
+      tap({
+        next: () => {
+          const duration = Date.now() - now;
+          this.logger.log(
+            `Request Completed: ${method} ${url} - ${duration}ms [${controllerName}.${handlerName}]`,
+          );
+        },
+        error: (err) => {
+          const duration = Date.now() - now;
+          this.logger.error(
+            `Request Failed: ${method} ${url} - ${duration}ms [${controllerName}.${handlerName}] - Error: ${err.message}`,
+          );
+        },
       }),
     );
   }

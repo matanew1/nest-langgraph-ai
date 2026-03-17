@@ -1,25 +1,38 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { redis } from '@redis/redis.provider';
+import { HealthService } from './health.service';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
+  constructor(private readonly healthService: HealthService) {}
   @Get()
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
-  async check(): Promise<{ status: string; redis: string; timestamp: string }> {
-    let redisStatus = 'ok';
-    try {
-      await redis.ping();
-    } catch {
-      redisStatus = 'unavailable';
-    }
+  async check(): Promise<any> {
+    const results = await Promise.allSettled([
+      this.healthService.checkRedis(),
+      this.healthService.checkQdrant(),
+      this.healthService.checkMistral(),
+      this.healthService.checkTavily(),
+    ]);
+
+    const [redisStatus, qdrantStatus, mistralStatus, tavilyStatus] = results.map(
+      (res) => (res.status === 'fulfilled' ? res.value : 'error'),
+    );
+
+    const isHealthy = [redisStatus, qdrantStatus].every((s) => s === 'ok');
 
     return {
-      status: 'ok',
-      redis: redisStatus,
+      status: isHealthy ? 'ok' : 'unhealthy',
+      details: {
+        redis: redisStatus,
+        qdrant: qdrantStatus,
+        mistral: mistralStatus,
+        tavily: tavilyStatus,
+      },
       timestamp: new Date().toISOString(),
     };
   }
+
 }

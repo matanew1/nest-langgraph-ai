@@ -14,6 +14,7 @@ import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
+import * as crypto from 'crypto';
 
 export interface AgentRunResult {
   result: string;
@@ -41,6 +42,14 @@ export class AgentsService {
   async run(prompt: string, sessionId?: string): Promise<AgentRunResult> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
+
+    // Check cache first
+    const cacheKey = this._getCacheKey(prompt);
+    const cachedResult = await this.redisClient.get(cacheKey);
+    if (cachedResult) {
+      this.logger.log(`🚀 AGENT RUN CACHE HIT | Prompt: "${preview(prompt)}"`);
+      return { result: cachedResult, sessionId: threadId };
+    }
 
     this.logger.log(`${SEPARATOR}`);
     this.logger.log(
@@ -91,6 +100,9 @@ export class AgentsService {
           'The agent could not produce an answer. Try rephrasing your prompt.',
         );
       }
+
+      // Cache the result
+      await this.redisClient.setex(cacheKey, env.cacheTtlSeconds, answer);
 
       const status = result.finalAnswer ? 'COMPLETE' : 'PARTIAL';
       const steps = Array.isArray(result.attempts) ? result.attempts.length : 0;
@@ -217,6 +229,11 @@ export class AgentsService {
   async deleteSession(sessionId: string): Promise<void> {
     this.logger.log(`🗑️ Deleting session state for ID: ${sessionId}`);
     return this.checkpointer.deleteThread(sessionId);
+  }
+
+  private _getCacheKey(prompt: string): string {
+    const hash = crypto.createHash('sha256').update(prompt).digest('hex');
+    return `agent:cache:${hash}`;
   }
 
   /**

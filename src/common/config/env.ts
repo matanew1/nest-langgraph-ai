@@ -25,6 +25,8 @@ const envSchema = Joi.object({
   QDRANT_COLLECTION: Joi.string().default('agent_vectors'),
   // Default matches Xenova/all-MiniLM-L6-v2 embedding dimension (free, local).
   QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(384),
+  NODE_ENV: Joi.string().default('development'),
+  ENABLE_SWAGGER: Joi.string().default('false'),
 }).unknown(true);
 
 interface EnvVariables {
@@ -48,6 +50,8 @@ interface EnvVariables {
   QDRANT_URL: string;
   QDRANT_COLLECTION: string;
   QDRANT_VECTOR_SIZE: number;
+  NODE_ENV: string;
+  ENABLE_SWAGGER: string;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -80,4 +84,6 @@ export const env = {
   qdrantUrl: validatedEnv.QDRANT_URL,
   qdrantCollection: validatedEnv.QDRANT_COLLECTION,
   qdrantVectorSize: validatedEnv.QDRANT_VECTOR_SIZE,
+  nodeEnv: validatedEnv.NODE_ENV,
+  enableSwagger: validatedEnv.ENABLE_SWAGGER,
 };
