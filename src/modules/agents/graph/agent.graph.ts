@@ -1,30 +1,11 @@
-import { START, END, StateGraph } from '@langchain/langgraph';
+import { START, StateGraph } from '@langchain/langgraph';
 import { AgentStateAnnotation } from '../state/agent.state';
-import { supervisorNode } from '../nodes/supervisor.node';
-import { researcherNode } from '../nodes/researcher.node';
-import { plannerNode } from '../nodes/planner.node';
-import { executionNode } from '../nodes/execution.node';
-import { criticNode } from '../nodes/critic.node';
-import { jsonRepairNode } from '../nodes/json-repair.node';
-import { planValidatorNode } from '../nodes/plan-validator.node';
-import { toolResultNormalizerNode } from '../nodes/tool-result-normalizer.node';
-import { decisionRouterNode } from '../nodes/decision-router.node';
-import { fatalRecoveryNode } from '../nodes/fatal-recovery.node';
-import { clarificationNode } from '../nodes/clarification.node';
-
-enum Nodes {
-  SUPERVISOR = 'supervisor',
-  RESEARCHER = 'researcher',
-  PLANNER = 'planner',
-  PLAN_VALIDATOR = 'plan_validator',
-  EXECUTE = 'execute',
-  TOOL_RESULT_NORMALIZER = 'tool_result_normalizer',
-  CRITIC = 'critic',
-  JSON_REPAIR = 'json_repair',
-  FATAL_RECOVERY = 'fatal_recovery',
-  CLARIFICATION = 'clarification',
-  ROUTER = 'router',
-}
+import {
+  AGENT_GRAPH_NODE_HANDLERS,
+  AGENT_GRAPH_NODES,
+  ROUTER_RETURN_NODES,
+  resolveRouterTarget,
+} from './agent-topology';
 
 /**
  * Phase-driven graph:
@@ -32,57 +13,18 @@ enum Nodes {
  *
  * All routing happens via ROUTER based on state.phase + flags.
  */
-const graph = new StateGraph(AgentStateAnnotation)
-  // nodes
-  .addNode(Nodes.SUPERVISOR, supervisorNode)
-  .addNode(Nodes.RESEARCHER, researcherNode)
-  .addNode(Nodes.PLANNER, plannerNode)
-  .addNode(Nodes.PLAN_VALIDATOR, planValidatorNode)
-  .addNode(Nodes.EXECUTE, executionNode)
-  .addNode(Nodes.TOOL_RESULT_NORMALIZER, toolResultNormalizerNode)
-  .addNode(Nodes.CRITIC, criticNode)
-  .addNode(Nodes.JSON_REPAIR, jsonRepairNode)
-  .addNode(Nodes.FATAL_RECOVERY, fatalRecoveryNode)
-  .addNode(Nodes.CLARIFICATION, clarificationNode)
-  .addNode(Nodes.ROUTER, decisionRouterNode)
-  // edges
-  .addEdge(START, Nodes.SUPERVISOR)
-  .addEdge(Nodes.SUPERVISOR, Nodes.ROUTER)
-  .addEdge(Nodes.RESEARCHER, Nodes.ROUTER)
-  .addEdge(Nodes.PLANNER, Nodes.ROUTER)
-  .addEdge(Nodes.PLAN_VALIDATOR, Nodes.ROUTER)
-  .addEdge(Nodes.EXECUTE, Nodes.ROUTER)
-  .addEdge(Nodes.TOOL_RESULT_NORMALIZER, Nodes.ROUTER)
-  .addEdge(Nodes.CRITIC, Nodes.ROUTER)
-  .addEdge(Nodes.JSON_REPAIR, Nodes.ROUTER)
-  .addConditionalEdges(Nodes.ROUTER, (state) => {
-    if (state.phase === 'complete') return END;
-    if (state.phase === 'fatal') return Nodes.FATAL_RECOVERY;
-    if (state.jsonRepair) return Nodes.JSON_REPAIR;
-    switch (state.phase) {
-      case 'supervisor':
-        return Nodes.SUPERVISOR;
-      case 'research':
-        return Nodes.RESEARCHER;
-      case 'plan':
-        return Nodes.PLANNER;
-      case 'validate_plan':
-        return Nodes.PLAN_VALIDATOR;
-      case 'execute':
-        return Nodes.EXECUTE;
-      case 'normalize_tool_result':
-        return Nodes.TOOL_RESULT_NORMALIZER;
-      case 'judge':
-        return Nodes.CRITIC;
-      case 'fatal_recovery':
-        return Nodes.FATAL_RECOVERY;
-      case 'clarification':
-        return Nodes.CLARIFICATION;
-      case 'route':
-      default:
-        // If router didn't change phase, go back to supervisor as a safe fallback.
-        return Nodes.SUPERVISOR;
-    }
-  });
+const graph = new StateGraph(AgentStateAnnotation) as any;
+
+for (const [node, handler] of Object.entries(AGENT_GRAPH_NODE_HANDLERS)) {
+  graph.addNode(node, handler);
+}
+
+graph.addEdge(START, AGENT_GRAPH_NODES.SUPERVISOR);
+
+for (const node of ROUTER_RETURN_NODES) {
+  graph.addEdge(node, AGENT_GRAPH_NODES.ROUTER);
+}
+
+graph.addConditionalEdges(AGENT_GRAPH_NODES.ROUTER, resolveRouterTarget);
 
 export const agentWorkflow = graph;

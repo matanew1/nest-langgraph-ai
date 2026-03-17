@@ -10,6 +10,8 @@ import {
   startTimer,
 } from '@utils/pretty-log.util';
 import { incrementAgentCounters } from '../state/agent-state.helpers';
+import { AGENT_PHASES } from '../state/agent-phase';
+import { transitionToPhase } from '../state/agent-transition.util';
 
 const logger = new Logger('Executor');
 
@@ -51,18 +53,17 @@ export async function executionNode(
   if (!tool) {
     const errorMsg = `Unknown tool "${toolName}". Available: ${toolRegistry.getNames().join(', ')}`;
     logPhaseEnd('EXECUTOR', `FAILED: ${errorMsg}`, elapsed());
-    return {
-      phase: 'normalize_tool_result',
+    return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
       toolResultRaw: `ERROR: ${errorMsg}`,
       counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
           code: 'tool_error',
           message: errorMsg,
-          atPhase: 'execute',
+          atPhase: AGENT_PHASES.EXECUTE,
         },
       ],
-    };
+    });
   }
 
   try {
@@ -90,26 +91,24 @@ export async function executionNode(
     logPhaseEnd('EXECUTOR', `OK (${result.length} chars)`, elapsed());
     logger.debug(`Result:\n${resultPreview}`);
 
-    return {
-      phase: 'normalize_tool_result',
+    return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
       toolResultRaw: result,
       counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
-    };
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const errorResult = `Tool "${toolName}" failed: ${message}`;
     logPhaseEnd('EXECUTOR', `ERROR: ${message}`, elapsed());
-    return {
-      phase: 'normalize_tool_result',
+    return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
       toolResultRaw: `ERROR: ${errorResult}`,
       counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
           code: 'tool_error',
           message: errorResult,
-          atPhase: 'execute',
+          atPhase: AGENT_PHASES.EXECUTE,
         },
       ],
-    };
+    });
   }
 }

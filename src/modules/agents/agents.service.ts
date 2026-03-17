@@ -12,10 +12,11 @@ import { env } from '@config/env';
 import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
+import { AGENT_PHASES } from './state/agent-phase';
+import { createInitialAgentRunState } from './state/agent-run-state.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
 import * as crypto from 'crypto';
-import { DEFAULT_AGENT_COUNTERS } from './state/agent-state.helpers';
 
 export interface AgentRunResult {
   result: string;
@@ -72,7 +73,7 @@ export class AgentsService {
       const previous = sessionId
         ? await this._tryLoadPreviousState(threadId)
         : undefined;
-      const initialState = this._createInitialState(prompt, previous);
+      const initialState = createInitialAgentRunState(prompt, previous);
 
       let timeoutHandle: any;
       const result: any = await Promise.race([
@@ -150,7 +151,7 @@ export class AgentsService {
       const previous = sessionId
         ? await this._tryLoadPreviousState(threadId)
         : undefined;
-      const initialState = this._createInitialState(prompt, previous);
+      const initialState = createInitialAgentRunState(prompt, previous);
 
       yield {
         type: 'step',
@@ -166,7 +167,7 @@ export class AgentsService {
         const stateSnapshot = (event as any)[node] as Partial<AgentState>;
 
         // Stream step/chunk updates (no early final)
-        if (stateSnapshot.phase === 'execute') {
+        if (stateSnapshot.phase === AGENT_PHASES.EXECUTE) {
           yield {
             type: 'step',
             data: `Executing step ${stateSnapshot.currentStep}: ${stateSnapshot.selectedTool || node}`,
@@ -190,8 +191,8 @@ export class AgentsService {
       });
       const finalAnswer = finalState.values.finalAnswer;
       if (
-        (finalState.values.phase === 'complete' ||
-          finalState.values.phase === 'fatal') &&
+        (finalState.values.phase === AGENT_PHASES.COMPLETE ||
+          finalState.values.phase === AGENT_PHASES.FATAL) &&
         finalAnswer
       ) {
         yield {
@@ -258,37 +259,4 @@ export class AgentsService {
     }
   }
 
-  private _createInitialState(
-    prompt: string,
-    previous?: Partial<AgentState>,
-  ): Partial<AgentState> {
-    return {
-      // Always replace the user input for the new turn.
-      input: prompt,
-      // Always restart the workflow at supervisor for a new user prompt.
-      phase: 'supervisor',
-
-      // Reset per-run fields so we don't execute a prior plan/tool selection.
-      currentStep: 0,
-      plan: [],
-      objective: undefined,
-      expectedResult: undefined,
-      selectedTool: undefined,
-      toolParams: undefined,
-      toolResultRaw: undefined,
-      toolResult: undefined,
-      criticDecision: undefined,
-      jsonRepair: undefined,
-      jsonRepairResult: undefined,
-      finalAnswer: undefined,
-
-      // Preserve long-lived context where helpful for better responses.
-      projectContext: previous?.projectContext,
-      attempts: previous?.attempts ?? [],
-
-      // Always reset loop counters/errors for this new prompt.
-      counters: { ...DEFAULT_AGENT_COUNTERS },
-      errors: [],
-    };
-  }
 }

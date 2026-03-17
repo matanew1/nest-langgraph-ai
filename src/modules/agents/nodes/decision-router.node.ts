@@ -1,10 +1,34 @@
 import type { AgentState } from '../state/agent.state';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { getAgentLimits } from '../graph/agent.config';
+import { AGENT_PHASES } from '../state/agent-phase';
 import {
   getAgentCounters,
   incrementAgentCounters,
 } from '../state/agent-state.helpers';
+import {
+  beginExecutionStep,
+  completeAgentRun,
+  failAgentRun,
+  replayRepairedJson,
+  transitionToPhase,
+} from '../state/agent-transition.util';
+
+const ROUTER_LIMIT_CHECKS = [
+  { counterKey: 'turn', limitKey: 'turns', label: 'max recovery turns' },
+  { counterKey: 'toolCalls', limitKey: 'toolCalls', label: 'max tool calls' },
+  { counterKey: 'replans', limitKey: 'replans', label: 'max replans' },
+  {
+    counterKey: 'stepRetries',
+    limitKey: 'stepRetries',
+    label: 'max step retries',
+  },
+  {
+    counterKey: 'supervisorFallbacks',
+    limitKey: 'supervisorFallbacks',
+    label: 'max supervisor fallbacks',
+  },
+] as const;
 
 /**
  * Deterministic routing step.
@@ -22,119 +46,55 @@ export async function decisionRouterNode(
 
   const AGENT_LIMITS = getAgentLimits();
 
-  // Hard stops for non-progress routing loops
-  if (counters.turn >= AGENT_LIMITS.turns) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max recovery turns', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max recovery turns (${AGENT_LIMITS.turns}).`,
-      errors: [
+  for (const check of ROUTER_LIMIT_CHECKS) {
+    const current = counters[check.counterKey];
+    const limit = AGENT_LIMITS[check.limitKey];
+
+    if (current >= limit) {
+      logPhaseEnd('DECISION_ROUTER', `FATAL: ${check.label}`, elapsed());
+      return failAgentRun(
+        `Stopped: exceeded ${check.label} (${limit}).`,
         {
           code: 'timeout',
-          message: 'Exceeded max recovery turns',
-          atPhase: 'route',
+          message: `Exceeded ${check.label}`,
+          atPhase: AGENT_PHASES.ROUTE,
           details: { counters, limits: AGENT_LIMITS },
         },
-      ],
-    };
-  }
-  if (counters.toolCalls >= AGENT_LIMITS.toolCalls) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max tool calls', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max tool calls (${AGENT_LIMITS.toolCalls}).`,
-      errors: [
-        {
-          code: 'timeout',
-          message: 'Exceeded max tool calls',
-          atPhase: 'route',
-          details: { counters, limits: AGENT_LIMITS },
-        },
-      ],
-    };
-  }
-  if (counters.replans >= AGENT_LIMITS.replans) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max replans', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max replans (${AGENT_LIMITS.replans}).`,
-      errors: [
-        {
-          code: 'timeout',
-          message: 'Exceeded max replans',
-          atPhase: 'route',
-          details: { counters, limits: AGENT_LIMITS },
-        },
-      ],
-    };
-  }
-  if (counters.stepRetries >= AGENT_LIMITS.stepRetries) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max step retries', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max step retries (${AGENT_LIMITS.stepRetries}).`,
-      errors: [
-        {
-          code: 'timeout',
-          message: 'Exceeded max step retries',
-          atPhase: 'route',
-          details: { counters, limits: AGENT_LIMITS },
-        },
-      ],
-    };
-  }
-  if (counters.supervisorFallbacks >= AGENT_LIMITS.supervisorFallbacks) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max supervisor fallbacks', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max supervisor fallbacks (${AGENT_LIMITS.supervisorFallbacks}).`,
-      errors: [
-        {
-          code: 'timeout',
-          message: 'Exceeded max supervisor fallbacks',
-          atPhase: 'route',
-          details: { counters, limits: AGENT_LIMITS },
-        },
-      ],
-    };
+      );
+    }
   }
 
   // JSON repair path: originating node sets jsonRepair + phase=route.
   if (state.jsonRepair) {
     logPhaseEnd('DECISION_ROUTER', 'ROUTE → json_repair', elapsed());
-    return { phase: 'route' };
+    return transitionToPhase(AGENT_PHASES.ROUTE);
   }
 
   // If we have a repaired JSON payload, route back to the originating phase so
   // the originating node re-runs and picks up jsonRepairResult instead of
   // calling the LLM again.
   if (state.jsonRepairResult !== undefined) {
-    const fromPhase = state.jsonRepairFromPhase;
+    const fromPhase = state.jsonRepairFromPhase ?? AGENT_PHASES.SUPERVISOR;
     logPhaseEnd(
       'DECISION_ROUTER',
       `ROUTE → replay repaired JSON at phase=${fromPhase}`,
       elapsed(),
     );
-    return {
-      phase: fromPhase,
-      jsonRepairResult: state.jsonRepairResult,
-      jsonRepairFromPhase: undefined,
-    };
+    return replayRepairedJson(fromPhase, state.jsonRepairResult);
   }
 
   const decision = state.criticDecision;
   if (!decision) {
     // If there is no critic decision yet, continue to next deterministic phase.
     // If the phase is 'route' (meaning no node changed it), it's a supervisor fallback.
-    if (state.phase === 'route') {
+    if (state.phase === AGENT_PHASES.ROUTE) {
       logPhaseEnd('DECISION_ROUTER', 'NO DECISION → SUPERVISOR FALLBACK', elapsed());
-      return {
-        phase: 'supervisor',
+      return transitionToPhase(AGENT_PHASES.SUPERVISOR, {
         counters: incrementAgentCounters(counters, {
           supervisorFallbacks: 1,
           turn: 1,
         }),
-      };
+      });
     }
     logPhaseEnd('DECISION_ROUTER', 'NO DECISION → continue', elapsed());
     return {};
@@ -152,12 +112,10 @@ export async function decisionRouterNode(
       const nextStep = plan[nextStepIndex];
       if (!nextStep) {
         logPhaseEnd('DECISION_ROUTER', 'COMPLETE (plan exhausted)', elapsed());
-        return {
-          phase: 'complete',
-          finalAnswer:
-            decision.finalAnswer ?? state.toolResult?.preview ?? 'Completed.',
-          criticDecision: undefined,
-        };
+        return completeAgentRun(
+          decision.finalAnswer ?? state.toolResult?.preview ?? 'Completed.',
+          { criticDecision: undefined },
+        );
       }
 
       logPhaseEnd(
@@ -165,68 +123,56 @@ export async function decisionRouterNode(
         `PREMATURE COMPLETE → ADVANCE → step ${nextStepIndex + 1}`,
         elapsed(),
       );
-      return {
-        phase: 'execute',
-        currentStep: nextStepIndex,
-        selectedTool: nextStep.tool,
-        toolParams: nextStep.input,
+      return beginExecutionStep(nextStep, nextStepIndex, {
         criticDecision: undefined,
-      };
+      });
     }
 
     logPhaseEnd('DECISION_ROUTER', 'COMPLETE', elapsed());
-    return {
-      phase: 'complete',
-      finalAnswer: decision.finalAnswer,
-    };
+    return completeAgentRun(decision.finalAnswer ?? 'Completed.', {
+      criticDecision: undefined,
+    });
   }
 
   if (decision.decision === 'fatal') {
     logPhaseEnd('DECISION_ROUTER', 'FATAL', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: decision.finalAnswer,
-      errors: [
-        {
-          code: 'unknown',
-          message: decision.reason,
-          atPhase: 'route',
-        },
-      ],
-    };
+    return failAgentRun(
+      decision.finalAnswer ?? 'Stopped due to a fatal decision.',
+      {
+        code: 'unknown',
+        message: decision.reason,
+        atPhase: AGENT_PHASES.ROUTE,
+      },
+    );
   }
 
   if (decision.decision === 'replan') {
     logPhaseEnd('DECISION_ROUTER', 'REPLAN → plan', elapsed());
-    return {
-      phase: 'plan',
+    return transitionToPhase(AGENT_PHASES.PLAN, {
       projectContext: undefined,
       counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
       criticDecision: undefined,
-    };
+    });
   }
 
   if (decision.decision === 'retry_step') {
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
-    return {
-      phase: 'execute',
+    return transitionToPhase(AGENT_PHASES.EXECUTE, {
       counters: incrementAgentCounters(counters, {
         stepRetries: 1,
         turn: 1,
       }),
       criticDecision: undefined,
-    };
+    });
   }
 
   // advance
   const nextStepIndex = currentStep + 1;
   if (nextStepIndex >= plan.length) {
     logPhaseEnd('DECISION_ROUTER', 'COMPLETE (plan exhausted)', elapsed());
-    return {
-      phase: 'complete',
-      finalAnswer: state.toolResult?.preview ?? 'Completed.',
+    return completeAgentRun(state.toolResult?.preview ?? 'Completed.', {
       criticDecision: undefined,
-    };
+    });
   }
 
   const nextStep = plan[nextStepIndex];
@@ -235,11 +181,7 @@ export async function decisionRouterNode(
     `ADVANCE → step ${nextStepIndex + 1}`,
     elapsed(),
   );
-  return {
-    phase: 'execute',
-    currentStep: nextStepIndex,
-    selectedTool: nextStep.tool,
-    toolParams: nextStep.input,
+  return beginExecutionStep(nextStep, nextStepIndex, {
     criticDecision: undefined,
-  };
+  });
 }

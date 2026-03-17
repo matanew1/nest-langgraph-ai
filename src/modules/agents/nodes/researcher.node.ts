@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { toolRegistry } from '../tools/index';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
+import { AGENT_PHASES } from '../state/agent-phase';
+import { transitionToPhase } from '../state/agent-transition.util';
 import type { AgentState } from '../state/agent.state';
 
 const logger = new Logger('Researcher');
@@ -25,7 +27,7 @@ export async function researcherNode(
   if (state.projectContext) {
     logPhaseStart('RESEARCHER', 'skipping — context already gathered');
     logPhaseEnd('RESEARCHER', 'skipped (cached)', 0);
-    return { phase: 'plan' };
+    return transitionToPhase(AGENT_PHASES.PLAN);
   }
 
   const elapsed = startTimer();
@@ -74,5 +76,5 @@ export async function researcherNode(
     elapsed(),
   );
 
-  return { projectContext, phase: 'plan' };
+  return transitionToPhase(AGENT_PHASES.PLAN, { projectContext });
 }

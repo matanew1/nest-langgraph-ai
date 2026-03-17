@@ -2,6 +2,8 @@ import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import { extractJson } from '@utils/json.util';
 import type { AgentState } from '../state/agent.state';
+import { AGENT_PHASES } from '../state/agent-phase';
+import { failAgentRun } from '../state/agent-transition.util';
 import {
   logPhaseEnd,
   logPhaseStart,
@@ -71,18 +73,17 @@ export async function jsonRepairNode(
   } catch (e) {
     logPhaseEnd('JSON_REPAIR', 'FAILED', elapsed());
     const msg = e instanceof Error ? e.message : String(e);
-    return {
-      jsonRepairResult: undefined,
-      jsonRepair: undefined,
-      phase: 'fatal',
-      finalAnswer: `Failed to repair invalid JSON: ${msg}`,
-      errors: [
-        {
-          code: 'json_invalid',
-          message: `JSON repair failed: ${msg}`,
-          atPhase: 'fatal',
-        },
-      ],
-    };
+    return failAgentRun(
+      `Failed to repair invalid JSON: ${msg}`,
+      {
+        code: 'json_invalid',
+        message: `JSON repair failed: ${msg}`,
+        atPhase: AGENT_PHASES.FATAL,
+      },
+      {
+        jsonRepairResult: undefined,
+        jsonRepair: undefined,
+      },
+    );
   }
 }

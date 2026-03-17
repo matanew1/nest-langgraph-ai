@@ -4,6 +4,7 @@ import { extractJson } from '@utils/json.util';
 import { preview } from '@utils/pretty-log.util';
 import type { ZodType } from 'zod';
 import type { AgentPhase, AgentState } from '../state/agent.state';
+import { requestJsonRepair } from '../state/agent-transition.util';
 
 export async function getStructuredNodeRawResponse(
   state: AgentState,
@@ -36,19 +37,5 @@ export function buildJsonRepairState(args: {
   schema: string;
   message: string;
 }): Partial<AgentState> {
-  return {
-    phase: 'route',
-    jsonRepair: {
-      fromPhase: args.fromPhase,
-      raw: args.raw,
-      schema: args.schema,
-    },
-    errors: [
-      {
-        code: 'json_invalid',
-        message: args.message,
-        atPhase: args.fromPhase,
-      },
-    ],
-  };
+  return requestJsonRepair(args);
 }

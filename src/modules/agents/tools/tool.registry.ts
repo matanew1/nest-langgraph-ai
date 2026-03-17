@@ -5,11 +5,21 @@ export interface ToolRegistration {
   paramHint?: string;
 }
 
+export interface ToolPromptMetadata {
+  name: string;
+  description: string;
+  paramHint?: string;
+}
+
 export class ToolRegistry {
   private readonly tools = new Map<string, StructuredToolInterface>();
   private readonly paramHints = new Map<string, string>();
 
   register(tool: StructuredToolInterface, paramHint?: string): void {
+    if (this.tools.has(tool.name)) {
+      throw new Error(`Tool "${tool.name}" is already registered`);
+    }
+
     this.tools.set(tool.name, tool);
     if (paramHint) this.paramHints.set(tool.name, paramHint);
   }
@@ -30,9 +40,17 @@ export class ToolRegistry {
     return Array.from(this.tools.keys());
   }
 
+  list(): ToolPromptMetadata[] {
+    return Array.from(this.tools.values()).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      paramHint: this.paramHints.get(tool.name),
+    }));
+  }
+
   getDescriptions(): string {
-    return Array.from(this.tools.values())
-      .map((t) => `- ${t.name}: ${t.description}`)
+    return this.list()
+      .map((tool) => `- ${tool.name}: ${tool.description}`)
       .join('\n');
   }
 
@@ -40,27 +58,22 @@ export class ToolRegistry {
     return this.paramHints.get(name) ?? '';
   }
 
-  getToolsWithParams(): string {
-    return Array.from(this.tools.values())
-      .map((t) => {
-        const hint = this.paramHints.get(t.name);
-        return `- ${t.name}: ${t.description}${hint ? `\n  params: ${hint}` : ''}`;
+  describeForPrompt(options?: {
+    excludeNames?: Iterable<string>;
+  }): string {
+    const excluded = new Set(options?.excludeNames ?? []);
+
+    return this.list()
+      .filter((tool) => !excluded.has(tool.name))
+      .map((tool) => {
+        return `- ${tool.name}: ${tool.description}${tool.paramHint ? `\n  params: ${tool.paramHint}` : ''}`;
       })
       .join('\n');
   }
-}
 
-export class ToolRegistryBuilder {
-  private readonly registrations: ToolRegistration[] = [];
-
-  add(tool: StructuredToolInterface, paramHint?: string): this {
-    this.registrations.push({ tool, paramHint });
-    return this;
-  }
-
-  build(): ToolRegistry {
+  static from(registrations: ToolRegistration[]): ToolRegistry {
     const registry = new ToolRegistry();
-    registry.registerAll(this.registrations);
+    registry.registerAll(registrations);
     return registry;
   }
 }

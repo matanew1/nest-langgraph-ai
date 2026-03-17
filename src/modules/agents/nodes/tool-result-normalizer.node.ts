@@ -2,6 +2,8 @@ import type { AgentState } from '../state/agent.state';
 import { toToolResult } from '../tools/tool-result';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { env } from '@config/env';
+import { AGENT_PHASES } from '../state/agent-phase';
+import { transitionToPhase } from '../state/agent-transition.util';
 
 /**
  * Converts raw tool output (`toolResultRaw`) into a structured ToolResult envelope.
@@ -30,8 +32,7 @@ export async function toolResultNormalizerNode(
     elapsed(),
   );
 
-  return {
-    phase: 'judge',
+  return transitionToPhase(AGENT_PHASES.JUDGE, {
     toolResult: result,
     attempts: state.selectedTool
       ? [
@@ -43,5 +44,5 @@ export async function toolResultNormalizerNode(
           },
         ]
       : [],
-  };
+  });
 }

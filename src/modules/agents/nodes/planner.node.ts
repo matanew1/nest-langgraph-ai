@@ -6,6 +6,11 @@ import {
   preview,
 } from '@utils/pretty-log.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
+import { AGENT_PHASES } from '../state/agent-phase';
+import {
+  failAgentRun,
+  transitionToPhase,
+} from '../state/agent-transition.util';
 import { AgentState, PlanStep } from '../state/agent.state';
 import { plannerOutputSchema } from '../state/agent.schemas';
 import {
@@ -38,11 +43,9 @@ export async function plannerNode(
     // Validate plan structure
     if (!plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
       logPhaseEnd('PLANNER', 'FAILED: empty or invalid steps', elapsed());
-      return {
-        phase: 'fatal',
-        finalAnswer: 'Failed to create an execution plan.',
+      return failAgentRun('Failed to create an execution plan.', undefined, {
         jsonRepairResult: undefined,
-      };
+      });
     }
 
     const firstStep = plan.steps[0];
@@ -53,21 +56,20 @@ export async function plannerNode(
     logPhaseEnd('PLANNER', `${plan.steps.length}-step plan created`, elapsed());
     logger.log(`Plan:\n${planSummary}`);
 
-    return {
+    return transitionToPhase(AGENT_PHASES.VALIDATE_PLAN, {
       plan: plan.steps,
       currentStep: 0,
       selectedTool: firstStep.tool,
       toolParams: firstStep.input,
       expectedResult: plan.expected_result,
       objective: plan.objective,
-      phase: 'validate_plan',
       jsonRepairResult: undefined,
-    };
+    });
   } catch (e) {
     logPhaseEnd('PLANNER', 'PARSE FAILED → json_repair', elapsed());
     logger.error(`Raw response: ${preview(raw)}`);
     return buildJsonRepairState({
-      fromPhase: 'plan',
+      fromPhase: AGENT_PHASES.PLAN,
       raw,
       schema:
         '{"objective":"string","steps":[{"step_id":1,"description":"string","tool":"tool_name","input":{}}],"expected_result":"string"}',

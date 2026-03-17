@@ -1,4 +1,9 @@
 import type { AgentState, PlanStep } from '../state/agent.state';
+import { AGENT_PHASES } from '../state/agent-phase';
+import {
+  beginExecutionStep,
+  failAgentRun,
+} from '../state/agent-transition.util';
 import { toolRegistry } from '../tools';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { AGENT_PLAN_LIMITS } from '../graph/agent.config';
@@ -6,6 +11,17 @@ import { Logger } from '@nestjs/common';
 import { basename, dirname } from 'node:path';
 
 const logger = new Logger('PlanValidator');
+
+function failValidation(
+  finalAnswer: string,
+  message: string,
+): Partial<AgentState> {
+  return failAgentRun(finalAnswer, {
+    code: 'invariant_violation',
+    message,
+    atPhase: AGENT_PHASES.VALIDATE_PLAN,
+  });
+}
 
 /**
  * Validates the planner output before any tool execution happens.
@@ -19,32 +35,15 @@ export async function planValidatorNode(
   const steps = state.plan ?? [];
   if (steps.length === 0) {
     logPhaseEnd('PLAN_VALIDATOR', 'FAILED: empty plan', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: 'Planner produced an empty plan.',
-      errors: [
-        {
-          code: 'invariant_violation',
-          message: 'Empty plan',
-          atPhase: 'validate_plan',
-        },
-      ],
-    };
+    return failValidation('Planner produced an empty plan.', 'Empty plan');
   }
 
   if (steps.length > AGENT_PLAN_LIMITS.maxSteps) {
     logPhaseEnd('PLAN_VALIDATOR', 'FAILED: too many steps', elapsed());
-    return {
-      phase: 'fatal',
-      finalAnswer: `Plan is too long (${steps.length} steps).`,
-      errors: [
-        {
-          code: 'invariant_violation',
-          message: `Plan too long`,
-          atPhase: 'validate_plan',
-        },
-      ],
-    };
+    return failValidation(
+      `Plan is too long (${steps.length} steps).`,
+      'Plan too long',
+    );
   }
 
   // Verify file_patch steps before execution
@@ -62,17 +61,10 @@ export async function planValidatorNode(
           `FAILED: invalid file_patch params (step ${step.step_id})`,
           elapsed(),
         );
-        return {
-          phase: 'fatal',
-          finalAnswer: `Invalid file_patch params in step ${step.step_id}.`,
-          errors: [
-            {
-              code: 'invariant_violation',
-              message: 'Missing params',
-              atPhase: 'validate_plan',
-            },
-          ],
-        };
+        return failValidation(
+          `Invalid file_patch params in step ${step.step_id}.`,
+          'Missing params',
+        );
       }
 
       logger.log(`Verifying file_patch step ${step.step_id}: ${input.path}`);
@@ -131,17 +123,7 @@ export async function planValidatorNode(
           `FAILED: step ${step.step_id}: ${errMsg}`,
           elapsed(),
         );
-        return {
-          phase: 'fatal',
-          finalAnswer: `file_patch plan invalid: ${errMsg}`,
-          errors: [
-            {
-              code: 'invariant_violation',
-              message: errMsg,
-              atPhase: 'validate_plan',
-            },
-          ],
-        };
+        return failValidation(`file_patch plan invalid: ${errMsg}`, errMsg);
       }
     }
   }
@@ -154,11 +136,10 @@ export async function planValidatorNode(
         'FAILED: non-sequential step_id',
         elapsed(),
       );
-      return {
-        phase: 'fatal',
-        finalAnswer: 'Non-sequential step IDs.',
-        errors: [],
-      };
+      return failValidation(
+        'Non-sequential step IDs.',
+        'Non-sequential step IDs',
+      );
     }
   }
 
@@ -171,11 +152,10 @@ export async function planValidatorNode(
         `FAILED: unknown tool "${step.tool}"`,
         elapsed(),
       );
-      return {
-        phase: 'fatal',
-        finalAnswer: `Unknown tool: ${step.tool}`,
-        errors: [],
-      };
+      return failValidation(
+        `Unknown tool: ${step.tool}`,
+        `Unknown tool: ${step.tool}`,
+      );
     }
 
     const schema: any = (tool as any).schema;
@@ -187,21 +167,15 @@ export async function planValidatorNode(
           `FAILED: invalid params for "${step.tool}"`,
           elapsed(),
         );
-        return {
-          phase: 'fatal',
-          finalAnswer: `Invalid params for ${step.tool}`,
-          errors: [],
-        };
+        return failValidation(
+          `Invalid params for ${step.tool}`,
+          `Invalid params for ${step.tool}`,
+        );
       }
     }
   }
 
   const first = steps[0];
   logPhaseEnd('PLAN_VALIDATOR', 'OK', elapsed());
-  return {
-    phase: 'execute',
-    currentStep: 0,
-    selectedTool: first.tool,
-    toolParams: first.input,
-  };
+  return beginExecutionStep(first, 0);
 }

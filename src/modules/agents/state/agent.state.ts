@@ -1,5 +1,7 @@
 import { Annotation } from '@langchain/langgraph';
 import type { ToolResult } from '../tools/tool-result';
+import { DEFAULT_AGENT_COUNTERS } from './agent-state.helpers';
+import type { AgentPhase } from './agent-phase';
 
 export interface PlanStep {
   step_id: number;
@@ -7,20 +9,6 @@ export interface PlanStep {
   tool: string;
   input: Record<string, unknown>;
 }
-
-export type AgentPhase =
-  | 'supervisor'
-  | 'research'
-  | 'plan'
-  | 'validate_plan'
-  | 'execute'
-  | 'normalize_tool_result'
-  | 'judge'
-  | 'route'
-  | 'complete'
-  | 'fatal'
-  | 'fatal_recovery'
-  | 'clarification';
 
 export interface AgentCounters {
   turn: number;
@@ -102,7 +90,7 @@ export const AgentStateAnnotation = Annotation.Root({
   /** Bounded counters to prevent deadlocks and infinite loops */
   counters: Annotation<AgentCounters>({
     reducer: (_, curr) => curr,
-    default: () => ({ turn: 0, toolCalls: 0, replans: 0, stepRetries: 0, supervisorFallbacks: 0 }),
+    default: () => ({ ...DEFAULT_AGENT_COUNTERS }),
   }),
   /** Structured error history (bounded) */
   errors: Annotation<AgentError[]>({
@@ -137,3 +125,4 @@ export const AgentStateAnnotation = Annotation.Root({
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
+export type { AgentPhase } from './agent-phase';

@@ -6,6 +6,11 @@ import {
   preview,
 } from '@utils/pretty-log.util';
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
+import { AGENT_PHASES } from '../state/agent-phase';
+import {
+  requestClarification,
+  transitionToPhase,
+} from '../state/agent-transition.util';
 import { AgentState } from '../state/agent.state';
 import { supervisorOutputSchema } from '../state/agent.schemas';
 import {
@@ -32,34 +37,30 @@ export async function supervisorNode(
 
     if (decision.status === 'reject') {
       logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
-      return {
-        phase: 'clarification',
-        jsonRepairResult: undefined,
-        errors: [
-          {
-            code: 'unknown',
-            message: decision.message ?? 'Supervisor rejected the task.',
-            atPhase: 'supervisor',
-            details: {
-              missing_capabilities: decision.missing_capabilities ?? [],
-            },
+      return requestClarification(
+        {
+          code: 'unknown',
+          message: decision.message ?? 'Supervisor rejected the task.',
+          atPhase: AGENT_PHASES.SUPERVISOR,
+          details: {
+            missing_capabilities: decision.missing_capabilities ?? [],
           },
-        ],
-      };
+        },
+        { jsonRepairResult: undefined },
+      );
     }
 
     const objective = decision.objective ?? state.input;
     logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(objective)}"`, elapsed());
 
-    return {
-      phase: 'research',
+    return transitionToPhase(AGENT_PHASES.RESEARCH, {
       objective,
       jsonRepairResult: undefined,
-    };
+    });
   } catch (e) {
     logPhaseEnd('SUPERVISOR', 'PARSE FAILED → json_repair', elapsed());
     return buildJsonRepairState({
-      fromPhase: 'supervisor',
+      fromPhase: AGENT_PHASES.SUPERVISOR,
       raw,
       schema:
         '{"status":"ok|reject","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
