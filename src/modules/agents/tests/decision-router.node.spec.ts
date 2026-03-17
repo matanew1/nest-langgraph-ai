@@ -9,13 +9,20 @@ jest.mock('@config/env', () => ({
 // Explicitly mock agent.config to guarantee deterministic limits regardless of
 // module evaluation order (AGENT_LIMITS is computed from env at import time).
 jest.mock('@graph/agent.config', () => ({
-  AGENT_LIMITS: { turns: 25, toolCalls: 50, replans: 5, stepRetries: 5 },
+  AGENT_LIMITS: {
+    turns: 25,
+    toolCalls: 50,
+    replans: 5,
+    stepRetries: 5,
+    supervisorFallbacks: 5,
+  },
   AGENT_PLAN_LIMITS: { maxSteps: 20 },
   getAgentLimits: () => ({
     turns: 25,
     toolCalls: 50,
     replans: 5,
     stepRetries: 5,
+    supervisorFallbacks: 5,
   }),
 }));
 
@@ -28,7 +35,13 @@ const baseState: Partial<AgentState> = {
   phase: 'route',
   plan,
   currentStep: 0,
-  counters: { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 },
+  counters: {
+    turn: 0,
+    toolCalls: 0,
+    replans: 0,
+    stepRetries: 0,
+    supervisorFallbacks: 0,
+  },
 };
 
 describe('decisionRouterNode', () => {
@@ -58,6 +71,25 @@ describe('decisionRouterNode', () => {
     expect(result.selectedTool).toBe('read_file');
   });
 
+  it('does not consume the recovery-turn budget on normal plan progress', async () => {
+    const state: Partial<AgentState> = {
+      ...baseState,
+      counters: {
+        turn: 24,
+        toolCalls: 1,
+        replans: 0,
+        stepRetries: 0,
+        supervisorFallbacks: 0,
+      },
+      criticDecision: { decision: 'advance', reason: 'step ok' },
+    };
+
+    const result = await decisionRouterNode(state as AgentState);
+
+    expect(result.phase).toBe('execute');
+    expect(result.counters).toBeUndefined();
+  });
+
   it('routes to replan and clears projectContext', async () => {
     const state: Partial<AgentState> = {
       ...baseState,
@@ -69,13 +101,20 @@ describe('decisionRouterNode', () => {
     expect(result.projectContext).toBeUndefined();
   });
 
-  it('terminates as fatal when max turns exceeded', async () => {
+  it('terminates as fatal when max recovery turns exceeded', async () => {
     const state: Partial<AgentState> = {
       ...baseState,
-      counters: { turn: 999, toolCalls: 0, replans: 0, stepRetries: 0 },
+      counters: {
+        turn: 999,
+        toolCalls: 0,
+        replans: 0,
+        stepRetries: 0,
+        supervisorFallbacks: 0,
+      },
     };
     const result = await decisionRouterNode(state as AgentState);
     expect(result.phase).toBe('fatal');
+    expect(result.finalAnswer).toContain('max recovery turns');
   });
 
   it('routes to originating phase when jsonRepairResult is set', async () => {

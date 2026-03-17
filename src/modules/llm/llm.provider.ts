@@ -20,17 +20,23 @@ export async function invokeLlm(
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
 ): Promise<string> {
+  const effectiveTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
+  const retryLimit =
+    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
   let attempt = 0;
   let lastError: Error | undefined;
 
-  while (attempt <= maxRetries) {
+  while (attempt <= retryLimit) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
     try {
       if (attempt > 0) {
         const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
-        logger.warn(`Retrying LLM call (attempt ${attempt}/${maxRetries}) after ${backoffMs}ms...`);
+        logger.warn(
+          `Retrying LLM call (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+        );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
 
@@ -50,9 +56,13 @@ export async function invokeLlm(
       lastError = err instanceof Error ? err : new Error(String(err));
       
       if (controller.signal.aborted) {
-        logger.error(`LLM call timed out after ${timeoutMs}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        logger.error(
+          `LLM call timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
       } else {
-        logger.error(`LLM call failed: ${lastError.message} (attempt ${attempt + 1}/${maxRetries + 1})`);
+        logger.error(
+          `LLM call failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
       }
 
       // Don't retry if it's a fatal error (e.g., authentication, invalid request)

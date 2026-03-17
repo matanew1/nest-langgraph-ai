@@ -207,7 +207,25 @@ curl -X POST http://localhost:3000/api/agents/run \
 ### GET `/health`
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:3000/health
+```
+
+### GET `/health/live`
+
+```bash
+curl http://localhost:3000/health/live
+```
+
+### GET `/health/ready`
+
+```bash
+curl http://localhost:3000/health/ready
+```
+
+### GET `/health/dependencies`
+
+```bash
+curl http://localhost:3000/health/dependencies
 ```
 
 ## Environment Variables
@@ -222,8 +240,13 @@ curl http://localhost:3000/api/health
 | `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model |
 | `MISTRAL_TIMEOUT_MS` | No | `30000` | LLM call timeout (ms) |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
-| `AGENT_MAX_ITERATIONS` | No | `3` | Max iterations (legacy; router also enforces hard stop limits) |
+| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit used for router hard stops and derived tool-call caps |
 | `TOOL_TIMEOUT_MS` | No | `15000` | Per-tool invocation timeout (ms) |
+| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Optional comma-separated hostname allowlist for `http_get`/`http_post` |
+| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private/link-local HTTP targets for tools |
+| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects for `http_get`/`http_post` |
+| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
+| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Cache TTL for optional dependency diagnostics |
 | `CACHE_TTL_SECONDS` | No | `60` | Redis cache TTL for agent responses |
 | `CRITIC_RESULT_MAX_CHARS` | No | `8000` | Max chars passed to critic from tool output |
 | `PROMPT_MAX_ATTEMPTS` | No | `5` | Max recent attempts included in supervisor/planner prompts |
@@ -450,7 +473,25 @@ curl -X POST http://localhost:3000/api/agents/run \
 ### GET `/health`
 
 ```bash
-curl http://localhost:3000/api/health
+curl http://localhost:3000/health
+```
+
+### GET `/health/live`
+
+```bash
+curl http://localhost:3000/health/live
+```
+
+### GET `/health/ready`
+
+```bash
+curl http://localhost:3000/health/ready
+```
+
+### GET `/health/dependencies`
+
+```bash
+curl http://localhost:3000/health/dependencies
 ```
 
 ## Environment Variables
@@ -465,8 +506,13 @@ curl http://localhost:3000/api/health
 | `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model |
 | `MISTRAL_TIMEOUT_MS` | No | `30000` | LLM call timeout (ms) |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
-| `AGENT_MAX_ITERATIONS` | No | `3` | Max iterations (legacy; router also enforces hard stop limits) |
+| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit used for router hard stops and derived tool-call caps |
 | `TOOL_TIMEOUT_MS` | No | `15000` | Per-tool invocation timeout (ms) |
+| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Optional comma-separated hostname allowlist for `http_get`/`http_post` |
+| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private/link-local HTTP targets for tools |
+| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects for `http_get`/`http_post` |
+| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
+| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Cache TTL for optional dependency diagnostics |
 | `CACHE_TTL_SECONDS` | No | `60` | Redis cache TTL for agent responses |
 | `CRITIC_RESULT_MAX_CHARS` | No | `8000` | Max chars passed to critic from tool output |
 | `PROMPT_MAX_ATTEMPTS` | No | `5` | Max recent attempts included in supervisor/planner prompts |

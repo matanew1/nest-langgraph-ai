@@ -1,36 +1,42 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { HealthService } from './health.service';
+import type {
+  DependencyReportResponse,
+  LivenessResponse,
+  ReadinessResponse,
+} from './health.types';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
+
   @Get()
-  @ApiOperation({ summary: 'Health check endpoint' })
-  @ApiResponse({ status: 200, description: 'Service is healthy' })
-  async check(): Promise<any> {
-    const results = await Promise.allSettled([
-      this.healthService.checkRedis(),
-      this.healthService.checkQdrant(),
-      this.healthService.checkMistral(),
-      this.healthService.checkTavily(),
-    ]);
+  @ApiOperation({ summary: 'Readiness check endpoint' })
+  @ApiResponse({ status: 200, description: 'Core service readiness' })
+  check(): Promise<ReadinessResponse> {
+    return this.healthService.getReadiness();
+  }
 
-    const [redisStatus, qdrantStatus, mistralStatus, tavilyStatus] =
-      results.map((res) => (res.status === 'fulfilled' ? res.value : 'error'));
+  @Get('live')
+  @ApiOperation({ summary: 'Liveness check endpoint' })
+  @ApiResponse({ status: 200, description: 'Process liveness' })
+  live(): LivenessResponse {
+    return this.healthService.getLiveness();
+  }
 
-    const isHealthy = [redisStatus, qdrantStatus].every((s) => s === 'ok');
+  @Get('ready')
+  @ApiOperation({ summary: 'Explicit readiness check endpoint' })
+  @ApiResponse({ status: 200, description: 'Core service readiness' })
+  ready(): Promise<ReadinessResponse> {
+    return this.healthService.getReadiness();
+  }
 
-    return {
-      status: isHealthy ? 'ok' : 'unhealthy',
-      details: {
-        redis: redisStatus,
-        qdrant: qdrantStatus,
-        mistral: mistralStatus,
-        tavily: tavilyStatus,
-      },
-      timestamp: new Date().toISOString(),
-    };
+  @Get('dependencies')
+  @ApiOperation({ summary: 'Detailed dependency diagnostics endpoint' })
+  @ApiResponse({ status: 200, description: 'Required and optional dependencies' })
+  dependencies(): Promise<DependencyReportResponse> {
+    return this.healthService.getDependencyReport();
   }
 }

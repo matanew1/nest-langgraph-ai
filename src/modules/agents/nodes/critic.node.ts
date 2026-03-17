@@ -1,17 +1,18 @@
 import { Logger } from '@nestjs/common';
-import { invokeLlm } from '@llm/llm.provider';
 import { buildCriticPrompt } from '../prompts/agent.prompts';
 import {
-  prettyJson,
   logPhaseStart,
   logPhaseEnd,
   startTimer,
   preview,
 } from '@utils/pretty-log.util';
-import { extractJson } from '@utils/json.util';
 import { AgentState } from '../state/agent.state';
-import { env } from '@config/env';
 import { criticDecisionSchema } from '../state/agent.schemas';
+import {
+  buildJsonRepairState,
+  getStructuredNodeRawResponse,
+  parseStructuredNodeOutput,
+} from './structured-output.util';
 
 const logger = new Logger('Critic');
 
@@ -24,19 +25,12 @@ export async function criticNode(
 
   logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
 
-  let raw: string;
-  if (state.jsonRepairResult !== undefined) {
-    raw = state.jsonRepairResult;
-    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
-  } else {
-    const prompt = buildCriticPrompt(state);
-    raw = await invokeLlm(prompt);
-    logger.debug(`LLM response:\n${preview(raw)}`);
-  }
+  const raw = await getStructuredNodeRawResponse(state, logger, () =>
+    buildCriticPrompt(state),
+  );
 
   try {
-    const parsed = extractJson<unknown>(raw);
-    const decision = criticDecisionSchema.parse(parsed);
+    const decision = parseStructuredNodeOutput(raw, criticDecisionSchema);
 
     logPhaseEnd('CRITIC', `DECISION: ${decision.decision}`, elapsed());
     return {
@@ -47,21 +41,12 @@ export async function criticNode(
   } catch (e) {
     logPhaseEnd('CRITIC', 'PARSE FAILED → json_repair', elapsed());
     logger.error(`Raw response: ${preview(raw)}`);
-    return {
-      phase: 'route',
-      jsonRepair: {
-        fromPhase: 'judge',
-        raw,
-        schema:
-          '{"decision":"advance|retry_step|replan|complete|fatal","reason":"string","finalAnswer?":"string","suggestedPlanFix?":"string"}',
-      },
-      errors: [
-        {
-          code: 'json_invalid',
-          message: `Critic JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
-          atPhase: 'judge',
-        },
-      ],
-    };
+    return buildJsonRepairState({
+      fromPhase: 'judge',
+      raw,
+      schema:
+        '{"decision":"advance|retry_step|replan|complete|fatal","reason":"string","finalAnswer?":"string","suggestedPlanFix?":"string"}',
+      message: `Critic JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
+    });
   }
 }

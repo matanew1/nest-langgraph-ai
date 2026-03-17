@@ -7,17 +7,21 @@
 import { env } from '@config/env';
 
 export function getAgentLimits() {
+  const turns = env.agentMaxIterations ?? 3;
+  const stepRetries = env.agentMaxRetries ?? 3;
+  const supervisorFallbacks = env.agentMaxRetbacks ?? turns;
+
   return {
-    /** Max router turns before terminating as fatal. */
-    turns: env.agentMaxIterations,
+    /** Max non-progress router cycles (retry/replan/fallback) before fatal. */
+    turns,
     /** Max total tool executions before terminating as fatal. */
-    toolCalls: env.agentMaxIterations * 5,
+    toolCalls: turns * 5,
     /** Max replans before terminating as fatal. */
-    replans: env.agentMaxIterations,
+    replans: turns,
     /** Max retries of the same step before terminating as fatal. */
-    stepRetries: env.agentMaxRetries,
+    stepRetries,
     /** Max consecutive supervisor fallbacks before terminating as fatal. */
-    supervisorFallbacks: env.agentMaxRetbacks,
+    supervisorFallbacks,
   };
 }
 

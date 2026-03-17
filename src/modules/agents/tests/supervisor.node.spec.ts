@@ -38,15 +38,16 @@ describe('supervisorNode', () => {
     expect(result.objective).toBe('do the test task');
   });
 
-  it('returns error and done=true when LLM rejects task', async () => {
+  it('routes rejected tasks to clarification with a structured error', async () => {
     mockedInvokeLlm.mockResolvedValue(
       '{"status":"reject","message":"Cannot do this","missing_capabilities":["x"]}',
     );
 
     const result = await supervisorNode(baseState as AgentState);
 
-    expect(result.phase).toBe('fatal');
-    expect(result.finalAnswer).toBe('Cannot do this');
+    expect(result.phase).toBe('clarification');
+    expect(result.finalAnswer).toBeUndefined();
+    expect(result.errors?.[0]?.message).toBe('Cannot do this');
   });
 
   it('routes to json repair on JSON parse failure', async () => {

@@ -9,6 +9,7 @@ import {
   logPhaseEnd,
   startTimer,
 } from '@utils/pretty-log.util';
+import { incrementAgentCounters } from '../state/agent-state.helpers';
 
 const logger = new Logger('Executor');
 
@@ -53,15 +54,7 @@ export async function executionNode(
     return {
       phase: 'normalize_tool_result',
       toolResultRaw: `ERROR: ${errorMsg}`,
-      counters: {
-        ...(state.counters ?? {
-          turn: 0,
-          toolCalls: 0,
-          replans: 0,
-          stepRetries: 0,
-        }),
-        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
-      },
+      counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
           code: 'tool_error',
@@ -100,15 +93,7 @@ export async function executionNode(
     return {
       phase: 'normalize_tool_result',
       toolResultRaw: result,
-      counters: {
-        ...(state.counters ?? {
-          turn: 0,
-          toolCalls: 0,
-          replans: 0,
-          stepRetries: 0,
-        }),
-        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
-      },
+      counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -117,15 +102,7 @@ export async function executionNode(
     return {
       phase: 'normalize_tool_result',
       toolResultRaw: `ERROR: ${errorResult}`,
-      counters: {
-        ...(state.counters ?? {
-          turn: 0,
-          toolCalls: 0,
-          replans: 0,
-          stepRetries: 0,
-        }),
-        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
-      },
+      counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
           code: 'tool_error',

@@ -1,6 +1,10 @@
 import type { AgentState } from '../state/agent.state';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { getAgentLimits } from '../graph/agent.config';
+import {
+  getAgentCounters,
+  incrementAgentCounters,
+} from '../state/agent-state.helpers';
 
 /**
  * Deterministic routing step.
@@ -14,26 +18,20 @@ export async function decisionRouterNode(
   const elapsed = startTimer();
   logPhaseStart('DECISION_ROUTER', `phase=${state.phase}`);
 
-  const counters = state.counters ?? {
-    turn: 0,
-    toolCalls: 0,
-    replans: 0,
-    stepRetries: 0,
-    supervisorFallbacks: 0,
-  };
+  const counters = getAgentCounters(state.counters);
 
   const AGENT_LIMITS = getAgentLimits();
 
-  // Hard stops
+  // Hard stops for non-progress routing loops
   if (counters.turn >= AGENT_LIMITS.turns) {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL: max turns', elapsed());
+    logPhaseEnd('DECISION_ROUTER', 'FATAL: max recovery turns', elapsed());
     return {
       phase: 'fatal',
-      finalAnswer: `Stopped: exceeded max turns (${AGENT_LIMITS.turns}).`,
+      finalAnswer: `Stopped: exceeded max recovery turns (${AGENT_LIMITS.turns}).`,
       errors: [
         {
           code: 'timeout',
-          message: 'Exceeded max turns',
+          message: 'Exceeded max recovery turns',
           atPhase: 'route',
           details: { counters, limits: AGENT_LIMITS },
         },
@@ -132,11 +130,10 @@ export async function decisionRouterNode(
       logPhaseEnd('DECISION_ROUTER', 'NO DECISION → SUPERVISOR FALLBACK', elapsed());
       return {
         phase: 'supervisor',
-        counters: {
-          ...counters,
-          supervisorFallbacks: counters.supervisorFallbacks + 1,
-          turn: counters.turn + 1,
-        },
+        counters: incrementAgentCounters(counters, {
+          supervisorFallbacks: 1,
+          turn: 1,
+        }),
       };
     }
     logPhaseEnd('DECISION_ROUTER', 'NO DECISION → continue', elapsed());
@@ -173,10 +170,6 @@ export async function decisionRouterNode(
         currentStep: nextStepIndex,
         selectedTool: nextStep.tool,
         toolParams: nextStep.input,
-        counters: {
-          ...counters,
-          turn: counters.turn + 1,
-        },
         criticDecision: undefined,
       };
     }
@@ -208,11 +201,7 @@ export async function decisionRouterNode(
     return {
       phase: 'plan',
       projectContext: undefined,
-      counters: {
-        ...counters,
-        replans: counters.replans + 1,
-        turn: counters.turn + 1,
-      },
+      counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
       criticDecision: undefined,
     };
   }
@@ -221,11 +210,10 @@ export async function decisionRouterNode(
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
     return {
       phase: 'execute',
-      counters: {
-        ...counters,
-        stepRetries: counters.stepRetries + 1,
-        turn: counters.turn + 1,
-      },
+      counters: incrementAgentCounters(counters, {
+        stepRetries: 1,
+        turn: 1,
+      }),
       criticDecision: undefined,
     };
   }
@@ -252,10 +240,6 @@ export async function decisionRouterNode(
     currentStep: nextStepIndex,
     selectedTool: nextStep.tool,
     toolParams: nextStep.input,
-    counters: {
-      ...counters,
-      turn: counters.turn + 1,
-    },
     criticDecision: undefined,
   };
 }

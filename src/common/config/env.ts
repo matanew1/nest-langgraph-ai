@@ -16,6 +16,11 @@ const envSchema = Joi.object({
   AGENT_MAX_RETRIES: Joi.number().integer().min(1).max(10).default(3),
   AGENT_MAX_RETBACKS: Joi.number().integer().min(1).max(10).default(3),
   TOOL_TIMEOUT_MS: Joi.number().default(15_000),
+  HTTP_TOOL_ALLOWED_HOSTS: Joi.string().allow('').default(''),
+  HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: Joi.boolean().default(false),
+  HTTP_TOOL_MAX_REDIRECTS: Joi.number().integer().min(0).max(10).default(3),
+  HEALTH_EXTERNAL_CHECK_TIMEOUT_MS: Joi.number().integer().min(100).default(2_000),
+  HEALTH_EXTERNAL_CACHE_TTL_MS: Joi.number().integer().min(0).default(60_000),
   AGENT_WORKING_DIR: Joi.string().default(process.cwd()),
   CACHE_TTL_SECONDS: Joi.number().default(60),
   SESSION_TTL_SECONDS: Joi.number().integer().min(1).default(86400),
@@ -44,6 +49,11 @@ interface EnvVariables {
   AGENT_MAX_RETRIES: number;
   AGENT_MAX_RETBACKS: number;
   TOOL_TIMEOUT_MS: number;
+  HTTP_TOOL_ALLOWED_HOSTS: string;
+  HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: boolean;
+  HTTP_TOOL_MAX_REDIRECTS: number;
+  HEALTH_EXTERNAL_CHECK_TIMEOUT_MS: number;
+  HEALTH_EXTERNAL_CACHE_TTL_MS: number;
   AGENT_WORKING_DIR: string;
   CACHE_TTL_SECONDS: number;
   SESSION_TTL_SECONDS: number;
@@ -80,6 +90,11 @@ export const env = {
   agentMaxRetries: validatedEnv.AGENT_MAX_RETRIES,
   agentMaxRetbacks: validatedEnv.AGENT_MAX_RETBACKS,
   toolTimeoutMs: validatedEnv.TOOL_TIMEOUT_MS,
+  httpToolAllowedHosts: validatedEnv.HTTP_TOOL_ALLOWED_HOSTS,
+  httpToolAllowPrivateNetworks: validatedEnv.HTTP_TOOL_ALLOW_PRIVATE_NETWORKS,
+  httpToolMaxRedirects: validatedEnv.HTTP_TOOL_MAX_REDIRECTS,
+  healthExternalCheckTimeoutMs: validatedEnv.HEALTH_EXTERNAL_CHECK_TIMEOUT_MS,
+  healthExternalCacheTtlMs: validatedEnv.HEALTH_EXTERNAL_CACHE_TTL_MS,
   agentWorkingDir: validatedEnv.AGENT_WORKING_DIR,
   cacheTtlSeconds: validatedEnv.CACHE_TTL_SECONDS,
   sessionTtlSeconds: validatedEnv.SESSION_TTL_SECONDS,

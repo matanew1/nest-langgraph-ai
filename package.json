@@ -126,7 +126,9 @@
       "^@nodes/(.*)$": "<rootDir>/src/modules/agents/nodes/$1",
       "^@tools/(.*)$": "<rootDir>/src/modules/agents/tools/$1",
       "^@state/(.*)$": "<rootDir>/src/modules/agents/state/$1",
-      "^@graph/(.*)$": "<rootDir>/src/modules/agents/graph/$1"
+      "^@graph/(.*)$": "<rootDir>/src/modules/agents/graph/$1",
+      "^@vector-db/(.*)$": "<rootDir>/src/modules/vector-db/$1",
+      "^@health/(.*)$": "<rootDir>/src/modules/health/$1"
     }
   }
 }

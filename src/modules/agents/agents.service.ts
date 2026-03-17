@@ -15,6 +15,7 @@ import { AgentState } from './state/agent.state';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
 import * as crypto from 'crypto';
+import { DEFAULT_AGENT_COUNTERS } from './state/agent-state.helpers';
 
 export interface AgentRunResult {
   result: string;
@@ -145,12 +146,12 @@ export class AgentsService {
       recursionLimit: 200,
     };
 
-    const previous = sessionId
-      ? await this._tryLoadPreviousState(threadId)
-      : undefined;
-    const initialState = this._createInitialState(prompt, previous);
-
     try {
+      const previous = sessionId
+        ? await this._tryLoadPreviousState(threadId)
+        : undefined;
+      const initialState = this._createInitialState(prompt, previous);
+
       yield {
         type: 'step',
         data: `Starting agent execution...`,
@@ -286,7 +287,7 @@ export class AgentsService {
       attempts: previous?.attempts ?? [],
 
       // Always reset loop counters/errors for this new prompt.
-      counters: { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0, supervisorFallbacks: 0 },
+      counters: { ...DEFAULT_AGENT_COUNTERS },
       errors: [],
     };
   }

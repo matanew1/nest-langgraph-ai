@@ -5,5 +5,20 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^@config/(.*)$": "<rootDir>/../src/common/config/$1",
+    "^@utils/(.*)$": "<rootDir>/../src/common/utils/$1",
+    "^@common/(.*)$": "<rootDir>/../src/common/$1",
+    "^@llm/(.*)$": "<rootDir>/../src/modules/llm/$1",
+    "^@redis/(.*)$": "<rootDir>/../src/modules/redis/$1",
+    "^@agents/(.*)$": "<rootDir>/../src/modules/agents/$1",
+    "^@nodes/(.*)$": "<rootDir>/../src/modules/agents/nodes/$1",
+    "^@tools/(.*)$": "<rootDir>/../src/modules/agents/tools/$1",
+    "^@state/(.*)$": "<rootDir>/../src/modules/agents/state/$1",
+    "^@graph/(.*)$": "<rootDir>/../src/modules/agents/graph/$1",
+    "^@vector-db/(.*)$": "<rootDir>/../src/modules/vector-db/$1",
+    "^@health/(.*)$": "<rootDir>/../src/modules/health/$1"
   }
 }

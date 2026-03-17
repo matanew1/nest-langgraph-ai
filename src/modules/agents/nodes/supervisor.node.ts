@@ -1,6 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { invokeLlm } from '@llm/llm.provider';
-import { extractJson } from '@utils/json.util';
 import {
   logPhaseStart,
   logPhaseEnd,
@@ -10,6 +8,11 @@ import {
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
 import { AgentState } from '../state/agent.state';
 import { supervisorOutputSchema } from '../state/agent.schemas';
+import {
+  buildJsonRepairState,
+  getStructuredNodeRawResponse,
+  parseStructuredNodeOutput,
+} from './structured-output.util';
 
 const logger = new Logger('Supervisor');
 
@@ -20,19 +23,12 @@ export async function supervisorNode(
 
   logPhaseStart('SUPERVISOR', `input="${preview(state.input)}"`);
 
-  let raw: string;
-  if (state.jsonRepairResult !== undefined) {
-    raw = state.jsonRepairResult;
-    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
-  } else {
-    const prompt = buildSupervisorPrompt(state);
-    raw = await invokeLlm(prompt);
-    logger.debug(`LLM response:\n${preview(raw)}`);
-  }
+  const raw = await getStructuredNodeRawResponse(state, logger, () =>
+    buildSupervisorPrompt(state),
+  );
 
   try {
-    const parsed = extractJson<unknown>(raw);
-    const decision = supervisorOutputSchema.parse(parsed);
+    const decision = parseStructuredNodeOutput(raw, supervisorOutputSchema);
 
     if (decision.status === 'reject') {
       logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
@@ -62,22 +58,12 @@ export async function supervisorNode(
     };
   } catch (e) {
     logPhaseEnd('SUPERVISOR', 'PARSE FAILED → json_repair', elapsed());
-    const msg = e instanceof Error ? e.message : String(e);
-    return {
-      phase: 'route',
-      jsonRepair: {
-        fromPhase: 'supervisor',
-        raw,
-        schema:
-          '{"status":"ok|reject","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
-      },
-      errors: [
-        {
-          code: 'json_invalid',
-          message: `Supervisor JSON invalid: ${msg}`,
-          atPhase: 'supervisor',
-        },
-      ],
-    };
+    return buildJsonRepairState({
+      fromPhase: 'supervisor',
+      raw,
+      schema:
+        '{"status":"ok|reject","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
+      message: `Supervisor JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
+    });
   }
 }

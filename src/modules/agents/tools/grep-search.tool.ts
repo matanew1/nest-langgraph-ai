@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
@@ -16,36 +16,43 @@ export const grepSearchTool = tool(
   async ({ pattern, path, glob }) => {
     const resolved = sandboxPath(path ?? '.');
 
-    // Build grep command with safe flags
-    const parts = ['grep', '-rn', '--color=never'];
+    const args = ['-rn', '--color=never'];
 
     // Exclude common noise directories
     for (const dir of EXCLUDE_DIRS) {
-      parts.push(`--exclude-dir="${dir}"`);
+      args.push(`--exclude-dir=${dir}`);
     }
 
     if (glob) {
-      parts.push(`--include="${glob}"`);
+      args.push(`--include=${glob}`);
     }
 
-    parts.push('-e', `"${pattern.replace(/"/g, '\\"')}"`, `"${resolved}"`);
-
-    const command = parts.join(' ');
+    args.push('-e', pattern, resolved);
     logger.log(
       `Searching: pattern="${pattern}" path="${resolved}" glob="${glob ?? '*'}"`,
     );
 
     return new Promise<string>((resolve) => {
-      exec(
-        command,
-        { cwd: resolved, timeout: env.toolTimeoutMs, maxBuffer: MAX_OUTPUT },
-        (error, stdout) => {
-          if (!stdout || stdout.trim().length === 0) {
-            resolve(`No matches found for pattern "${pattern}"`);
-          } else {
+      execFile(
+        'grep',
+        args,
+        {
+          cwd: env.agentWorkingDir,
+          timeout: env.toolTimeoutMs,
+          maxBuffer: MAX_OUTPUT,
+        },
+        (error, stdout, stderr) => {
+          if (stdout && stdout.trim().length > 0) {
             const lines = stdout.trim().split('\n');
             const header = `Found ${lines.length} match${lines.length === 1 ? '' : 'es'}:\n`;
             resolve((header + stdout.trim()).slice(0, MAX_OUTPUT));
+            return;
+          }
+
+          if (error && 'code' in error && error.code !== 1) {
+            resolve(`ERROR: ${stderr || error.message}`.slice(0, MAX_OUTPUT));
+          } else {
+            resolve(`No matches found for pattern "${pattern}"`);
           }
         },
       );

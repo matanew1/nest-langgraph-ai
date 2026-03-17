@@ -45,14 +45,19 @@ function getVectorSizeFromCollectionInfo(info: unknown): number | undefined {
   return undefined;
 }
 
-export async function connectQdrant(): Promise<void> {
-  const collections = await qdrantClient.getCollections();
+export async function connectQdrant(
+  client: Pick<
+    QdrantClient,
+    'getCollections' | 'createCollection' | 'getCollection'
+  > = qdrantClient,
+): Promise<void> {
+  const collections = await client.getCollections();
   const exists = collections.collections.some(
     (c) => c.name === env.qdrantCollection,
   );
 
   if (!exists) {
-    await qdrantClient.createCollection(env.qdrantCollection, {
+    await client.createCollection(env.qdrantCollection, {
       vectors: { size: env.qdrantVectorSize, distance: 'Cosine' },
     });
     logger.log(
@@ -60,7 +65,7 @@ export async function connectQdrant(): Promise<void> {
     );
   } else {
     try {
-      const info = await qdrantClient.getCollection(env.qdrantCollection);
+      const info = await client.getCollection(env.qdrantCollection);
       const size = getVectorSizeFromCollectionInfo(info);
       if (typeof size === 'number' && size !== env.qdrantVectorSize) {
         logger.warn(
