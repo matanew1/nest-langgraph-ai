@@ -1,7 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { invokeLlm } from '@llm/llm.provider';
 import {
-  prettyJson,
   logPhaseStart,
   logPhaseEnd,
   startTimer,
@@ -10,7 +9,6 @@ import {
 import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AgentState, PlanStep } from '../state/agent.state';
-import { toolRegistry } from '../tools';
 import { plannerOutputSchema } from '../state/agent.schemas';
 
 const logger = new Logger('Planner');
@@ -43,21 +41,6 @@ export async function plannerNode(
         phase: 'fatal',
         finalAnswer: 'Failed to create an execution plan.',
       };
-    }
-
-    // Validate all referenced tools exist
-    for (const step of plan.steps) {
-      if (!toolRegistry.has(step.tool)) {
-        logPhaseEnd(
-          'PLANNER',
-          `FAILED: unknown tool "${step.tool}"`,
-          elapsed(),
-        );
-        return {
-          phase: 'fatal',
-          finalAnswer: `Planning failed: unknown tool "${step.tool}".`,
-        };
-      }
     }
 
     const firstStep = plan.steps[0];
