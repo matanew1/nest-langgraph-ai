@@ -21,7 +21,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const handlerName = context.getHandler().name;
 
     // Log the incoming request
-    this.logger.log(`Incoming Request: ${method} ${url} from ${ip} [${controllerName}.${handlerName}]`);
+    this.logger.log(
+      `Incoming Request: ${method} ${url} from ${ip} [${controllerName}.${handlerName}]`,
+    );
 
     return next.handle().pipe(
       tap({

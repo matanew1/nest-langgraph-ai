@@ -16,14 +16,15 @@ async function bootstrap() {
 
   // Security: Helmet helps secure Express apps by setting various HTTP headers
   app.use(helmet());
-  
+
   // Performance: Compression middleware for response bodies
   app.use(compression());
 
   // Security: Restrict CORS in production
-  const corsOrigin = env.corsOrigin === '*' 
-    ? true // Allow all in dev, but ideally this should be a list of domains
-    : env.corsOrigin.split(',').map(origin => origin.trim());
+  const corsOrigin =
+    env.corsOrigin === '*'
+      ? true // Allow all in dev, but ideally this should be a list of domains
+      : env.corsOrigin.split(',').map((origin) => origin.trim());
 
   app.enableCors({
     origin: corsOrigin,
@@ -55,7 +56,10 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TimeoutInterceptor(globalTimeoutMs));
 
   // Swagger Documentation (Disable in production if needed)
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_SWAGGER === 'true'
+  ) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Nest LangGraph AI')
       .setDescription('AI Agent API powered by LangGraph')
@@ -75,7 +79,10 @@ async function bootstrap() {
 
   await app.listen(env.port);
   logger.log(`Application running on http://localhost:${env.port}`);
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_SWAGGER === 'true'
+  ) {
     logger.log(`Swagger docs at http://localhost:${env.port}/docs`);
   }
 }

@@ -17,9 +17,8 @@ export class HealthController {
       this.healthService.checkTavily(),
     ]);
 
-    const [redisStatus, qdrantStatus, mistralStatus, tavilyStatus] = results.map(
-      (res) => (res.status === 'fulfilled' ? res.value : 'error'),
-    );
+    const [redisStatus, qdrantStatus, mistralStatus, tavilyStatus] =
+      results.map((res) => (res.status === 'fulfilled' ? res.value : 'error'));
 
     const isHealthy = [redisStatus, qdrantStatus].every((s) => s === 'ok');
 
@@ -34,5 +33,4 @@ export class HealthController {
       timestamp: new Date().toISOString(),
     };
   }
-
 }
