@@ -1,0 +1,48 @@
+flowchart LR
+  %% ========== NODE DEFINITIONS ==========
+  %% Start/End points
+  START((START))
+  END((END))
+
+  %% Core processing nodes
+  SUPERVISOR[SUPERVISOR\nnodes/supervisor.node.ts]
+  RESEARCHER[RESEARCHER\nnodes/researcher.node.ts]
+  PLANNER[PLANNER\nnodes/planner.node.ts]
+  PLAN_VALIDATOR[PLAN_VALIDATOR\nnodes/plan-validator.node.ts]
+  EXECUTE[EXECUTE\nnodes/execution.node.ts]
+  TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\nnodes/tool-result-normalizer.node.ts]
+  CRITIC[CRITIC\nnodes/critic.node.ts]
+  JSON_REPAIR[JSON_REPAIR\nnodes/json-repair.node.ts]
+
+  %% Central routing hub
+  ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
+
+  %% ========== FIXED EDGES (all nodes return to ROUTER) ==========
+  START --> SUPERVISOR
+  SUPERVISOR --> ROUTER
+  RESEARCHER --> ROUTER
+  PLANNER --> ROUTER
+  PLAN_VALIDATOR --> ROUTER
+  EXECUTE --> ROUTER
+  TOOL_RESULT_NORMALIZER --> ROUTER
+  CRITIC --> ROUTER
+  JSON_REPAIR --> ROUTER
+
+  %% ========== CONDITIONAL ROUTING PATHS ==========
+  %% Terminal conditions
+  ROUTER -->|phase = complete OR fatal| END
+
+  %% Special repair path
+  ROUTER -->|jsonRepair flag set| JSON_REPAIR
+
+  %% Phase-based routing (primary execution paths)
+  ROUTER -->|phase = supervisor| SUPERVISOR
+  ROUTER -->|phase = research| RESEARCHER
+  ROUTER -->|phase = plan| PLANNER
+  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
+  ROUTER -->|phase = execute| EXECUTE
+  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
+  ROUTER -->|phase = judge| CRITIC
+
+  %% Fallback mechanism
+  ROUTER -->|phase = route / default fallback| SUPERVISOR

@@ -21,7 +21,6 @@ const mockedInvokeLlm = jest.mocked(invokeLlm);
 
 const baseState: Partial<AgentState> = {
   input: 'test task',
-  iteration: 0,
   attempts: [],
 };
 
@@ -30,48 +29,32 @@ describe('supervisorNode', () => {
 
   it('returns plan_required when LLM approves', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"plan_required","task":"do the test task"}',
+      '{"status":"ok","objective":"do the test task"}',
     );
 
     const result = await supervisorNode(baseState as AgentState);
 
-    expect(result.status).toBe('plan_required');
-    expect(result.executionPlan).toBe('do the test task');
-    expect(result.iteration).toBe(1);
-    expect(result.done).toBeUndefined();
+    expect(result.phase).toBe('research');
+    expect(result.objective).toBe('do the test task');
   });
 
   it('returns error and done=true when LLM rejects task', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"error","message":"Cannot do this"}',
+      '{"status":"reject","message":"Cannot do this","missing_capabilities":["x"]}',
     );
 
     const result = await supervisorNode(baseState as AgentState);
 
-    expect(result.status).toBe('error');
-    expect(result.done).toBe(true);
+    expect(result.phase).toBe('fatal');
     expect(result.finalAnswer).toBe('Cannot do this');
   });
 
-  it('falls back to forwarding raw input on JSON parse failure', async () => {
+  it('routes to json repair on JSON parse failure', async () => {
     mockedInvokeLlm.mockResolvedValue('not valid json at all');
 
     const result = await supervisorNode(baseState as AgentState);
 
-    expect(result.status).toBe('plan_required');
-    expect(result.executionPlan).toBe('test task');
-  });
-
-  it('increments iteration correctly', async () => {
-    mockedInvokeLlm.mockResolvedValue(
-      '{"status":"plan_required","task":"task"}',
-    );
-
-    const result = await supervisorNode({
-      ...baseState,
-      iteration: 2,
-    } as AgentState);
-
-    expect(result.iteration).toBe(3);
+    expect(result.jsonRepair).toBeDefined();
+    expect(result.phase).toBe('route');
   });
 });

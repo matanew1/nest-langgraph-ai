@@ -22,7 +22,8 @@ const envSchema = Joi.object({
   PROMPT_MAX_SUMMARY_CHARS: Joi.number().default(2000),
   QDRANT_URL: Joi.string().default('http://localhost:6333'),
   QDRANT_COLLECTION: Joi.string().default('agent_vectors'),
-  QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(1536),
+  // Default matches Xenova/all-MiniLM-L6-v2 embedding dimension (free, local).
+  QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(384),
 }).unknown(true);
 
 interface EnvVariables {

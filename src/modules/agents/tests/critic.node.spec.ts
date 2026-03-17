@@ -38,91 +38,70 @@ const baseState: Partial<AgentState> = {
   plan,
   currentStep: 0,
   selectedTool: 'search',
-  toolResult: 'some result',
+  toolResult: {
+    ok: true,
+    kind: 'text',
+    summary: 'ok',
+    preview: 'some result',
+    raw: 'some result',
+  },
   attempts: [],
 };
 
 describe('criticNode', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('advances to next_step when there are more steps', async () => {
+  it('returns a routed advance decision', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"next_step","reason":"step succeeded"}',
+      '{"decision":"advance","reason":"step succeeded"}',
     );
 
     const result = await criticNode(baseState as AgentState);
 
-    expect(result.status).toBe('running');
-    expect(result.currentStep).toBe(1);
-    expect(result.selectedTool).toBe('read_file');
-    expect(result.done).toBeUndefined();
+    expect(result.phase).toBe('route');
+    expect(result.criticDecision?.decision).toBe('advance');
   });
 
-  it('completes when next_step is issued on the last step', async () => {
-    mockedInvokeLlm.mockResolvedValue('{"status":"next_step","reason":"done"}');
-
-    const lastStepState = { ...baseState, currentStep: 1 } as AgentState;
-    const result = await criticNode(lastStepState);
-
-    expect(result.status).toBe('complete');
-    expect(result.done).toBe(true);
-  });
-
-  it('returns done=true and finalAnswer on complete', async () => {
+  it('returns a complete decision with finalAnswer', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"complete","summary":"task accomplished"}',
+      '{"decision":"complete","reason":"task accomplished","finalAnswer":"task accomplished"}',
     );
 
     const result = await criticNode(baseState as AgentState);
 
-    expect(result.status).toBe('complete');
-    expect(result.done).toBe(true);
-    expect(result.finalAnswer).toBe('task accomplished');
+    expect(result.phase).toBe('route');
+    expect(result.criticDecision?.decision).toBe('complete');
+    expect(result.criticDecision?.finalAnswer).toBe('task accomplished');
   });
 
-  it('returns retry on retry status', async () => {
+  it('returns a retry_step decision', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"retry","reason":"bad result","suggested_fix":"try again"}',
+      '{"decision":"retry_step","reason":"bad result"}',
     );
 
     const result = await criticNode(baseState as AgentState);
 
-    expect(result.status).toBe('retry');
-    expect(result.done).toBe(false);
-    expect(result.executionPlan).toBe('try again');
+    expect(result.phase).toBe('route');
+    expect(result.criticDecision?.decision).toBe('retry_step');
   });
 
-  it('returns done=true on error status', async () => {
+  it('returns a fatal decision', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"error","message":"impossible task"}',
+      '{"decision":"fatal","reason":"impossible","finalAnswer":"impossible task"}',
     );
 
     const result = await criticNode(baseState as AgentState);
 
-    expect(result.status).toBe('error');
-    expect(result.done).toBe(true);
-    expect(result.finalAnswer).toBe('impossible task');
+    expect(result.phase).toBe('route');
+    expect(result.criticDecision?.decision).toBe('fatal');
   });
 
-  it('heuristic retry when tool result starts with ERROR', async () => {
-    mockedInvokeLlm.mockResolvedValue('{"status":"unknown_status"}');
-
-    const errorState = {
-      ...baseState,
-      toolResult: 'ERROR something went wrong',
-    } as AgentState;
-    const result = await criticNode(errorState);
-
-    expect(result.status).toBe('retry');
-    expect(result.done).toBe(false);
-  });
-
-  it('retries on JSON parse failure', async () => {
+  it('routes to json repair on JSON parse failure', async () => {
     mockedInvokeLlm.mockResolvedValue('not json');
 
     const result = await criticNode(baseState as AgentState);
 
-    expect(result.status).toBe('retry');
-    expect(result.done).toBe(false);
+    expect(result.jsonRepair).toBeDefined();
+    expect(result.phase).toBe('route');
   });
 });

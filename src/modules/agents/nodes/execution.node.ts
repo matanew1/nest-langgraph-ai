@@ -17,9 +17,7 @@ export async function executionNode(
 ): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
   const toolName = state.selectedTool ?? '';
-  const rawParams: Record<string, unknown> = state.toolParams ?? {
-    query: state.toolInput ?? '',
-  };
+  const rawParams: Record<string, unknown> = state.toolParams ?? {};
 
   // Substitute __PREVIOUS_RESULT__ placeholders with actual previous tool result
   const toolParams: Record<string, unknown> = {};
@@ -27,11 +25,11 @@ export async function executionNode(
     if (
       typeof value === 'string' &&
       value.includes('__PREVIOUS_RESULT__') &&
-      state.toolResult
+      state.toolResultRaw
     ) {
       toolParams[key] = value.replaceAll(
         '__PREVIOUS_RESULT__',
-        state.toolResult,
+        state.toolResultRaw,
       );
     } else {
       toolParams[key] = value;
@@ -53,15 +51,17 @@ export async function executionNode(
     const errorMsg = `Unknown tool "${toolName}". Available: ${toolRegistry.getNames().join(', ')}`;
     logPhaseEnd('EXECUTOR', `FAILED: ${errorMsg}`, elapsed());
     return {
-      toolResult: errorMsg,
-      lastToolErrored: true,
-      attempts: [
+      phase: 'normalize_tool_result',
+      toolResultRaw: `ERROR: ${errorMsg}`,
+      counters: {
+        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
+      },
+      errors: [
         {
-          tool: toolName,
-          input: prettyJson(rawParams),
-          params: rawParams,
-          result: errorMsg,
-          error: true,
+          code: 'tool_error',
+          message: errorMsg,
+          atPhase: 'execute',
         },
       ],
     };
@@ -93,32 +93,29 @@ export async function executionNode(
     logger.debug(`Result:\n${resultPreview}`);
 
     return {
-      toolResult: result,
-      lastToolErrored: false,
-      attempts: [
-        {
-          tool: toolName,
-          input: prettyJson(rawParams),
-          params: rawParams,
-          result: resultPreview,
-          error: false,
-        },
-      ],
+      phase: 'normalize_tool_result',
+      toolResultRaw: result,
+      counters: {
+        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const errorResult = `Tool "${toolName}" failed: ${message}`;
     logPhaseEnd('EXECUTOR', `ERROR: ${message}`, elapsed());
     return {
-      toolResult: errorResult,
-      lastToolErrored: true,
-      attempts: [
+      phase: 'normalize_tool_result',
+      toolResultRaw: `ERROR: ${errorResult}`,
+      counters: {
+        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        toolCalls: (state.counters?.toolCalls ?? 0) + 1,
+      },
+      errors: [
         {
-          tool: toolName,
-          input: prettyJson(rawParams),
-          params: rawParams,
-          result: errorResult,
-          error: true,
+          code: 'tool_error',
+          message: errorResult,
+          atPhase: 'execute',
         },
       ],
     };

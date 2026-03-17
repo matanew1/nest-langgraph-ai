@@ -124,7 +124,7 @@ Create a `.env` file at the project root. All variables are validated on startup
 | `PROMPT_MAX_SUMMARY_CHARS` | No     | `2000`                                       | Max chars passed into `llm_summarize` tool            |
 | `QDRANT_URL`             | No       | `http://localhost:6333`                      | Qdrant vector database URL                            |
 | `QDRANT_COLLECTION`      | No       | `agent_vectors`                              | Qdrant collection name                                |
-| `QDRANT_VECTOR_SIZE`          | No       | `1536`                    | Embedding vector dimensions                                        |
+| `QDRANT_VECTOR_SIZE`          | No       | `384`                     | Embedding vector dimensions (matches free local embeddings)        |
 | `SPLUNK_URL`                  | No       | `http://localhost:8089`   | Splunk REST API base URL                                           |
 | `SPLUNK_TOKEN`                | No       | —                         | Splunk Bearer token for authentication                             |
 | `SPLUNK_DEFAULT_INDEX`        | No       | `main`                    | Default Splunk index for log tools                                 |
@@ -139,23 +139,38 @@ The `env` object exported from `src/common/config/env.ts` maps these to camelCas
 
 ## Agent Graph Architecture
 
-The core workflow is a **LangGraph StateGraph** (`src/modules/agents/graph/agent.graph.ts`):
+The core workflow is a **phase-driven LangGraph StateGraph** (`src/modules/agents/graph/agent.graph.ts`).
+
+High-level:
 
 ```
-START → SUPERVISOR → RESEARCHER → PLANNER → EXECUTE → CRITIC
-              ↑                      ↑                    |
-              |                      └────────────────────┘  (next step in plan)
-              └───────────────────────────────────────────┘  (retry / re-plan)
-                                                          → END (complete / error / max iterations)
+START → SUPERVISOR → ROUTER → RESEARCHER → ROUTER → PLANNER → ROUTER → PLAN_VALIDATOR → ROUTER → EXECUTE → ROUTER → TOOL_RESULT_NORMALIZER → ROUTER → CRITIC → ROUTER → END
+
+Additional routing:
+- ROUTER → JSON_REPAIR (when an LLM response fails JSON/Zod validation)
+- ROUTER enforces global hard stop limits (turns/toolCalls/replans/stepRetries)
 ```
 
-| Node       | File                              | Responsibility                                                              |
-|------------|-----------------------------------|-----------------------------------------------------------------------------|
-| SUPERVISOR | `nodes/supervisor.node.ts`        | Evaluates feasibility; outputs `{status, task}` JSON                        |
-| RESEARCHER | `nodes/researcher.node.ts`        | Gathers project context (file tree, git status) — no LLM call              |
-| PLANNER    | `nodes/planner.node.ts`           | Creates multi-step execution plan; outputs `{objective, steps[], expected_result}` |
-| EXECUTE    | `nodes/execution.node.ts`         | Invokes the selected tool with `toolParams`; substitutes `__PREVIOUS_RESULT__` |
-| CRITIC     | `nodes/critic.node.ts`            | Evaluates result; advances plan or sets `done=true` + `finalAnswer`         |
+| Node       | File                                   | Responsibility                                                              |
+|------------|----------------------------------------|-----------------------------------------------------------------------------|
+| SUPERVISOR | `nodes/supervisor.node.ts`             | Feasibility + normalize objective (strict Zod JSON)                         |
+| RESEARCHER | `nodes/researcher.node.ts`             | Gathers project context (file tree, git status) — no LLM call               |
+| PLANNER    | `nodes/planner.node.ts`                | Creates multi-step plan (strict Zod JSON)                                   |
+| PLAN_VALIDATOR | `nodes/plan-validator.node.ts`     | Validates step ids/tools/tool params against tool schemas                   |
+| EXECUTE    | `nodes/execution.node.ts`              | Invokes the selected tool; substitutes `__PREVIOUS_RESULT__` from `toolResultRaw` |
+| TOOL_RESULT_NORMALIZER | `nodes/tool-result-normalizer.node.ts` | Wraps raw tool output into a structured `ToolResult` envelope        |
+| CRITIC     | `nodes/critic.node.ts`                 | Decides advance/retry/replan/complete/fatal (strict Zod JSON)               |
+| ROUTER     | `nodes/decision-router.node.ts`        | Phase-driven routing + deadlock protection limits                           |
+| JSON_REPAIR| `nodes/json-repair.node.ts`            | Repairs invalid LLM JSON to match the required schema                       |
+
+### Node/prompt special instructions (important)
+
+These are behavioral rules that the prompts should follow to keep runs reliable and “memory-aware”:
+
+- **RESEARCHER**: gather only deterministic context (tree/git). If the user prompt suggests prior knowledge may matter (e.g. “as we decided earlier”, “remember”, “what did we choose”), the plan should include an early `vector_search` step to recall relevant memories.
+- **PLANNER**: prefer `vector_search` before making irreversible decisions; prefer `vector_upsert` after successful tool results to store durable facts/decisions/summaries. Keep stored text short and retrieval-oriented.
+- **PLAN_VALIDATOR**: treat `QDRANT_VECTOR_SIZE` mismatch as fatal at runtime (embedding service will throw); plans that depend on vector memory should include a mitigation step if Qdrant is unavailable.
+- **CRITIC**: if results show a recalled memory is irrelevant/low-confidence, request a follow-up `vector_search` with a refined query rather than hallucinating.
 
 ### LLM calls
 
@@ -167,21 +182,7 @@ This wraps `ChatMistralAI` with an AbortController timeout (default `MISTRAL_TIM
 
 ### Agent flow
 
-1. **Supervisor** → evaluates task feasibility, outputs `{"status":"plan_required","task":"..."}`
-2. **Researcher** → gathers project context (file tree + git status) automatically; no LLM call
-3. **Planner** → creates multi-step plan with project context: `{"objective":"...","steps":[...],"expected_result":"..."}`
-4. **Executor** → runs each step's tool, substituting `__PREVIOUS_RESULT__` between steps
-5. **Critic** → evaluates each step result; advances to next step, retries, or completes
-
-### Critic routing logic
-
-The critic outputs one of four statuses:
-- **`next_step`** — advance `currentStep` (or complete if last step)
-- **`complete`** — set `done=true`, populate `finalAnswer`
-- **`retry`** — reset plan pointer, optionally suggest a fix
-- **`error`** — terminate with error message
-
-Heuristic fallback: if parsed status is unrecognized, the critic inspects the raw output for an `ERROR` prefix.
+1. **Supervisor** → outputs `{status:'ok'|'reject', objective?...}` (Zod)\n2. **Researcher** → gathers project context\n3. **Planner** → outputs `{objective, steps[], expected_result}` (Zod)\n4. **PlanValidator** → validates tools + params\n5. **Executor** → runs tools, writes `toolResultRaw`\n6. **ToolResultNormalizer** → wraps to `ToolResult`\n7. **Critic** → outputs `{decision:'advance'|'retry_step'|'replan'|'complete'|'fatal', ...}` (Zod)\n8. **Router** → updates state, enforces limits, terminates on `complete|fatal`
 
 ### Prompt templates
 
@@ -197,21 +198,23 @@ Templates use `{{variable}}` placeholders rendered by `render()` in `agent.promp
 ```typescript
 {
   input: string;
-  plan: PlanStep[];              // multi-step execution plan
-  currentStep: number;           // 0-based index into plan
-  status: string;                // idle | plan_required | running | complete | retry | error
-  expectedResult: string;        // success criteria from planner
-  selectedTool: string;
-  toolInput: string;             // JSON string of params (display only)
-  toolParams: Record<string, unknown>;  // structured params for tool.invoke()
-  toolResult: string;
-  projectContext: string;        // file tree + git status from researcher
-  executionPlan: string;         // cleaned objective
-  finalAnswer: string;
-  done: boolean;
-  iteration: number;
-  lastToolErrored: boolean;
-  attempts: Attempt[];           // reducer: appends each attempt (never overwritten)
+  phase: AgentPhase;             // single driver of routing
+  objective?: string;
+  plan: PlanStep[];
+  currentStep: number;
+  expectedResult?: string;
+  selectedTool?: string;
+  toolParams?: Record<string, unknown>;
+  toolResultRaw?: string;        // raw tool output
+  toolResult?: ToolResult;       // normalized envelope for critic/router
+  projectContext?: string;
+  finalAnswer?: string;
+  counters: { turn; toolCalls; replans; stepRetries };
+  errors: AgentError[];
+  jsonRepair?: { fromPhase; raw; schema };
+  jsonRepairResult?: string;
+  criticDecision?: { decision; reason; finalAnswer?; suggestedPlanFix? };
+  attempts: Attempt[];           // bounded structured attempt history
 }
 
 interface PlanStep {
@@ -237,12 +240,13 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `write_file`     | `write-file.tool.ts`    | `{"path":"<path>","content":"<text>"}`                          | Writes content to a file (creates parent dirs)    |
 | `list_dir`       | `list-dir.tool.ts`      | `{"path":"<path>"}`                                             | Lists directory contents with type and size info  |
 | `tree_dir`       | `tree-dir.tool.ts`      | `{"path":"<path>"}`                                             | Recursive directory tree (skips node_modules, .git, dist, coverage) |
-| `shell_run`      | `shell-run.tool.ts`     | `{"command":"<cmd>"}`                                           | Execute shell command; 50 KB output cap           |
 | `llm_summarize`  | `llm-summarize.tool.ts` | `{"content":"<text>","instruction":"<what>"}`                   | AI-powered content summarization/analysis         |
 | `git_info`       | `git-info.tool.ts`      | `{"action":"status\|log\|diff\|branch\|show"}`                  | Query git repository information (whitelisted)    |
 | `grep_search`    | `grep-search.tool.ts`   | `{"pattern":"<regex>","path":"<dir>","glob":"<filter>"}`        | Search for patterns across files                  |
 | `file_patch`     | `file-patch.tool.ts`    | `{"path":"<file>","find":"<text>","replace":"<text>"}`          | Find and replace within a file (single occurrence)|
-| `drawio_generate`   | `drawio.tool.ts`            | `{"description":"<diagram description>","path":"<output path>"}` | Generate a draw.io XML diagram from natural language |
+| `generate_mermaid`  | `generate-mermaid.tool.ts`  | `{"description":"<diagram instructions>","source?":"<authoritative text>","path":"<output .mmd path>"}` | Generate a Mermaid (.mmd) diagram and save to file |
+| `read_mermaid`      | `read-mermaid.tool.ts`      | `{"path":"<.mmd file path>"}`                                         | Read a Mermaid (.mmd) file |
+| `edit_mermaid`      | `edit-mermaid.tool.ts`      | `{"path":"<.mmd file path>","instruction":"<how to change>"}`         | Edit a Mermaid (.mmd) file based on instruction |
 | `analyze_logs`      | `analyze-logs.tool.ts`      | `{"spl":"<SPL>","index":"<idx>","earliest_time":"-1h","focus":"<question>"}` | Query Splunk logs and return AI-powered analysis |
 | `detect_root_cause` | `detect-root-cause.tool.ts` | `{"service":"<svc>","earliest_time":"-1h","pattern":"<keyword>"}` | Search Splunk for errors and produce a structured RCA report |
 | `suggest_fix`       | `suggest-fix.tool.ts`       | `{"root_cause":"<text>","service":"<svc>","tech_stack":"<e.g. TypeScript/NestJS>","validate_with_splunk":false}` | Generate immediate mitigation + permanent fix plan |
@@ -250,6 +254,11 @@ All tools are defined in `src/modules/agents/tools/`. Inputs validated with **Zo
 | `system_info`    | `system-info.tool.ts`   | `{}`                                                            | Get information about the current system environment (OS, CPU, memory, uptime). |
 | `http_get`       | `http-get.tool.ts`      | `{"url":"<valid http url>"}`                                    | Perform an HTTP GET request to a specific URL and return the response body (JSON or text). |
 | `http_post`      | `http-post.tool.ts`     | `{"url":"<url>","body":"<json string>"}`                        | Perform an HTTP POST request to a URL with a JSON body. |
+| `glob_files`     | `glob-files.tool.ts`    | `{"root?":"<dir>","extensions?":[".ts"],"maxResults?":200}`      | Safe recursive file listing (bounded)             |
+| `read_files_batch` | `read-files-batch.tool.ts` | `{"paths":["a","b"]}`                                        | Read multiple files in one call (bounded)         |
+| `stat_path`      | `stat-path.tool.ts`     | `{"path":"<path>"}`                                             | File metadata (exists/type/size/mtime)            |
+| `vector_upsert`  | `vector-upsert.tool.ts`  | `{"text":"<text>","id?":"<optional id>","metadata?":{...}}`      | Embed text locally and upsert into Qdrant memory  |
+| `vector_search`  | `vector-search.tool.ts`  | `{"query":"<query>","topK?":5}`                                 | Embed query locally and search Qdrant memory      |
 
 Splunk tools share a common client in `tools/splunk.client.ts` (`splunkSearch()` + `formatEvents()`).
 
@@ -275,12 +284,15 @@ The supervisor and planner prompts automatically filter out previously errored t
 
 ### Vector DB (`src/modules/vector-db/`)
 
-Qdrant integration for semantic vector storage. Not wired into the main agent loop yet but available for extension.
+Qdrant integration for semantic vector storage.
+
+This repo uses **free local embeddings** via `@xenova/transformers` (`Xenova/all-MiniLM-L6-v2`, 384 dims). The first embedding call may download model assets.
 
 - **`qdrant.provider.ts`** — creates a `QdrantClient` pointed at `env.qdrantUrl`
 - **`vector.service.ts`** — `upsert(id, vector, metadata)` and `search(queryVector, topK)` methods
 - **`vector.module.ts`** — wires provider and service; exported for other modules to import
 - **`vector.constants.ts`** — exports `QDRANT_CLIENT` injection token
+- **`embedding.service.ts`** — local on-device text → embedding vectors (must match `QDRANT_VECTOR_SIZE`)
 
 ---
 
@@ -337,7 +349,7 @@ Rate limit: **60 requests per 60 seconds** (global ThrottlerModule).
 
 - `AllExceptionsFilter` (`src/common/filters/http-exception.filter.ts`) is registered globally in `main.ts`
 - All errors return `ErrorResponseDto`: `{ statusCode, timestamp, path, message }`
-- Node functions catch tool errors and set `lastToolErrored: true` on state
+- Tool execution failures are captured in `toolResultRaw` then normalized into `toolResult.ok=false`
 - The SUPERVISOR skips errored tools on subsequent iterations via `getAvailableTools()`
 
 ---

@@ -64,7 +64,7 @@ describe('researcherNode', () => {
 
     const result = await researcherNode(stateWithContext);
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ phase: 'plan' });
     expect(mockTreeInvoke).not.toHaveBeenCalled();
     expect(mockGitInvoke).not.toHaveBeenCalled();
   });

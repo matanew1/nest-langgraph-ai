@@ -9,24 +9,18 @@ import {
 } from '@utils/pretty-log.util';
 import { buildSupervisorPrompt } from '../prompts/agent.prompts';
 import { AgentState } from '../state/agent.state';
+import { supervisorOutputSchema } from '../state/agent.schemas';
 
 const logger = new Logger('Supervisor');
-
-interface SupervisorDecision {
-  status: string;
-  task?: string;
-  message?: string;
-}
 
 export async function supervisorNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
-  const iteration = (state.iteration ?? 0) + 1;
 
   logPhaseStart(
     'SUPERVISOR',
-    `iteration=${iteration} | input="${preview(state.input)}"`,
+    `input="${preview(state.input)}"`,
   );
 
   const prompt = buildSupervisorPrompt(state);
@@ -35,33 +29,52 @@ export async function supervisorNode(
   logger.debug(`LLM response:\n${preview(raw)}`);
 
   try {
-    const decision = extractJson<SupervisorDecision>(raw);
+    const parsed = extractJson<unknown>(raw);
+    const decision = supervisorOutputSchema.parse(parsed);
 
-    if (decision.status === 'error') {
+    if (decision.status === 'reject') {
       logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
       return {
-        status: 'error',
-        done: true,
-        finalAnswer:
-          decision.message ?? 'Task cannot be completed with available tools.',
-        iteration,
+        phase: 'fatal',
+        finalAnswer: decision.message ?? 'Task cannot be completed.',
+        errors: [
+          {
+            code: 'unknown',
+            message: decision.message ?? 'Supervisor rejected the task.',
+            atPhase: 'supervisor',
+            details: {
+              missing_capabilities: decision.missing_capabilities ?? [],
+            },
+          },
+        ],
       };
     }
 
-    const task = decision.task ?? state.input;
-    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(task)}"`, elapsed());
+    const objective = decision.objective ?? state.input;
+    logPhaseEnd('SUPERVISOR', `APPROVED → "${preview(objective)}"`, elapsed());
 
     return {
-      status: 'plan_required',
-      executionPlan: task,
-      iteration,
+      phase: 'research',
+      objective,
     };
-  } catch {
-    logPhaseEnd('SUPERVISOR', 'PARSE FAILED → forwarding raw input', elapsed());
+  } catch (e) {
+    logPhaseEnd('SUPERVISOR', 'PARSE FAILED → json_repair', elapsed());
+    const msg = e instanceof Error ? e.message : String(e);
     return {
-      status: 'plan_required',
-      executionPlan: state.input,
-      iteration,
+      phase: 'route',
+      jsonRepair: {
+        fromPhase: 'supervisor',
+        raw,
+        schema:
+          '{"status":"ok|reject","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
+      },
+      errors: [
+        {
+          code: 'json_invalid',
+          message: `Supervisor JSON invalid: ${msg}`,
+          atPhase: 'supervisor',
+        },
+      ],
     };
   }
 }

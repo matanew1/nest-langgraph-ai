@@ -18,8 +18,8 @@ services:
     image: qdrant/qdrant:latest
     platform: linux/arm64
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "6333:6333" # HTTP
+      - "6334:6334" # HTTPS
     volumes:
       - qdrant_data:/qdrant/storage
 

@@ -1,12 +1,21 @@
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
-class ToolRegistry {
+export interface ToolRegistration {
+  tool: StructuredToolInterface;
+  paramHint?: string;
+}
+
+export class ToolRegistry {
   private readonly tools = new Map<string, StructuredToolInterface>();
   private readonly paramHints = new Map<string, string>();
 
   register(tool: StructuredToolInterface, paramHint?: string): void {
     this.tools.set(tool.name, tool);
     if (paramHint) this.paramHints.set(tool.name, paramHint);
+  }
+
+  registerAll(registrations: ToolRegistration[]): void {
+    for (const r of registrations) this.register(r.tool, r.paramHint);
   }
 
   get(name: string): StructuredToolInterface | undefined {
@@ -41,4 +50,18 @@ class ToolRegistry {
   }
 }
 
-export const toolRegistry = new ToolRegistry();
+export class ToolRegistryBuilder {
+  private readonly registrations: ToolRegistration[] = [];
+
+  add(tool: StructuredToolInterface, paramHint?: string): this {
+    this.registrations.push({ tool, paramHint });
+    return this;
+  }
+
+  build(): ToolRegistry {
+    const registry = new ToolRegistry();
+    registry.registerAll(this.registrations);
+    return registry;
+  }
+}
+

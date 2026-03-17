@@ -5,53 +5,73 @@ import { researcherNode } from '../nodes/researcher.node';
 import { plannerNode } from '../nodes/planner.node';
 import { executionNode } from '../nodes/execution.node';
 import { criticNode } from '../nodes/critic.node';
-import { env } from '@config/env';
-
-const MAX_ITERATIONS = env.agentMaxIterations;
-const MAX_RETRIES = env.agentMaxRetries;
+import { jsonRepairNode } from '../nodes/json-repair.node';
+import { planValidatorNode } from '../nodes/plan-validator.node';
+import { toolResultNormalizerNode } from '../nodes/tool-result-normalizer.node';
+import { decisionRouterNode } from '../nodes/decision-router.node';
 
 enum Nodes {
   SUPERVISOR = 'supervisor',
   RESEARCHER = 'researcher',
   PLANNER = 'planner',
+  PLAN_VALIDATOR = 'plan_validator',
   EXECUTE = 'execute',
+  TOOL_RESULT_NORMALIZER = 'tool_result_normalizer',
   CRITIC = 'critic',
+  JSON_REPAIR = 'json_repair',
+  ROUTER = 'router',
 }
 
 /**
- * Graph flow:
+ * Phase-driven graph:
+ * START -> SUPERVISOR -> ROUTER -> ... -> END
  *
- *   START → SUPERVISOR → RESEARCHER → PLANNER → EXECUTE → CRITIC
- *                ↑                       ↑                    |
- *                |                       └────────────────────┘  (next step in plan)
- *                └────────────────────────────────────────────┘  (retry / re-plan)
- *                                                             → END (complete / error / max iterations)
+ * All routing happens via ROUTER based on state.phase + flags.
  */
 const graph = new StateGraph(AgentStateAnnotation)
   // nodes
   .addNode(Nodes.SUPERVISOR, supervisorNode)
   .addNode(Nodes.RESEARCHER, researcherNode)
   .addNode(Nodes.PLANNER, plannerNode)
+  .addNode(Nodes.PLAN_VALIDATOR, planValidatorNode)
   .addNode(Nodes.EXECUTE, executionNode)
+  .addNode(Nodes.TOOL_RESULT_NORMALIZER, toolResultNormalizerNode)
   .addNode(Nodes.CRITIC, criticNode)
+  .addNode(Nodes.JSON_REPAIR, jsonRepairNode)
+  .addNode(Nodes.ROUTER, decisionRouterNode)
   // edges
   .addEdge(START, Nodes.SUPERVISOR)
-  .addConditionalEdges(Nodes.SUPERVISOR, (state) => {
-    if (state.done) return END;
-    return Nodes.RESEARCHER;
-  })
-  .addEdge(Nodes.RESEARCHER, Nodes.PLANNER)
-  .addConditionalEdges(Nodes.PLANNER, (state) => {
-    if (state.done) return END;
-    return Nodes.EXECUTE;
-  })
-  .addEdge(Nodes.EXECUTE, Nodes.CRITIC)
-  .addConditionalEdges(Nodes.CRITIC, (state) => {
-    if (state.done) return END;
-    if ((state.iteration ?? 0) >= MAX_ITERATIONS) return END;
-    if ((state.consecutiveRetries ?? 0) >= MAX_RETRIES) return END; // Circuit breaker fallback
-    if (state.status === 'running') return Nodes.EXECUTE; // next step in plan
-    return Nodes.SUPERVISOR; // retry — re-plan
+  .addEdge(Nodes.SUPERVISOR, Nodes.ROUTER)
+  .addEdge(Nodes.RESEARCHER, Nodes.ROUTER)
+  .addEdge(Nodes.PLANNER, Nodes.ROUTER)
+  .addEdge(Nodes.PLAN_VALIDATOR, Nodes.ROUTER)
+  .addEdge(Nodes.EXECUTE, Nodes.ROUTER)
+  .addEdge(Nodes.TOOL_RESULT_NORMALIZER, Nodes.ROUTER)
+  .addEdge(Nodes.CRITIC, Nodes.ROUTER)
+  .addEdge(Nodes.JSON_REPAIR, Nodes.ROUTER)
+  .addConditionalEdges(Nodes.ROUTER, (state) => {
+    if (state.phase === 'complete' || state.phase === 'fatal') return END;
+    if (state.jsonRepair) return Nodes.JSON_REPAIR;
+    switch (state.phase) {
+      case 'supervisor':
+        return Nodes.SUPERVISOR;
+      case 'research':
+        return Nodes.RESEARCHER;
+      case 'plan':
+        return Nodes.PLANNER;
+      case 'validate_plan':
+        return Nodes.PLAN_VALIDATOR;
+      case 'execute':
+        return Nodes.EXECUTE;
+      case 'normalize_tool_result':
+        return Nodes.TOOL_RESULT_NORMALIZER;
+      case 'judge':
+        return Nodes.CRITIC;
+      case 'route':
+      default:
+        // If router didn't change phase, go back to supervisor as a safe fallback.
+        return Nodes.SUPERVISOR;
+    }
   });
 
 export const agentWorkflow = graph;

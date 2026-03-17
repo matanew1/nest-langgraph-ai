@@ -5,6 +5,7 @@ import { HealthModule } from './modules/health/health.module';
 import { LlmModule } from './modules/llm/llm.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { AgentsModule } from './modules/agents/agents.module';
+import { VectorModule } from './modules/vector-db/vector.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AgentsModule } from './modules/agents/agents.module';
 
     LlmModule,
     RedisModule,
+    VectorModule,
     AgentsModule,
     HealthModule,
   ],

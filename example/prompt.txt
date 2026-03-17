@@ -1,0 +1,47 @@
+Prompt examples (copy/paste into POST /api/agents/run as { "prompt": "..." })
+
+──────────────────────────────────────────────────────────────────────────────
+Mermaid diagram (grounded in code)
+──────────────────────────────────────────────────────────────────────────────
+
+Analyze src/modules/agents/graph/agent.graph.ts and generate a Mermaid flowchart that matches the real nodes/edges. Save it to diagram/agent-graph.mmd.
+
+If diagram/agent-graph.mmd already exists, read it and update it to include any missing conditional routes (jsonRepair, END conditions).
+
+──────────────────────────────────────────────────────────────────────────────
+Edit Mermaid diagram
+──────────────────────────────────────────────────────────────────────────────
+
+Edit diagram/agent-graph.mmd:
+- group nodes by phase (supervisor/research/plan/execute/judge)
+- keep edges identical to agent.graph.ts
+- ensure the ROUTER conditional edges are clearly labeled
+
+──────────────────────────────────────────────────────────────────────────────
+Vector memory (Qdrant) — quick test
+──────────────────────────────────────────────────────────────────────────────
+
+Remember this decision for future turns:
+“We use free local embeddings via @xenova/transformers with model Xenova/all-MiniLM-L6-v2 (384 dims).”
+Store it in vector memory with metadata { "kind": "decision", "topic": "embeddings" }.
+
+Then immediately recall it:
+Search vector memory for: “what embeddings model do we use and what is the vector size?”
+Return the top 3 results with scores and a 1-sentence summary.
+
+If you get an error about vector size mismatch, explain how to fix it (QDRANT_VECTOR_SIZE and recreating the collection).
+
+──────────────────────────────────────────────────────────────────────────────
+Codebase understanding
+──────────────────────────────────────────────────────────────────────────────
+
+List all tools registered in the ToolRegistry and summarize what each tool does in 1 sentence. Save to tools-summary.md.
+
+Find where session state is checkpointed and explain (briefly) how session continuation works. Point to the key files and functions.
+
+──────────────────────────────────────────────────────────────────────────────
+Safe refactor request
+──────────────────────────────────────────────────────────────────────────────
+
+Refactor the logging so each agent run prints a concise, single-line summary per step (phase, step index, tool, ok/error). Keep behavior identical.
+

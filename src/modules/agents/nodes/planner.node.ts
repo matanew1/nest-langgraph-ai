@@ -11,20 +11,15 @@ import { extractJson } from '@utils/json.util';
 import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AgentState, PlanStep } from '../state/agent.state';
 import { toolRegistry } from '../tools';
+import { plannerOutputSchema } from '../state/agent.schemas';
 
 const logger = new Logger('Planner');
-
-interface PlanDecision {
-  objective: string;
-  steps: PlanStep[];
-  expected_result: string;
-}
 
 export async function plannerNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
-  const objective = state.executionPlan ?? state.input;
+  const objective = state.objective ?? state.input;
 
   logPhaseStart('PLANNER', `objective="${preview(objective)}"`);
 
@@ -34,14 +29,18 @@ export async function plannerNode(
   logger.debug(`LLM response:\n${preview(raw)}`);
 
   try {
-    const plan = extractJson<PlanDecision>(raw);
+    const parsed = extractJson<unknown>(raw);
+    const plan = plannerOutputSchema.parse(parsed) as {
+      objective: string;
+      steps: PlanStep[];
+      expected_result: string;
+    };
 
     // Validate plan structure
     if (!plan.steps || !Array.isArray(plan.steps) || plan.steps.length === 0) {
       logPhaseEnd('PLANNER', 'FAILED: empty or invalid steps', elapsed());
       return {
-        status: 'error',
-        done: true,
+        phase: 'fatal',
         finalAnswer: 'Failed to create an execution plan.',
       };
     }
@@ -55,8 +54,7 @@ export async function plannerNode(
           elapsed(),
         );
         return {
-          status: 'error',
-          done: true,
+          phase: 'fatal',
           finalAnswer: `Planning failed: unknown tool "${step.tool}".`,
         };
       }
@@ -73,20 +71,30 @@ export async function plannerNode(
     return {
       plan: plan.steps,
       currentStep: 0,
-      status: 'running',
       selectedTool: firstStep.tool,
       toolParams: firstStep.input,
-      toolInput: prettyJson(firstStep.input),
-      executionPlan: plan.objective,
       expectedResult: plan.expected_result,
+      objective: plan.objective,
+      phase: 'validate_plan',
     };
-  } catch {
-    logPhaseEnd('PLANNER', 'PARSE FAILED', elapsed());
+  } catch (e) {
+    logPhaseEnd('PLANNER', 'PARSE FAILED → json_repair', elapsed());
     logger.error(`Raw response: ${preview(raw)}`);
     return {
-      status: 'error',
-      done: true,
-      finalAnswer: 'Failed to parse the execution plan. Please try again.',
+      phase: 'route',
+      jsonRepair: {
+        fromPhase: 'plan',
+        raw,
+        schema:
+          '{"objective":"string","steps":[{"step_id":1,"description":"string","tool":"tool_name","input":{}}],"expected_result":"string"}',
+      },
+      errors: [
+        {
+          code: 'json_invalid',
+          message: `Planner JSON invalid: ${e instanceof Error ? e.message : String(e)}`,
+          atPhase: 'plan',
+        },
+      ],
     };
   }
 }

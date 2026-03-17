@@ -14,24 +14,27 @@ Tool result preview:
 {{stepContext}}
 
 DECISION LOGIC:
-- Success signal YES + more steps remain → next_step
-- AST chunks found + discovery task → next_step
-- Success signal YES + last step + objective achieved → complete
-- Success signal NO or result is clearly wrong → retry
-- Task is fundamentally impossible → error
-- "File written successfully" or "Patched" on last step → complete
-- Non-empty result with no error prefix → success
+- If Success signal YES and more steps remain → advance
+- If Success signal YES and last step and objective achieved → complete
+- If Success signal NO but likely fixable by retrying same step → retry_step
+- If the plan/tool choice is wrong or missing prerequisites → replan
+- If fundamentally impossible or unsafe → fatal
 
-Respond with EXACTLY one of these four JSON objects:
+Output JSON schema (strict; no extra keys):
 
-{"status":"next_step","reason":"<why this step succeeded>"}
-{"status":"complete","summary":"<user-facing description of what was accomplished>"}
-{"status":"retry","reason":"<what went wrong>","suggested_fix":"<how to fix it>"}
-{"status":"error","message":"<why this task is impossible>"}
+{"decision":"advance","reason":"<why this step succeeded>"}
+{"decision":"retry_step","reason":"<what went wrong and why retry may work>","suggestedPlanFix":"<optional hint to adjust params/tool>"}
+{"decision":"replan","reason":"<why re-planning is needed>","suggestedPlanFix":"<what the new plan should change>"}
+{"decision":"complete","reason":"<why done>","finalAnswer":"<user-facing answer>"}
+{"decision":"fatal","reason":"<why impossible/unsafe>","finalAnswer":"<user-facing error explanation>"}
 
 IMPORTANT:
-- Use "summary" in complete to describe what was done, NOT to copy raw tool output.
-- If the objective was to "find" or "search" for data, include key findings in the summary.
-- The "status" field MUST be one of: next_step, complete, retry, error.
+- `finalAnswer` must be concise and user-facing.
+- Never copy huge tool output; summarize and cite only key facts.
+- Vector DB guidance:
+  - If a `vector_search` result is low-quality/irrelevant (low scores or wrong topic), prefer `replan` with a refined query instead of guessing.
+  - If a `vector_upsert` failed due to Qdrant connectivity, suggest a plan fix to validate Qdrant is running and retry once; do not loop.
+  - If there is an embedding/Qdrant vector size mismatch, treat it as non-retriable until config/collection is fixed (replan with a clear fix).
+  - If `file_patch` failed with "the exact \"find\" string was not found", this is deterministic — choose `replan` (read the file / grep first), not `retry_step`.
 
 {{SELF_REFLECTION}}

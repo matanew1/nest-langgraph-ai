@@ -25,7 +25,7 @@ export async function researcherNode(
   if (state.projectContext) {
     logPhaseStart('RESEARCHER', 'skipping — context already gathered');
     logPhaseEnd('RESEARCHER', 'skipped (cached)', 0);
-    return {};
+    return { phase: 'plan' };
   }
 
   const elapsed = startTimer();
@@ -74,5 +74,5 @@ export async function researcherNode(
     elapsed(),
   );
 
-  return { projectContext };
+  return { projectContext, phase: 'plan' };
 }

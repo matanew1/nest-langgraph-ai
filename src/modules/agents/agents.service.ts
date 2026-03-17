@@ -52,13 +52,16 @@ export class AgentsService {
       configurable: {
         thread_id: threadId,
       },
-      recursionLimit: 100,
+      recursionLimit: 200,
     };
 
     try {
       const graphTimeoutMs =
         env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
-      const initialState = this._createInitialState(prompt);
+      const previous = sessionId
+        ? await this._tryLoadPreviousState(threadId)
+        : undefined;
+      const initialState = this._createInitialState(prompt, previous);
 
       let timeoutHandle: any;
       const result: any = await Promise.race([
@@ -76,7 +79,11 @@ export class AgentsService {
 
       const totalTime = elapsed();
 
-      const answer = result.finalAnswer || result.toolResult;
+      const answer =
+        result.finalAnswer ||
+        result.toolResult?.preview ||
+        result.toolResultRaw ||
+        undefined;
 
       if (!answer) {
         this.logger.warn('Agent completed without a final answer');
@@ -122,10 +129,13 @@ export class AgentsService {
       configurable: {
         thread_id: threadId,
       },
-      recursionLimit: 25,
+      recursionLimit: 200,
     };
 
-    const initialState = this._createInitialState(prompt);
+    const previous = sessionId
+      ? await this._tryLoadPreviousState(threadId)
+      : undefined;
+    const initialState = this._createInitialState(prompt, previous);
 
     try {
       yield {
@@ -142,7 +152,7 @@ export class AgentsService {
         const stateSnapshot = (event as any)[node] as Partial<AgentState>;
 
         // Stream step/chunk updates (no early final)
-        if (stateSnapshot.status === 'running') {
+        if (stateSnapshot.phase === 'execute') {
           yield {
             type: 'step',
             data: `Executing step ${stateSnapshot.currentStep}: ${stateSnapshot.selectedTool || node}`,
@@ -150,10 +160,10 @@ export class AgentsService {
             step: stateSnapshot.currentStep as number,
             done: false,
           };
-        } else if (stateSnapshot.toolResult) {
+        } else if (stateSnapshot.toolResultRaw) {
           yield {
             type: 'chunk',
-            data: preview(stateSnapshot.toolResult, 200),
+            data: preview(stateSnapshot.toolResultRaw, 200),
             sessionId: threadId,
             done: false,
           };
@@ -165,7 +175,11 @@ export class AgentsService {
         configurable: { thread_id: threadId },
       });
       const finalAnswer = finalState.values.finalAnswer;
-      if (finalState.values.done && finalAnswer) {
+      if (
+        (finalState.values.phase === 'complete' ||
+          finalState.values.phase === 'fatal') &&
+        finalAnswer
+      ) {
         yield {
           type: 'final',
           data: finalAnswer,
@@ -177,7 +191,8 @@ export class AgentsService {
           type: 'error',
           data:
             finalState.values.finalAnswer ||
-            finalState.values.toolResult ||
+            finalState.values.toolResult?.preview ||
+            finalState.values.toolResultRaw ||
             'Task ended without proper final answer.',
           sessionId: threadId,
           done: true,
@@ -204,17 +219,57 @@ export class AgentsService {
     return this.checkpointer.deleteThread(sessionId);
   }
 
-  private _createInitialState(prompt: string): Partial<AgentState> {
+  /**
+   * Load the latest checkpointed state for a thread, if any.
+   *
+   * This is essential for session continuity: LangGraph can resume from a
+   * prior checkpoint, but we must avoid overwriting restored values with a
+   * fully "blank" initial state.
+   */
+  private async _tryLoadPreviousState(
+    threadId: string,
+  ): Promise<Partial<AgentState> | undefined> {
+    try {
+      const state = await this.app.getState({
+        configurable: { thread_id: threadId },
+      });
+      return (state?.values ?? undefined) as Partial<AgentState> | undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private _createInitialState(
+    prompt: string,
+    previous?: Partial<AgentState>,
+  ): Partial<AgentState> {
     return {
+      // Always replace the user input for the new turn.
       input: prompt,
-      iteration: 0,
-      status: 'plan_required',
+      // Always restart the workflow at supervisor for a new user prompt.
+      phase: 'supervisor',
+
+      // Reset per-run fields so we don't execute a prior plan/tool selection.
       currentStep: 0,
       plan: [],
-      finalAnswer: undefined,
+      objective: undefined,
+      expectedResult: undefined,
+      selectedTool: undefined,
+      toolParams: undefined,
+      toolResultRaw: undefined,
       toolResult: undefined,
-      done: false,
-      consecutiveRetries: 0,
+      criticDecision: undefined,
+      jsonRepair: undefined,
+      jsonRepairResult: undefined,
+      finalAnswer: undefined,
+
+      // Preserve long-lived context where helpful for better responses.
+      projectContext: previous?.projectContext,
+      attempts: previous?.attempts ?? [],
+
+      // Always reset loop counters/errors for this new prompt.
+      counters: { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 },
+      errors: [],
     };
   }
 }

@@ -33,7 +33,6 @@ const baseState: Partial<AgentState> = {
   currentStep: 0,
   selectedTool: 'search',
   toolParams: { query: 'test' },
-  toolInput: '{"query":"test"}',
   attempts: [],
 };
 
@@ -46,10 +45,8 @@ describe('executionNode', () => {
 
     const result = await executionNode(baseState as AgentState);
 
-    expect(result.toolResult).toBe('search results here');
-    expect(result.lastToolErrored).toBe(false);
-    expect(result.attempts).toHaveLength(1);
-    expect(result.attempts![0].error).toBe(false);
+    expect(result.phase).toBe('normalize_tool_result');
+    expect(result.toolResultRaw).toBe('search results here');
   });
 
   it('returns error state when tool is not found', async () => {
@@ -57,9 +54,8 @@ describe('executionNode', () => {
 
     const result = await executionNode(baseState as AgentState);
 
-    expect(result.lastToolErrored).toBe(true);
-    expect(result.toolResult).toContain('Unknown tool');
-    expect(result.attempts![0].error).toBe(true);
+    expect(result.phase).toBe('normalize_tool_result');
+    expect(result.toolResultRaw).toContain('ERROR');
   });
 
   it('returns error state when tool throws', async () => {
@@ -68,9 +64,8 @@ describe('executionNode', () => {
 
     const result = await executionNode(baseState as AgentState);
 
-    expect(result.lastToolErrored).toBe(true);
-    expect(result.toolResult).toContain('tool exploded');
-    expect(result.attempts![0].error).toBe(true);
+    expect(result.phase).toBe('normalize_tool_result');
+    expect(result.toolResultRaw).toContain('ERROR');
   });
 
   it('substitutes __PREVIOUS_RESULT__ in toolParams', async () => {
@@ -80,7 +75,7 @@ describe('executionNode', () => {
     const stateWithPrev = {
       ...baseState,
       toolParams: { content: '__PREVIOUS_RESULT__', instruction: 'summarize' },
-      toolResult: 'raw previous output',
+      toolResultRaw: 'raw previous output',
     } as AgentState;
 
     await executionNode(stateWithPrev);
@@ -96,7 +91,7 @@ describe('executionNode', () => {
     const stateWithPrev = {
       ...baseState,
       toolParams: { content: 'Analyze this: __PREVIOUS_RESULT__' },
-      toolResult: 'the data',
+      toolResultRaw: 'the data',
     } as AgentState;
 
     await executionNode(stateWithPrev);

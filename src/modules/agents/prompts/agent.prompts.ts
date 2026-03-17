@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { env } from '@config/env';
 import type { AgentState } from '../state/agent.state';
-import { toolRegistry } from '../tools/tool.registry';
+import { toolRegistry } from '../tools';
 
 /* ------------------------------------------------------------------ */
 /*  Template loader                                                     */
@@ -54,7 +54,8 @@ function formatAttempts(state: AgentState): string {
   // Context trimming utility to prevent prompt bloat during deep recursive iterations
   let totalPreviewChars = 0;
   for (const a of recent) {
-    totalPreviewChars += a.input.length + Math.min(a.result.length, 200);
+    totalPreviewChars +=
+      JSON.stringify(a.params).length + Math.min(a.result.preview.length, 200);
   }
   if (totalPreviewChars > env.promptMaxSummaryChars) {
     displayRecent = recent.slice(-3);
@@ -65,7 +66,7 @@ function formatAttempts(state: AgentState): string {
 
   const lines = displayRecent.map(
     (a, i) =>
-      `${i + 1}. tool="${a.tool}" input=${a.input} → ${a.error ? 'ERROR: ' : ''}${a.result.slice(0, 150)}...`,
+      `${i + 1}. step=${a.step + 1} tool="${a.tool}" params=${JSON.stringify(a.params)} → ${a.result.ok ? 'OK' : 'ERROR'}: ${a.result.preview.slice(0, 150)}...`,
   );
   return `\nPrevious attempts:${trimNote}\n${lines.join('\n')}`;
 }
@@ -74,7 +75,7 @@ function getAvailableTools(state: AgentState): string {
   const erroredToolNames = new Set(
     (state.attempts ?? [])
       .slice(-1)
-      .filter((a) => a.error)
+      .filter((a) => !a.result.ok)
       .map((a) => a.tool),
   );
   return toolRegistry
@@ -108,7 +109,7 @@ export const buildPlannerPrompt = (state: AgentState): string =>
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
-    objective: state.executionPlan ?? state.input,
+    objective: state.objective ?? state.input,
     projectContext: state.projectContext ?? '(not available)',
   });
 
@@ -118,30 +119,23 @@ export const buildCriticPrompt = (state: AgentState): string => {
   const totalSteps = plan.length;
   const isLastStep = currentStep >= totalSteps - 1;
 
-  const rawResult = state.toolResult ?? '';
+  const toolResult = state.toolResult;
   const PREVIEW = env.criticResultMaxChars;
+  const previewText = toolResult?.preview ?? '(empty)';
   const resultPreview =
-    rawResult.length > PREVIEW
-      ? `${rawResult.slice(0, PREVIEW)}\n… [${rawResult.length} chars total]`
-      : rawResult || '(empty)';
-
-  const looksSuccessful =
-    !rawResult.startsWith('ERROR') &&
-    !rawResult.startsWith('Tool "') &&
-    !rawResult.startsWith('error:') &&
-    rawResult.length > 0;
+    previewText.length > PREVIEW
+      ? `${previewText.slice(0, PREVIEW)}\n… [${previewText.length} chars total]`
+      : previewText || '(empty)';
 
   return render(templates.critic, {
     JSON_ONLY,
     SELF_REFLECTION,
-    objective: state.executionPlan ?? state.input,
+    objective: state.objective ?? state.input,
     currentStep: String(currentStep + 1),
     totalSteps: String(totalSteps),
     stepDescription: plan[currentStep]?.description ?? 'N/A',
     selectedTool: state.selectedTool ?? 'unknown',
-    successSignal: looksSuccessful
-      ? 'YES (no error prefix)'
-      : 'NO (error prefix detected)',
+    successSignal: toolResult?.ok ? 'YES' : 'NO',
     resultPreview,
     stepContext: isLastStep
       ? '*** THIS IS THE LAST STEP ***'
