@@ -1,9 +1,10 @@
 import { criticNode } from '../nodes/critic.node';
 import { AgentState, PlanStep } from '../state/agent.state';
+import { invokeLlm } from '@llm/llm.provider';
 
 jest.mock('@config/env', () => ({
   env: {
-    groqTimeoutMs: 5000,
+    mistralTimeoutMs: 5000,
     promptMaxAttempts: 5,
   },
 }));
@@ -15,8 +16,7 @@ jest.mock('@llm/llm.provider', () => ({
 jest.mock('../prompts/agent.prompts', () => ({
   buildCriticPrompt: jest.fn().mockReturnValue('mock prompt'),
 }));
-
-const { invokeLlm } = require('@llm/llm.provider');
+const mockedInvokeLlm = jest.mocked(invokeLlm);
 
 const plan: PlanStep[] = [
   {
@@ -46,7 +46,7 @@ describe('criticNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('advances to next_step when there are more steps', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"next_step","reason":"step succeeded"}',
     );
 
@@ -59,7 +59,7 @@ describe('criticNode', () => {
   });
 
   it('completes when next_step is issued on the last step', async () => {
-    invokeLlm.mockResolvedValue('{"status":"next_step","reason":"done"}');
+    mockedInvokeLlm.mockResolvedValue('{"status":"next_step","reason":"done"}');
 
     const lastStepState = { ...baseState, currentStep: 1 } as AgentState;
     const result = await criticNode(lastStepState);
@@ -69,7 +69,7 @@ describe('criticNode', () => {
   });
 
   it('returns done=true and finalAnswer on complete', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"complete","summary":"task accomplished"}',
     );
 
@@ -81,7 +81,7 @@ describe('criticNode', () => {
   });
 
   it('returns retry on retry status', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"retry","reason":"bad result","suggested_fix":"try again"}',
     );
 
@@ -93,7 +93,7 @@ describe('criticNode', () => {
   });
 
   it('returns done=true on error status', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"error","message":"impossible task"}',
     );
 
@@ -105,7 +105,7 @@ describe('criticNode', () => {
   });
 
   it('heuristic retry when tool result starts with ERROR', async () => {
-    invokeLlm.mockResolvedValue('{"status":"unknown_status"}');
+    mockedInvokeLlm.mockResolvedValue('{"status":"unknown_status"}');
 
     const errorState = {
       ...baseState,
@@ -118,7 +118,7 @@ describe('criticNode', () => {
   });
 
   it('retries on JSON parse failure', async () => {
-    invokeLlm.mockResolvedValue('not json');
+    mockedInvokeLlm.mockResolvedValue('not json');
 
     const result = await criticNode(baseState as AgentState);
 

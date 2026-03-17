@@ -1,5 +1,6 @@
 import { executionNode } from '../nodes/execution.node';
 import { AgentState, PlanStep } from '../state/agent.state';
+import { toolRegistry } from '../tools/index';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -16,8 +17,6 @@ jest.mock('../tools/index', () => ({
     getNames: jest.fn().mockReturnValue(['search', 'read_file']),
   },
 }));
-
-const { toolRegistry } = require('../tools/index');
 
 const plan: PlanStep[] = [
   {

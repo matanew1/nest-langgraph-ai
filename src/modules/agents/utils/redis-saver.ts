@@ -23,10 +23,9 @@ class DefaultSerializer implements SerializerProtocol {
   }
 
   async loadsTyped(_type: string, data: string | Uint8Array): Promise<any> {
-    const decoded = typeof data === 'string' 
-      ? data 
-      : new TextDecoder().decode(data);
-    
+    const decoded =
+      typeof data === 'string' ? data : new TextDecoder().decode(data);
+
     return JSON.parse(decoded);
   }
 }
@@ -78,16 +77,21 @@ export class RedisSaver extends BaseCheckpointSaver {
 
     if (!checkpointData) return undefined;
 
-    this.logger.log(`📥 Loaded checkpoint for thread "${threadId}" (id: ${checkpointId})`);
+    this.logger.log(
+      `📥 Loaded checkpoint for thread "${threadId}" (id: ${checkpointId})`,
+    );
 
     // Use the async loadsTyped with the 'json' type
     const checkpoint = (await this.serde.loadsTyped(
       'json',
       checkpointData,
     )) as Checkpoint;
-    
+
     const metadata = metadataData
-      ? ((await this.serde.loadsTyped('json', metadataData)) as CheckpointMetadata)
+      ? ((await this.serde.loadsTyped(
+          'json',
+          metadataData,
+        )) as CheckpointMetadata)
       : ({} as CheckpointMetadata);
 
     return {
@@ -117,7 +121,9 @@ export class RedisSaver extends BaseCheckpointSaver {
     }
 
     if (checkpointIds.length === 0) {
-      throw new NotFoundException(`Thread ID "${threadId}" not found or has no associated checkpoints.`);
+      throw new NotFoundException(
+        `Thread ID "${threadId}" not found or has no associated checkpoints.`,
+      );
     }
 
     const pipeline = this.client.pipeline();
@@ -131,7 +137,9 @@ export class RedisSaver extends BaseCheckpointSaver {
     pipeline.del(threadCheckpointsKey);
     await pipeline.exec();
 
-    this.logger.log(`🗑️ Deleted session state and ${checkpointIds.length} checkpoint(s) for ID: ${threadId}`);
+    this.logger.log(
+      `🗑️ Deleted session state and ${checkpointIds.length} checkpoint(s) for ID: ${threadId}`,
+    );
   }
   public async putWrites(
     _config: RunnableConfig,
@@ -158,8 +166,18 @@ export class RedisSaver extends BaseCheckpointSaver {
 
     const pipeline = this.client.pipeline();
     if (this.ttlSeconds > 0) {
-      pipeline.set(checkpointKey, Buffer.from(checkpointBytes as any), 'EX', this.ttlSeconds);
-      pipeline.set(metadataKey, Buffer.from(metadataBytes as any), 'EX', this.ttlSeconds);
+      pipeline.set(
+        checkpointKey,
+        Buffer.from(checkpointBytes as any),
+        'EX',
+        this.ttlSeconds,
+      );
+      pipeline.set(
+        metadataKey,
+        Buffer.from(metadataBytes as any),
+        'EX',
+        this.ttlSeconds,
+      );
       pipeline.set(threadKey, checkpoint.id, 'EX', this.ttlSeconds);
       pipeline.sadd(threadCheckpointsKey, checkpoint.id);
       pipeline.expire(threadCheckpointsKey, this.ttlSeconds);

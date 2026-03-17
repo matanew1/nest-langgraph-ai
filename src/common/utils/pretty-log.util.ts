@@ -9,10 +9,18 @@ export function prettyJson(
   data: unknown,
   maxLength: number = Infinity,
 ): string {
-  if (data === null || data === undefined) return String(data);
+  if (data === null) return 'null';
+  if (data === undefined) return 'undefined';
 
-  // Handle primitives
-  if (typeof data !== 'object') return String(data);
+  if (typeof data === 'string') return data;
+  if (typeof data === 'number')
+    return Number.isFinite(data) ? `${data}` : data.toString();
+  if (typeof data === 'boolean') return data ? 'true' : 'false';
+  if (typeof data === 'bigint') return data.toString();
+  if (typeof data === 'symbol')
+    return data.description ? `Symbol(${data.description})` : data.toString();
+  if (typeof data === 'function')
+    return data.name ? `[Function ${data.name}]` : '[Function]';
 
   try {
     // Try JSON.stringify first for clean output

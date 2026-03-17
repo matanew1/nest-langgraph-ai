@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
 import { RedisService } from '@redis/redis.service';
+import { agentGraph } from '../graph/agent.graph';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -44,8 +45,6 @@ describe('AgentsService', () => {
   });
 
   describe('run', () => {
-    const agentGraph = require('../graph/agent.graph').agentGraph;
-
     it('should invoke the agent graph and return finalAnswer', async () => {
       const prompt = 'test prompt';
       agentGraph.invoke.mockResolvedValue({ finalAnswer: 'The answer is 42' });

@@ -152,7 +152,7 @@ declare global {
 
     /** * Retries the task N times on failure before returning fallback.
      * Essential for flaky AI LLM endpoints.
-     * @param {count: number} 
+     * @param {count: number}
      * @return {SafeExecutionBuilder<T>} The builder instance.
      */
     retry(count: number): SafeExecutionBuilder<T>;
@@ -167,8 +167,8 @@ declare global {
   }
 
   /**
-   * 
-   * @param value 
+   *
+   * @param value
    */
   function match<T, R = any>(value: T): MatchBuilder<T, R>;
 

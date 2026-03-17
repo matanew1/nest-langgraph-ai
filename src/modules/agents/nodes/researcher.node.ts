@@ -1,11 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { toolRegistry } from '../tools/index';
-import {
-  logPhaseStart,
-  logPhaseEnd,
-  startTimer,
-  preview,
-} from '@utils/pretty-log.util';
+import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
 import type { AgentState } from '../state/agent.state';
 
 const logger = new Logger('Researcher');

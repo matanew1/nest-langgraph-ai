@@ -1,6 +1,6 @@
 # nest-langgraph-ai [![CI](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml)
 
-A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using Groq's Llama 4 Scout model and a rich toolset.
+A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using an LLM-backed agent loop and a rich toolset.
 
 **CI/CD:** GitHub Actions (build, test, coverage)
 
@@ -37,8 +37,8 @@ User Prompt
 
 - **NestJS 11** - HTTP framework, DI, Swagger
 - **LangGraph 1.2** - StateGraph for agent orchestration
-- **LangChain 1.x** - Tool abstractions, Groq integration
-- **Groq LLM** - Llama 4 Scout (fast inference)
+- **LangChain 1.x** - Tool abstractions and integrations
+- **Mistral LLM** - Chat completion provider
 - **Tavily** - Web search API
 - **Redis** - Response caching
 - **TypeScript 5.7** / **Jest 30**
@@ -66,7 +66,7 @@ npm install --legacy-peer-deps
 
 # 2. Configure
 cp .env.example .env
-# Edit .env with your GROQ_API_KEY, TAVILY_API_KEY, REDIS_HOST, REDIS_PORT
+# Edit .env with your MISTRAL_API_KEY, TAVILY_API_KEY, REDIS_HOST, REDIS_PORT
 
 # 3. Start Redis
 docker compose -f docker/docker-compose.yml up -d
@@ -98,12 +98,12 @@ curl http://localhost:3000/api/health
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `GROQ_API_KEY` | Yes | - | Groq API key |
+| `MISTRAL_API_KEY` | Yes | - | Mistral API key |
 | `TAVILY_API_KEY` | Yes | - | Tavily search API key |
 | `REDIS_HOST` | Yes | - | Redis hostname |
 | `REDIS_PORT` | Yes | - | Redis port |
 | `PORT` | No | `3000` | HTTP server port |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | LLM model |
+| `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model |
 | `AGENT_MAX_ITERATIONS` | No | `3` | Max agent loop iterations |
 | `AGENT_WORKING_DIR` | No | `process.cwd()` | Sandbox root for file tools |
 

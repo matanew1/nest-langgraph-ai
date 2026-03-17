@@ -28,12 +28,14 @@ export type StreamEvent = StreamEventDto;
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
   private checkpointer: RedisSaver;
-  
+
   private app: ReturnType<typeof agentWorkflow.compile>;
 
   constructor(@Inject(REDIS_CLIENT) private readonly redisClient: Redis) {
     this.checkpointer = new RedisSaver(this.redisClient);
-    this.app = agentWorkflow.compile({ checkpointer: this.checkpointer as any });
+    this.app = agentWorkflow.compile({
+      checkpointer: this.checkpointer as any,
+    });
   }
 
   async run(prompt: string, sessionId?: string): Promise<AgentRunResult> {
@@ -54,7 +56,8 @@ export class AgentsService {
     };
 
     try {
-      const graphTimeoutMs = (env.mistralTimeoutMs * env.agentMaxIterations * 4) || 120000;
+      const graphTimeoutMs =
+        env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
       const initialState = this._createInitialState(prompt);
 
       let timeoutHandle: any;
@@ -64,7 +67,8 @@ export class AgentsService {
           .finally(() => clearTimeout(timeoutHandle)),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
-            () => reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
+            () =>
+              reject(new Error(`Agent timed out after ${graphTimeoutMs}ms`)),
             graphTimeoutMs,
           );
         }),
@@ -101,7 +105,10 @@ export class AgentsService {
     }
   }
 
-  async *streamRun(prompt: string, sessionId?: string): AsyncGenerator<StreamEvent> {
+  async *streamRun(
+    prompt: string,
+    sessionId?: string,
+  ): AsyncGenerator<StreamEvent> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
 
@@ -118,7 +125,6 @@ export class AgentsService {
       recursionLimit: 25,
     };
 
-    const graphTimeoutMs = env.mistralTimeoutMs * env.agentMaxIterations * 4;
     const initialState = this._createInitialState(prompt);
 
     try {
@@ -132,7 +138,7 @@ export class AgentsService {
 
       const stream = await this.app.stream(initialState as any, config);
       for await (const event of stream) {
-        const node = Object.keys(event)[0]!;
+        const node = Object.keys(event)[0];
         const stateSnapshot = (event as any)[node] as Partial<AgentState>;
 
         // Stream step/chunk updates (no early final)
@@ -155,7 +161,9 @@ export class AgentsService {
       }
 
       // Single final yield only if properly completed
-      const finalState = await this.app.getState({ configurable: { thread_id: threadId } });
+      const finalState = await this.app.getState({
+        configurable: { thread_id: threadId },
+      });
       const finalAnswer = finalState.values.finalAnswer;
       if (finalState.values.done && finalAnswer) {
         yield {
@@ -167,16 +175,17 @@ export class AgentsService {
       } else {
         yield {
           type: 'error',
-          data: finalState.values.finalAnswer || finalState.values.toolResult || 'Task ended without proper final answer.',
+          data:
+            finalState.values.finalAnswer ||
+            finalState.values.toolResult ||
+            'Task ended without proper final answer.',
           sessionId: threadId,
           done: true,
         };
       }
 
       const totalTime = elapsed();
-      this.logger.log(
-        `🏁 AGENT STREAM COMPLETE | ${totalTime}ms`,
-      );
+      this.logger.log(`🏁 AGENT STREAM COMPLETE | ${totalTime}ms`);
     } catch (err: any) {
       const message = err.message || String(err);
       this.logger.error(`Agent stream failed: ${message}`);

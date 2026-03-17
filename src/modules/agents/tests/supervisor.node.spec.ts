@@ -1,9 +1,10 @@
 import { supervisorNode } from '../nodes/supervisor.node';
 import { AgentState } from '../state/agent.state';
+import { invokeLlm } from '@llm/llm.provider';
 
 jest.mock('@config/env', () => ({
   env: {
-    groqTimeoutMs: 5000,
+    mistralTimeoutMs: 5000,
     promptMaxAttempts: 5,
     agentWorkingDir: '/tmp',
   },
@@ -16,8 +17,7 @@ jest.mock('@llm/llm.provider', () => ({
 jest.mock('../prompts/agent.prompts', () => ({
   buildSupervisorPrompt: jest.fn().mockReturnValue('mock prompt'),
 }));
-
-const { invokeLlm } = require('@llm/llm.provider');
+const mockedInvokeLlm = jest.mocked(invokeLlm);
 
 const baseState: Partial<AgentState> = {
   input: 'test task',
@@ -29,7 +29,7 @@ describe('supervisorNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('returns plan_required when LLM approves', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"plan_required","task":"do the test task"}',
     );
 
@@ -42,7 +42,7 @@ describe('supervisorNode', () => {
   });
 
   it('returns error and done=true when LLM rejects task', async () => {
-    invokeLlm.mockResolvedValue(
+    mockedInvokeLlm.mockResolvedValue(
       '{"status":"error","message":"Cannot do this"}',
     );
 
@@ -54,7 +54,7 @@ describe('supervisorNode', () => {
   });
 
   it('falls back to forwarding raw input on JSON parse failure', async () => {
-    invokeLlm.mockResolvedValue('not valid json at all');
+    mockedInvokeLlm.mockResolvedValue('not valid json at all');
 
     const result = await supervisorNode(baseState as AgentState);
 
@@ -63,7 +63,9 @@ describe('supervisorNode', () => {
   });
 
   it('increments iteration correctly', async () => {
-    invokeLlm.mockResolvedValue('{"status":"plan_required","task":"task"}');
+    mockedInvokeLlm.mockResolvedValue(
+      '{"status":"plan_required","task":"task"}',
+    );
 
     const result = await supervisorNode({
       ...baseState,

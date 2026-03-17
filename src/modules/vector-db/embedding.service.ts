@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 export class EmbeddingService {
   /**
    * Convert text into a numeric embedding vector.
-   * TODO: integrate with an embedding model (e.g. Groq, OpenAI, HuggingFace).
+   * TODO: integrate with an embedding model (e.g. Mistral, OpenAI, HuggingFace).
    */
   async embed(_text: string): Promise<number[]> {
     throw new Error('EmbeddingService.embed() not yet implemented');

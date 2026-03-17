@@ -1,13 +1,13 @@
-import { ChatMistralAI } from "@langchain/mistralai";
+import { ChatMistralAI } from '@langchain/mistralai';
 import { Logger } from '@nestjs/common';
 import { env } from '@config/env';
 
 const logger = new Logger('LlmProvider');
 
 export const llm = new ChatMistralAI({
-  apiKey: process.env.MISTRAL_API_KEY,
-  model: "mistral-small-latest",
-  temperature: 1, // Higher temperature for more creative responses, lower for more focused and deterministic output.
+  apiKey: env.mistralKey,
+  model: env.mistralModel,
+  temperature: 0,
 });
 
 /**

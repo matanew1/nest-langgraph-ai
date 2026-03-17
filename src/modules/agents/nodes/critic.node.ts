@@ -29,7 +29,7 @@ export async function criticNode(
   const stepNum = (state.currentStep ?? 0) + 1;
   const totalSteps = (state.plan ?? []).length;
 
-logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
+  logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
 
   // AUTO-COMPLETE: If plan exhausted, finish without LLM
   if ((state.currentStep ?? 0) >= totalSteps) {

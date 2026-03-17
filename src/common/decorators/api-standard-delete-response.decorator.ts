@@ -6,7 +6,9 @@ interface StandardDeleteResponseOptions {
   description?: string;
 }
 
-export function ApiStandardDeleteResponse(options?: StandardDeleteResponseOptions) {
+export function ApiStandardDeleteResponse(
+  options?: StandardDeleteResponseOptions,
+) {
   return applyDecorators(
     ApiResponse({
       status: HttpStatus.NO_CONTENT,

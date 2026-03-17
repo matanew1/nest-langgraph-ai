@@ -6,9 +6,9 @@ This file provides context for AI assistants working on the `nest-langgraph-ai` 
 
 ## Project Overview
 
-A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint. The system is **stateful**, allowing for multi-turn conversations using a session ID. It autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using Groq's Llama 4 Scout model and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
+A NestJS API that exposes a multi-agent AI workflow powered by LangGraph. Users submit a natural-language prompt to a REST endpoint. The system is **stateful**, allowing for multi-turn conversations using a session ID. It autonomously routes through a Supervisor → Researcher → Planner → Executor → Critic loop (up to `AGENT_MAX_ITERATIONS` iterations) using an LLM provider and a rich set of tools including web search, file system access, git operations, code search, and LLM-powered analysis.
 
-**Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Groq LLM, Tavily Search, Redis (IORedis), Qdrant (vector DB), TypeScript 5.7, Jest 30
+**Tech stack:** NestJS 11, LangGraph 1.2, LangChain 1.x, Mistral LLM, Tavily Search, Redis (IORedis), Qdrant (vector DB), TypeScript 5.7, Jest 30
 
 ---
 
@@ -32,7 +32,7 @@ src/
 │   │   ├── agents.module.ts
 │   │   └── tests/          # Unit tests
 │   ├── llm/
-│   │   ├── llm.provider.ts # LLM (Groq) provider + invokeLlm()
+│   │   ├── llm.provider.ts # LLM provider + invokeLlm()
 │   │   └── llm.module.ts
 │   ├── redis/
 │   │   ├── redis.provider.ts   # IORedis client with lazy connect & retry strategy
@@ -107,13 +107,13 @@ Create a `.env` file at the project root. All variables are validated on startup
 | Variable                 | Required | Default                                      | Description                                           |
 |--------------------------|----------|----------------------------------------------|-------------------------------------------------------|
 | `PORT`                   | No       | `3000`                                       | HTTP server port                                      |
-| `GROQ_API_KEY`           | Yes      | —                                            | Groq API key for LLM calls                            |
+| `MISTRAL_API_KEY`        | Yes      | —                                            | Mistral API key for LLM calls                         |
+| `MISTRAL_MODEL`          | No       | `mistral-small-latest`                       | LLM model ID                                          |
+| `MISTRAL_TIMEOUT_MS`     | No       | `30000`                                      | LLM call timeout in ms (AbortController)              |
 | `TAVILY_API_KEY`         | Yes      | —                                            | Tavily API key for web search                         |
 | `REDIS_HOST`             | Yes      | —                                            | Redis server hostname                                 |
 | `REDIS_PORT`             | Yes      | —                                            | Redis server port (number)                            |
 | `CORS_ORIGIN`            | No       | `*`                                          | Allowed CORS origin                                   |
-| `GROQ_MODEL`             | No       | `llama-3.3-70b-versatile`  | Groq model ID                                         |
-| `GROQ_TIMEOUT_MS`        | No       | `30000`                                      | LLM call timeout in ms (AbortController)              |
 | `AGENT_MAX_ITERATIONS`   | No       | `3`                                          | Max graph iterations (1–10)                           |
 | `TOOL_TIMEOUT_MS`        | No       | `15000`                                      | Per-tool invocation timeout in ms                     |
 | `AGENT_MAX_RETRIES`      | No       | `3`                                          | Max consecutive retries on a single step before failing. |
@@ -121,6 +121,7 @@ Create a `.env` file at the project root. All variables are validated on startup
 | `CACHE_TTL_SECONDS`      | No       | `60`                                         | Redis cache TTL for agent responses                   |
 | `CRITIC_RESULT_MAX_CHARS`| No       | `8000`                                       | Max chars from tool result passed to critic prompt    |
 | `PROMPT_MAX_ATTEMPTS`    | No       | `5`                                          | Max recent attempts included in supervisor/planner prompts |
+| `PROMPT_MAX_SUMMARY_CHARS` | No     | `2000`                                       | Max chars passed into `llm_summarize` tool            |
 | `QDRANT_URL`             | No       | `http://localhost:6333`                      | Qdrant vector database URL                            |
 | `QDRANT_COLLECTION`      | No       | `agent_vectors`                              | Qdrant collection name                                |
 | `QDRANT_VECTOR_SIZE`          | No       | `1536`                    | Embedding vector dimensions                                        |
@@ -132,7 +133,7 @@ Create a `.env` file at the project root. All variables are validated on startup
 
 Missing required variables cause an immediate startup crash with a descriptive error.
 
-The `env` object exported from `src/common/config/env.ts` maps these to camelCase properties (e.g., `GROQ_API_KEY` → `env.groqKey`).
+The `env` object exported from `src/common/config/env.ts` maps these to camelCase properties (e.g., `MISTRAL_API_KEY` → `env.mistralKey`).
 
 ---
 
@@ -162,7 +163,7 @@ All node LLM calls go through `invokeLlm()` from `src/modules/llm/llm.provider.t
 ```typescript
 invokeLlm(prompt: string, timeoutMs?: number): Promise<string>
 ```
-This wraps ChatGroq with an AbortController timeout (default `GROQ_TIMEOUT_MS`). **Never call `llm.invoke()` directly.**
+This wraps `ChatMistralAI` with an AbortController timeout (default `MISTRAL_TIMEOUT_MS`). **Never call `llm.invoke()` directly.**
 
 ### Agent flow
 
@@ -356,9 +357,9 @@ Utilities in `src/common/utils/pretty-log.util.ts`.
 ## LLM Provider
 
 Configured in `src/modules/llm/llm.provider.ts`:
-- **Model:** `GROQ_MODEL` env var (default: `llama-3.3-70b-versatile`)
+- **Model:** `MISTRAL_MODEL` env var (default: `mistral-small-latest`)
 - **Temperature:** `0` (deterministic output)
-- **Timeout:** `GROQ_TIMEOUT_MS` ms via AbortController
+- **Timeout:** `MISTRAL_TIMEOUT_MS` ms via AbortController
 
 ---
 

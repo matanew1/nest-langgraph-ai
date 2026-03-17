@@ -15,7 +15,13 @@ import { Observable, from, map } from 'rxjs';
 import { AgentsService, AgentRunResult, StreamEvent } from './agents.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { RunAgentDto, RunAgentResponseDto, StreamAgentDto } from './agents.dto';
-import { ApiBody, ApiOperation, ApiQuery, ApiTags, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
 import { ApiSessionIdParam } from '@common/decorators/api-session-id-param.decorator';
@@ -40,14 +46,15 @@ export class AgentsController {
 
   @Get('stream')
   @Sse()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Stream the AI agent execution in real-time via SSE',
-    description: 'Server-Sent Events endpoint for progressive agent updates (steps, tool calls, chunks). Supports Swagger UI streaming.'
+    description:
+      'Server-Sent Events endpoint for progressive agent updates (steps, tool calls, chunks). Supports Swagger UI streaming.',
   })
   @ApiQuery({ name: 'prompt', type: 'string', required: true })
   @ApiQuery({ name: 'sessionId', type: 'string', required: false })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'SSE stream',
     content: {
       'text/event-stream': {
@@ -55,17 +62,20 @@ export class AgentsController {
           type: 'object',
           properties: {
             data: { type: 'string' },
-            event: { type: 'string', enum: ['step', 'tool_call', 'chunk', 'final', 'error'] },
-            id: { type: 'string' }
-          }
-        }
-      }
-    }
+            event: {
+              type: 'string',
+              enum: ['step', 'tool_call', 'chunk', 'final', 'error'],
+            },
+            id: { type: 'string' },
+          },
+        },
+      },
+    },
   })
-  stream(
-    @Query() query: StreamAgentDto,
-  ): Observable<MessageEvent> {
-    return from(this.agentsService.streamRun(query.prompt, query.sessionId)).pipe(
+  stream(@Query() query: StreamAgentDto): Observable<MessageEvent> {
+    return from(
+      this.agentsService.streamRun(query.prompt, query.sessionId),
+    ).pipe(
       map((event: StreamEvent) => {
         return {
           data: JSON.stringify(event),
@@ -80,7 +90,9 @@ export class AgentsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an agent session state from Redis' })
   @ApiSessionIdParam()
-  @ApiStandardDeleteResponse({ description: 'Session state deleted successfully' })
+  @ApiStandardDeleteResponse({
+    description: 'Session state deleted successfully',
+  })
   async deleteSession(@Param('sessionId') sessionId: string): Promise<void> {
     return this.agentsService.deleteSession(sessionId);
   }
