@@ -28,7 +28,9 @@ export async function invokeLlm(
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       return content
-        .map((c) => (typeof c === 'string' ? c : (c as { text?: string }).text ?? ''))
+        .map((c) =>
+          typeof c === 'string' ? c : ((c as { text?: string }).text ?? ''),
+        )
         .join('');
     }
     return String(content);

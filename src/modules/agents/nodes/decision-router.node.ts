@@ -96,7 +96,11 @@ export async function decisionRouterNode(
   // calling the LLM again.
   if (state.jsonRepairResult !== undefined) {
     const fromPhase = state.jsonRepairFromPhase;
-    logPhaseEnd('DECISION_ROUTER', `ROUTE → replay repaired JSON at phase=${fromPhase}`, elapsed());
+    logPhaseEnd(
+      'DECISION_ROUTER',
+      `ROUTE → replay repaired JSON at phase=${fromPhase}`,
+      elapsed(),
+    );
     return {
       phase: fromPhase,
       jsonRepairResult: state.jsonRepairResult,
@@ -125,7 +129,8 @@ export async function decisionRouterNode(
         logPhaseEnd('DECISION_ROUTER', 'COMPLETE (plan exhausted)', elapsed());
         return {
           phase: 'complete',
-          finalAnswer: decision.finalAnswer ?? state.toolResult?.preview ?? 'Completed.',
+          finalAnswer:
+            decision.finalAnswer ?? state.toolResult?.preview ?? 'Completed.',
           criticDecision: undefined,
         };
       }
@@ -208,8 +213,12 @@ export async function decisionRouterNode(
     };
   }
 
-  const nextStep = plan[nextStepIndex]!;
-  logPhaseEnd('DECISION_ROUTER', `ADVANCE → step ${nextStepIndex + 1}`, elapsed());
+  const nextStep = plan[nextStepIndex];
+  logPhaseEnd(
+    'DECISION_ROUTER',
+    `ADVANCE → step ${nextStepIndex + 1}`,
+    elapsed(),
+  );
   return {
     phase: 'execute',
     currentStep: nextStepIndex,
@@ -222,4 +231,3 @@ export async function decisionRouterNode(
     criticDecision: undefined,
   };
 }
-

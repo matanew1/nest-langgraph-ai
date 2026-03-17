@@ -115,7 +115,10 @@ export function toToolResult(args: {
 
   const parsed = tryJsonParse(raw);
   if (parsed !== undefined) {
-    const jsonPreview = safePreview(JSON.stringify(parsed, null, 2), previewMaxChars);
+    const jsonPreview = safePreview(
+      JSON.stringify(parsed, null, 2),
+      previewMaxChars,
+    );
     return {
       ok: true,
       kind: 'json',
@@ -144,4 +147,3 @@ export function toToolResult(args: {
     },
   };
 }
-

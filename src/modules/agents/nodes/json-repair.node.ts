@@ -17,7 +17,9 @@ function unwrapRepaired(parsed: unknown): unknown {
   // Accept both formats:
   // 1) {"repaired": <object matching schema>}
   // 2) <object matching schema>
-  return Object.prototype.hasOwnProperty.call(obj, 'repaired') ? obj.repaired : parsed;
+  return Object.prototype.hasOwnProperty.call(obj, 'repaired')
+    ? obj.repaired
+    : parsed;
 }
 
 /**
@@ -84,4 +86,3 @@ export async function jsonRepairNode(
     };
   }
 }
-

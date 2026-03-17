@@ -146,7 +146,11 @@ export const editMermaidTool = tool(
     }
 
     await mkdir(dirname(resolved), { recursive: true });
-    await writeFile(resolved, updated.endsWith('\n') ? updated : `${updated}\n`, 'utf-8');
+    await writeFile(
+      resolved,
+      updated.endsWith('\n') ? updated : `${updated}\n`,
+      'utf-8',
+    );
     return `mermaid diagram updated at ${resolved}`;
   },
   {
@@ -158,8 +162,9 @@ export const editMermaidTool = tool(
       instruction: z
         .string()
         .min(1)
-        .describe('What to change in the diagram (add/remove nodes/edges, rename, layout tweaks, etc.)'),
+        .describe(
+          'What to change in the diagram (add/remove nodes/edges, rename, layout tweaks, etc.)',
+        ),
     }),
   },
 );
-

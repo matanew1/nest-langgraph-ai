@@ -1,0 +1,40 @@
+# --- General Noise ---
+.git/
+.DS_Store
+*.log
+logs/
+temp/
+tmp/
+
+# --- Dependencies & Artifacts (THE BIGGEST SAVINGS) ---
+node_modules/
+dist/
+build/
+out/
+.next/
+vendor/
+
+# --- Expo / React Native Specifics ---
+.expo/
+android/
+ios/
+*.jks
+*.p12
+*.key
+web-build/
+
+# --- Testing & Coverage ---
+coverage/
+.nyc_output/
+*.lcov
+
+# --- Environment & Secrets ---
+.env
+.env.*
+!.env.example
+secrets.json
+
+# --- Documentation (Optional) ---
+# Ignore large docs if you've already summarized them in CLAUDE.md
+docs/
+site/

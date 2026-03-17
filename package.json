@@ -88,7 +88,7 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -96,15 +96,20 @@
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/$1",
-      "^@config/(.*)$": "<rootDir>/common/config/$1",
-      "^@utils/(.*)$": "<rootDir>/common/utils/$1",
-      "^@common/(.*)$": "<rootDir>/common/$1",
-      "^@llm/(.*)$": "<rootDir>/modules/llm/$1",
-      "^@redis/(.*)$": "<rootDir>/modules/redis/$1"
+      "^src/(.*)$": "<rootDir>/src/$1",
+      "^@config/(.*)$": "<rootDir>/src/common/config/$1",
+      "^@utils/(.*)$": "<rootDir>/src/common/utils/$1",
+      "^@common/(.*)$": "<rootDir>/src/common/$1",
+      "^@llm/(.*)$": "<rootDir>/src/modules/llm/$1",
+      "^@redis/(.*)$": "<rootDir>/src/modules/redis/$1",
+      "^@agents/(.*)$": "<rootDir>/src/modules/agents/$1",
+      "^@nodes/(.*)$": "<rootDir>/src/modules/agents/nodes/$1",
+      "^@tools/(.*)$": "<rootDir>/src/modules/agents/tools/$1",
+      "^@state/(.*)$": "<rootDir>/src/modules/agents/state/$1",
+      "^@graph/(.*)$": "<rootDir>/src/modules/agents/graph/$1"
     }
   }
 }

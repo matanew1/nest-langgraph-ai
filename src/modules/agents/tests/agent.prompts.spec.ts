@@ -1,11 +1,17 @@
 jest.mock('@config/env', () => ({
-  env: { promptMaxAttempts: 5, promptMaxSummaryChars: 2000, agentWorkingDir: '/tmp' },
+  env: {
+    promptMaxAttempts: 5,
+    promptMaxSummaryChars: 2000,
+    agentWorkingDir: '/tmp',
+  },
 }));
 jest.mock('../tools', () => ({
   toolRegistry: {
-    getToolsWithParams: jest.fn().mockReturnValue(
-      '- search: {"query":"<q>"}\n- read_file: {"path":"<p>"}\n- write_file: {"path":"<p>","content":"<c>"}',
-    ),
+    getToolsWithParams: jest
+      .fn()
+      .mockReturnValue(
+        '- search: {"query":"<q>"}\n- read_file: {"path":"<p>"}\n- write_file: {"path":"<p>","content":"<c>"}',
+      ),
   },
 }));
 
@@ -16,7 +22,13 @@ const makeAttempt = (tool: string, ok: boolean) => ({
   tool,
   step: 0,
   params: {},
-  result: { ok, kind: ok ? ('text' as const) : ('error' as const), summary: '', preview: '', raw: '' },
+  result: {
+    ok,
+    kind: ok ? ('text' as const) : ('error' as const),
+    summary: '',
+    preview: '',
+    raw: '',
+  },
 });
 
 describe('getAvailableTools (via buildSupervisorPrompt)', () => {

@@ -110,7 +110,8 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         if (
           t.isIdentifier(decl.id) &&
           decl.init &&
-          (t.isArrowFunctionExpression(decl.init) || t.isFunctionExpression(decl.init))
+          (t.isArrowFunctionExpression(decl.init) ||
+            t.isFunctionExpression(decl.init))
         ) {
           const name = decl.id.name;
           const label = parentClassName ? `${parentClassName}.${name}` : name;
@@ -122,7 +123,8 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
             name: label,
             summary: `${label}(): ${decl.init.params.length} params, ${declLoc.end.line - declLoc.start.line + 1} lines`,
             code_snippet:
-              declSnippet.slice(0, 400) + (declSnippet.length > 400 ? '...' : ''),
+              declSnippet.slice(0, 400) +
+              (declSnippet.length > 400 ? '...' : ''),
             loc: { start: declLoc.start, end: declLoc.end },
           });
           count++;
@@ -136,7 +138,8 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
             !(
               t.isIdentifier(decl.id) &&
               decl.init &&
-              (t.isArrowFunctionExpression(decl.init) || t.isFunctionExpression(decl.init))
+              (t.isArrowFunctionExpression(decl.init) ||
+                t.isFunctionExpression(decl.init))
             ),
         )
         .map((decl) => {

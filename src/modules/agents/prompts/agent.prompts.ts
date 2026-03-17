@@ -73,9 +73,7 @@ function formatAttempts(state: AgentState): string {
 
 function getAvailableTools(state: AgentState): string {
   const erroredToolNames = new Set(
-    (state.attempts ?? [])
-      .filter((a) => !a.result.ok)
-      .map((a) => a.tool),
+    (state.attempts ?? []).filter((a) => !a.result.ok).map((a) => a.tool),
   );
   return toolRegistry
     .getToolsWithParams()

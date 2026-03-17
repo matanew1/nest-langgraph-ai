@@ -70,4 +70,3 @@ export const criticDecisionSchema = z
 export type SupervisorOutput = z.infer<typeof supervisorOutputSchema>;
 export type PlannerOutput = z.infer<typeof plannerOutputSchema>;
 export type CriticDecision = z.infer<typeof criticDecisionSchema>;
-

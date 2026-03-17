@@ -114,10 +114,10 @@ export class RedisSaver extends BaseCheckpointSaver {
         `📥 Loaded checkpoint for thread "${threadId}" (id: ${checkpointId})`,
       );
 
-      const record = (await this.serde.loadsTyped(
-        'json',
-        recordData,
-      )) as { checkpoint: Checkpoint; metadata?: CheckpointMetadata };
+      const record = (await this.serde.loadsTyped('json', recordData)) as {
+        checkpoint: Checkpoint;
+        metadata?: CheckpointMetadata;
+      };
 
       return {
         config: {
@@ -180,10 +180,10 @@ export class RedisSaver extends BaseCheckpointSaver {
       );
 
       if (recordData) {
-        const record = (await this.serde.loadsTyped(
-          'json',
-          recordData,
-        )) as { checkpoint: Checkpoint; metadata?: CheckpointMetadata };
+        const record = (await this.serde.loadsTyped('json', recordData)) as {
+          checkpoint: Checkpoint;
+          metadata?: CheckpointMetadata;
+        };
 
         yield {
           config: {
@@ -304,7 +304,12 @@ export class RedisSaver extends BaseCheckpointSaver {
 
     const pipeline = this.client.pipeline();
     if (this.ttlSeconds > 0) {
-      pipeline.set(recordKey, Buffer.from(recordBytes as any), 'EX', this.ttlSeconds);
+      pipeline.set(
+        recordKey,
+        Buffer.from(recordBytes as any),
+        'EX',
+        this.ttlSeconds,
+      );
       pipeline.set(latestKey, checkpoint.id, 'EX', this.ttlSeconds);
       pipeline.zadd(historyKey, Date.now(), checkpoint.id);
       pipeline.expire(historyKey, this.ttlSeconds);
@@ -344,7 +349,10 @@ export class RedisSaver extends BaseCheckpointSaver {
     return v ?? undefined;
   }
 
-  public async setThreadMemory(threadId: string, memory: string): Promise<void> {
+  public async setThreadMemory(
+    threadId: string,
+    memory: string,
+  ): Promise<void> {
     const key = this.getThreadMemoryKey(threadId);
     if (this.ttlSeconds > 0) {
       await this.client.set(key, memory, 'EX', this.ttlSeconds);

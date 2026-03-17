@@ -28,7 +28,12 @@ export interface AgentCounters {
 }
 
 export interface AgentError {
-  code: 'invariant_violation' | 'json_invalid' | 'tool_error' | 'timeout' | 'unknown';
+  code:
+    | 'invariant_violation'
+    | 'json_invalid'
+    | 'tool_error'
+    | 'timeout'
+    | 'unknown';
   message: string;
   atPhase: AgentPhase;
   details?: Record<string, unknown>;

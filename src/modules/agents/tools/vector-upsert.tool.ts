@@ -14,7 +14,8 @@ export const vectorUpsertTool = tool(
     await ensureQdrantReady();
 
     const vector = await embeddings.embed(text);
-    if (vector.length === 0) return JSON.stringify({ ok: false, error: 'Empty text' });
+    if (vector.length === 0)
+      return JSON.stringify({ ok: false, error: 'Empty text' });
 
     const pointId = id ?? randomUUID();
     const payload = metadata ?? { text };
@@ -52,4 +53,3 @@ export const vectorUpsertTool = tool(
       .strict(),
   },
 );
-

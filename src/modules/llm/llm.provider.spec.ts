@@ -1,5 +1,9 @@
 jest.mock('@config/env', () => ({
-  env: { mistralKey: 'key', mistralModel: 'mistral-small-latest', mistralTimeoutMs: 5000 },
+  env: {
+    mistralKey: 'key',
+    mistralModel: 'mistral-small-latest',
+    mistralTimeoutMs: 5000,
+  },
 }));
 
 const mockInvoke = jest.fn();
@@ -20,7 +24,10 @@ describe('invokeLlm', () => {
 
   it('joins array content into a single string', async () => {
     mockInvoke.mockResolvedValue({
-      content: [{ type: 'text', text: 'hello' }, { type: 'text', text: ' world' }],
+      content: [
+        { type: 'text', text: 'hello' },
+        { type: 'text', text: ' world' },
+      ],
     });
     const result = await invokeLlm('prompt');
     expect(result).toBe('hello world');

@@ -13,7 +13,8 @@ export const vectorSearchTool = tool(
     await ensureQdrantReady();
 
     const vector = await embeddings.embed(query);
-    if (vector.length === 0) return JSON.stringify({ ok: false, error: 'Empty query' });
+    if (vector.length === 0)
+      return JSON.stringify({ ok: false, error: 'Empty query' });
 
     const k = topK ?? 5;
     logger.log(`Searching topK=${k} in ${env.qdrantCollection}`);
@@ -49,4 +50,3 @@ export const vectorSearchTool = tool(
       .strict(),
   },
 );
-

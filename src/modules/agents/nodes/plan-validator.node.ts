@@ -50,11 +50,14 @@ export async function planValidatorNode(
   for (let i = 0; i < steps.length; i++) {
     const expected = i + 1;
     if (steps[i]?.step_id !== expected) {
-      logPhaseEnd('PLAN_VALIDATOR', 'FAILED: non-sequential step_id', elapsed());
+      logPhaseEnd(
+        'PLAN_VALIDATOR',
+        'FAILED: non-sequential step_id',
+        elapsed(),
+      );
       return {
         phase: 'fatal',
-        finalAnswer:
-          'Plan step IDs must be sequential starting at 1 (1..N).',
+        finalAnswer: 'Plan step IDs must be sequential starting at 1 (1..N).',
         errors: [
           {
             code: 'invariant_violation',
@@ -70,7 +73,11 @@ export async function planValidatorNode(
   for (const step of steps) {
     const tool = toolRegistry.get(step.tool);
     if (!tool) {
-      logPhaseEnd('PLAN_VALIDATOR', `FAILED: unknown tool "${step.tool}"`, elapsed());
+      logPhaseEnd(
+        'PLAN_VALIDATOR',
+        `FAILED: unknown tool "${step.tool}"`,
+        elapsed(),
+      );
       return {
         phase: 'fatal',
         finalAnswer: `Unknown tool in plan: "${step.tool}".`,
@@ -89,7 +96,11 @@ export async function planValidatorNode(
     if (schema?.safeParse) {
       const parsed = schema.safeParse(step.input);
       if (!parsed.success) {
-        logPhaseEnd('PLAN_VALIDATOR', `FAILED: invalid params for "${step.tool}"`, elapsed());
+        logPhaseEnd(
+          'PLAN_VALIDATOR',
+          `FAILED: invalid params for "${step.tool}"`,
+          elapsed(),
+        );
         return {
           phase: 'fatal',
           finalAnswer: `Invalid params for tool "${step.tool}" in step ${step.step_id}.`,
@@ -113,10 +124,11 @@ export async function planValidatorNode(
     // without using the dedicated `source` field, it tends to produce incorrect graphs
     // (looks plausible but not grounded).
     if (step.tool === 'generate_mermaid') {
-      const input = (step.input ?? {}) as Record<string, unknown>;
+      const input = step.input ?? {};
       const description =
         typeof input.description === 'string' ? input.description : '';
-      const source = typeof input.source === 'string' ? input.source : undefined;
+      const source =
+        typeof input.source === 'string' ? input.source : undefined;
 
       if (description.includes('__PREVIOUS_RESULT__') && !source) {
         logPhaseEnd(
@@ -131,7 +143,8 @@ export async function planValidatorNode(
           errors: [
             {
               code: 'invariant_violation',
-              message: 'generate_mermaid missing source while using __PREVIOUS_RESULT__',
+              message:
+                'generate_mermaid missing source while using __PREVIOUS_RESULT__',
               atPhase: 'validate_plan',
               details: {
                 step_id: step.step_id,
@@ -144,7 +157,7 @@ export async function planValidatorNode(
     }
   }
 
-  const first = steps[0] as PlanStep;
+  const first = steps[0];
   logPhaseEnd('PLAN_VALIDATOR', 'OK', elapsed());
   return {
     phase: 'execute',
@@ -153,4 +166,3 @@ export async function planValidatorNode(
     toolParams: first.input,
   };
 }
-

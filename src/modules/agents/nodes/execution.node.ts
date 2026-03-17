@@ -54,7 +54,12 @@ export async function executionNode(
       phase: 'normalize_tool_result',
       toolResultRaw: `ERROR: ${errorMsg}`,
       counters: {
-        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        ...(state.counters ?? {
+          turn: 0,
+          toolCalls: 0,
+          replans: 0,
+          stepRetries: 0,
+        }),
         toolCalls: (state.counters?.toolCalls ?? 0) + 1,
       },
       errors: [
@@ -96,7 +101,12 @@ export async function executionNode(
       phase: 'normalize_tool_result',
       toolResultRaw: result,
       counters: {
-        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        ...(state.counters ?? {
+          turn: 0,
+          toolCalls: 0,
+          replans: 0,
+          stepRetries: 0,
+        }),
         toolCalls: (state.counters?.toolCalls ?? 0) + 1,
       },
     };
@@ -108,7 +118,12 @@ export async function executionNode(
       phase: 'normalize_tool_result',
       toolResultRaw: `ERROR: ${errorResult}`,
       counters: {
-        ...(state.counters ?? { turn: 0, toolCalls: 0, replans: 0, stepRetries: 0 }),
+        ...(state.counters ?? {
+          turn: 0,
+          toolCalls: 0,
+          replans: 0,
+          stepRetries: 0,
+        }),
         toolCalls: (state.counters?.toolCalls ?? 0) + 1,
       },
       errors: [

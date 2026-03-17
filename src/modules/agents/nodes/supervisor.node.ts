@@ -18,10 +18,7 @@ export async function supervisorNode(
 ): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
 
-  logPhaseStart(
-    'SUPERVISOR',
-    `input="${preview(state.input)}"`,
-  );
+  logPhaseStart('SUPERVISOR', `input="${preview(state.input)}"`);
 
   let raw: string;
   if (state.jsonRepairResult !== undefined) {

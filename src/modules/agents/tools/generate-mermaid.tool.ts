@@ -129,7 +129,9 @@ export const generateMermaidTool = tool(
       description,
       '',
       source
-        ? ['SOURCE (authoritative; do not invent beyond this):', source].join('\n')
+        ? ['SOURCE (authoritative; do not invent beyond this):', source].join(
+            '\n',
+          )
         : '',
     ]
       .filter(Boolean)
@@ -142,13 +144,20 @@ export const generateMermaidTool = tool(
       return `ERROR: LLM did not return Mermaid syntax. Got: ${clean.slice(0, 200)}`;
     }
 
-    if (looksLikeCodeListingDiagram(clean) && !description.toLowerCase().includes('code listing')) {
+    if (
+      looksLikeCodeListingDiagram(clean) &&
+      !description.toLowerCase().includes('code listing')
+    ) {
       return 'ERROR: Mermaid output looks like a code-listing diagram. Generate a conceptual architecture diagram (nodes/edges), not `.addNode(...)` listings.';
     }
 
     const resolved = sandboxPath(path);
     await mkdir(dirname(resolved), { recursive: true });
-    await writeFile(resolved, clean.endsWith('\n') ? clean : `${clean}\n`, 'utf-8');
+    await writeFile(
+      resolved,
+      clean.endsWith('\n') ? clean : `${clean}\n`,
+      'utf-8',
+    );
 
     logger.log(`Mermaid written: ${resolved}`);
     return `mermaid diagram saved to ${resolved} (${clean.length} chars)`;
@@ -168,8 +177,9 @@ export const generateMermaidTool = tool(
         .describe(
           'Optional authoritative source text (e.g., file contents or AST output). If provided, do not invent nodes/edges not supported by the source.',
         ),
-      path: z.string().describe('Output .mmd file path, e.g. "diagram/agent-graph.mmd"'),
+      path: z
+        .string()
+        .describe('Output .mmd file path, e.g. "diagram/agent-graph.mmd"'),
     }),
   },
 );
-
