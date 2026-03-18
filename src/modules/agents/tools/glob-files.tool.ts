@@ -32,7 +32,12 @@ async function walk(
 export const globFilesTool = tool(
   async ({ root, extensions, maxResults }) => {
     const resolvedRoot = sandboxPath(root ?? '.');
-    const exts = new Set((extensions ?? []).map((e) => e.toLowerCase()));
+    const exts = new Set(
+      (extensions ?? []).map((e) => {
+        const lower = e.toLowerCase();
+        return lower.startsWith('.') ? lower : '.' + lower;
+      }),
+    );
     const acc: string[] = [];
     await walk(resolvedRoot, exts, maxResults ?? 200, acc);
     if (acc.length === 0) return 'No files found.';
