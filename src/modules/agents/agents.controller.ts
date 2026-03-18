@@ -9,6 +9,7 @@ import {
   Get,
   UseGuards,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 import { Sse, MessageEvent } from '@nestjs/common';
 import { Observable, from, map } from 'rxjs';
@@ -125,8 +126,16 @@ export class AgentsController {
   @ApiSessionIdParam()
   async getReviewData(
     @Param('sessionId') sessionId: string,
-  ): Promise<ReviewPageData> {
-    return this.agentsService.getReviewPageData(sessionId);
+  ): Promise<ReviewPageData | null> {
+    try {
+      return await this.agentsService.getReviewPageData(sessionId);
+    } catch (error) {
+      // Return null instead of 400 if no review is pending (avoids log noise on page load)
+      if (error instanceof BadRequestException) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   @Post('session/:sessionId/approve')

@@ -223,16 +223,19 @@ export class AgentsService {
             sessionId: threadId,
             done: false,
           };
-        } else if (
-          snap.phase === AGENT_PHASES.AWAIT_PLAN_REVIEW &&
-          (snap as any).reviewRequest
-        ) {
-          yield {
-            type: 'review_required',
-            data: JSON.stringify((snap as any).reviewRequest),
-            sessionId: threadId,
-            done: false,
-          };
+        } else if (node === AGENT_PHASES.AWAIT_PLAN_REVIEW) {
+          // The await_plan_review node interrupts execution. The node delta (snap) is often empty,
+          // so we must fetch the full state to get the reviewRequest.
+          const currentState = await this.app.getState(config);
+          const values = currentState.values as Partial<AgentState>;
+          if (values.reviewRequest) {
+            yield {
+              type: 'review_required',
+              data: JSON.stringify(values.reviewRequest),
+              sessionId: threadId,
+              done: false,
+            };
+          }
         } else {
           // Only surface phases that are meaningful to the end user.
           // Skip internal routing/bookkeeping phases (route, complete, fatal,
