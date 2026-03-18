@@ -1,24 +1,46 @@
 # nest-langgraph-ai | Reference Guide
 
 ## Context & Architecture
-NestJS 11 + LangGraph 1.2 multi-agent workflow (Supervisor -> Researcher -> Planner -> Executor -> Critic).
+NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine.
 - **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`).
-- **State:** Stateful sessions via Redis (IORedis) + Qdrant (Vector DB).
-- **Core Loop:** Start -> Supervisor -> Researcher -> Planner -> Validator -> Execute -> Normalize -> Critic -> End.
+- **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB).
+- **Core Loop:**
+  - Conversational fast-path: `Supervisor → Chat → Complete`
+  - Full agent pipeline: `Supervisor → Researcher → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → Complete`
+  - Error paths: `json_repair` (malformed LLM JSON), `terminal_response` (fatal/clarification)
+
+## Graph Nodes (13 total)
+
+| Phase | Node file |
+|-------|-----------|
+| `supervisor` | `nodes/supervisor.node.ts` |
+| `research` | `nodes/researcher.node.ts` |
+| `plan` | `nodes/planner.node.ts` |
+| `validate_plan` | `nodes/plan-validator.node.ts` |
+| `await_plan_review` | `nodes/await-plan-review.node.ts` |
+| `execute` | `nodes/execution.node.ts` |
+| `normalize_tool_result` | `nodes/tool-result-normalizer.node.ts` |
+| `judge` | `nodes/critic.node.ts` |
+| `generate` | `nodes/generator.node.ts` |
+| `chat` | `nodes/chat.node.ts` |
+| `fatal_recovery / clarification` | `nodes/terminal-response.node.ts` |
+| `json_repair` | `nodes/json-repair.node.ts` |
+| — (routing) | `nodes/decision-router.node.ts` |
 
 ## Development Checklist
-- **Setup:** `npm install --legacy-peer-deps`, `docker compose -f docker/docker-compose.yml up -d`
+- **Setup:** `npm install --legacy-peer-deps`, `npm run docker:up`
 - **Run:** `npm run start:dev` | **Test:** `npm run test`
 - **Lint:** `npm run lint` (Conventional Commits required).
 
 ## Critical Guidelines
-- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` -> `invokeLlm()`.
+- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`.
 - **File Safety:** ALWAYS wrap paths in `sandboxPath()` from `@utils/path.util.ts`.
-- **State:** Mutate ONLY via annotated reducers in `@state/agent.state.ts`.
-- **Aliases:** Use `@agents/*`, `@nodes/*`, `@tools/*`, etc. (See `tsconfig.json`).
+- **State:** Mutate ONLY via annotated reducers in `@state/agent.state.ts`. Use helpers in `agent-transition.util.ts` and `agent-run-state.util.ts`.
+- **Phase transitions:** Use `transitionToPhase()` — never set `phase` directly.
+- **Aliases:** Use `@agents/*`, `@nodes/*`, `@tools/*`, `@state/*`, `@graph/*`, etc. (See `tsconfig.json`).
 
 ## Extended Reference (Read only if needed)
-- **Env Vars:** See `@docs/ENV.md`
-- **Available Tools:** See `@docs/TOOLS.md`
-- **Full Layout:** See `@docs/LAYOUT.md`
+- **Env Vars:** See `docs/ENV.md`
+- **Available Tools:** See `docs/TOOLS.md`
+- **Full Layout:** See `docs/LAYOUT.md`
 - **Prompts:** `.txt` templates in `src/modules/agents/prompts/templates/`.

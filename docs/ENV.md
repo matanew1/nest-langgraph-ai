@@ -1,17 +1,78 @@
 # Environment Variables Reference
 
-| Variable | Required | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `MISTRAL_API_KEY` | Yes | — | Mistral API key |
-| `TAVILY_API_KEY` | Yes | — | Tavily API key for web search |
-| `REDIS_HOST` | Yes | — | Redis server hostname |
-| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit used for router hard stops and derived tool-call caps |
-| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Optional comma-separated hostname allowlist for `http_get`/`http_post` |
-| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private/link-local HTTP targets for tools |
-| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects for `http_get`/`http_post` |
-| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
-| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Cache TTL for optional dependency diagnostics |
-| `QDRANT_URL` | No | `http://localhost:6333` | Vector DB URL |
-| `QDRANT_CHECK_COMPATIBILITY` | No | `false` | Enable Qdrant client/server version compatibility checks at startup |
+Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overrides `REDIS_HOST`, `REDIS_PORT`, `QDRANT_URL`, and `AGENT_WORKING_DIR` for the app container so your host `.env` can keep using `localhost`.
 
-*Note: Docker Compose overrides `REDIS_HOST`, `QDRANT_URL`, and `AGENT_WORKING_DIR` for the app container so your host `.env` can keep using `localhost`. `HTTP_TOOL_ALLOWED_HOSTS` accepts exact hosts like `api.github.com` and suffix rules like `*.openai.com`. Full Joi validation logic is in `src/common/config/env.ts`.*
+## Required
+
+| Variable | Description |
+| :--- | :--- |
+| `MISTRAL_API_KEY` | Mistral API key |
+| `TAVILY_API_KEY` | Tavily API key for web search |
+| `REDIS_HOST` | Redis server hostname |
+| `REDIS_PORT` | Redis server port |
+
+## HTTP Server
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `PORT` | `3000` | HTTP listen port |
+| `CORS_ORIGIN` | `*` | Allowed CORS origin |
+| `ENABLE_SWAGGER` | `false` | Enable Swagger UI at `/docs` |
+| `NODE_ENV` | `development` | Node environment |
+
+## LLM (Mistral)
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `MISTRAL_MODEL` | `mistral-small-latest` | Mistral model name |
+| `MISTRAL_TIMEOUT_MS` | `30000` | LLM call timeout (ms) |
+
+## Agent Behaviour
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `AGENT_MAX_ITERATIONS` | `3` | Base recovery-cycle limit; drives router hard stops and derived caps |
+| `AGENT_MAX_RETRIES` | `3` | Max step-retry attempts before triggering a replan |
+| `AGENT_MAX_RETBACKS` | `3` | Max replan cycles before the run is marked fatal |
+| `AGENT_WORKING_DIR` | `process.cwd()` | Sandbox root — all file-tool paths are resolved inside this directory |
+| `REQUIRE_PLAN_REVIEW` | `false` | When `true`, pause after plan validation for human approve/reject/replan |
+
+## Tool Configuration
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `TOOL_TIMEOUT_MS` | `15000` | Per-tool invocation timeout (ms) |
+| `HTTP_TOOL_ALLOWED_HOSTS` | `""` | Comma-separated hostname allowlist for `http_get`/`http_post`. Accepts exact hosts (`api.github.com`) and suffix rules (`*.openai.com`). Empty = allow all non-private hosts |
+| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | `false` | Allow localhost / private / link-local HTTP targets |
+| `HTTP_TOOL_MAX_REDIRECTS` | `3` | Max validated redirects (0–10) |
+
+## Prompt Tuning
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `PROMPT_MAX_ATTEMPTS` | `5` | Max recent attempts included in supervisor/planner prompts |
+| `PROMPT_MAX_SUMMARY_CHARS` | `2000` | Max chars of session memory passed into prompts |
+| `CRITIC_RESULT_MAX_CHARS` | `8000` | Max chars of tool output passed to the critic |
+
+## Caching & Sessions
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `CACHE_TTL_SECONDS` | `60` | Redis TTL for cached agent responses |
+| `SESSION_TTL_SECONDS` | `86400` | Redis TTL for session state (24 h) |
+
+## Vector DB (Qdrant)
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant HTTP URL |
+| `QDRANT_COLLECTION` | `agent_vectors` | Collection name for agent vector memory |
+| `QDRANT_VECTOR_SIZE` | `384` | Embedding dimensions — must match the embedding model (default: `all-MiniLM-L6-v2` = 384) |
+| `QDRANT_CHECK_COMPATIBILITY` | `false` | Enable Qdrant client/server version compatibility checks at startup |
+
+## Health Checks
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
+| `HEALTH_EXTERNAL_CACHE_TTL_MS` | `60000` | Cache TTL for dependency diagnostics |

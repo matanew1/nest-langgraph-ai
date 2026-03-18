@@ -1,19 +1,79 @@
 # Agent Tool Registry
 
-### File Operations (Enforced via `sandboxPath`)
-- `read_file`: Reads local file (truncates @ 100KB).
-- `write_file`: Writes content + creates parent dirs.
-- `tree_dir`: Recursive tree (ignores node_modules/git/dist).
-- `grep_search`: Regex pattern matching across files.
-- `ast_parse`: Semantic JS/TS parsing into chunks.
+All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and discovered automatically by the planner and executor. File-operation tools enforce `sandboxPath()` — all paths are resolved within `AGENT_WORKING_DIR`.
 
-### Intelligence & Search
-- `search`: Web search via Tavily.
-- `llm_summarize`: AI-powered analysis of long content.
-- `vector_search/upsert`: Qdrant memory operations (384 dims).
+---
 
-### Infrastructure
-- `analyze_logs`: Splunk SPL query + AI analysis.
-- `detect_root_cause`: Structured RCA report from Splunk.
-- `git_info`: Whitelisted git commands (status, log, diff).
-- `generate_mermaid`: Creates `.mmd` diagrams from text.
+## File Operations
+
+| Tool | Input hint | Description |
+|------|-----------|-------------|
+| `read_file` | `{"path":"<file path>"}` | Read a local file (100 KB limit, truncated with notice) |
+| `write_file` | `{"path":"<file path>","content":"<content>"}` | Write/create a file; creates parent directories |
+| `list_dir` | `{"path":"<directory path>"}` | List directory contents (names + types) |
+| `tree_dir` | `{"path":"<root dir path>"}` | Recursive directory tree (ignores `node_modules`, `.git`, `dist`) |
+| `glob_files` | `{"root?":"<dir>","extensions?":[".ts"],"maxResults?":200}` | Bounded recursive file listing with optional extension filter |
+| `read_files_batch` | `{"paths":["file1","file2"]}` | Read multiple files in one call (bounded) |
+| `stat_path` | `{"path":"<path>"}` | File metadata: exists / type / size / mtime |
+| `file_patch` | `{"path":"<file>","find":"<text>","replace":"<text>"}` | Find-and-replace within a file |
+| `grep_search` | `{"pattern":"<regex>","path":"<dir>","glob":"*.ts"}` | Regex pattern search across files |
+| `ast_parse` | `{"path":"<JS/TS file>","maxChunks":10}` | Semantic JS/TS parsing into named chunks (functions, classes, exports) |
+
+---
+
+## Intelligence & Search
+
+| Tool | Input hint | Description |
+|------|-----------|-------------|
+| `search` | `{"query":"<search query>"}` | Web search via Tavily |
+| `llm_summarize` | `{"content":"<text>","instruction":"<what to do>"}` | AI-powered analysis or summarisation of long content |
+| `vector_upsert` | `{"text":"<text>","id?":"<id>","metadata?":{"key":"val"}}` | Embed text (384-dim) and upsert into Qdrant for semantic memory |
+| `vector_search` | `{"query":"<what to recall>","topK?":5}` | Embed query and search Qdrant for semantically similar memories |
+
+---
+
+## Diagrams
+
+| Tool | Input hint | Description |
+|------|-----------|-------------|
+| `generate_mermaid` | `{"description":"<goal>","source?":"<text>","path":"<.mmd path>"}` | Generate a Mermaid `.mmd` diagram; pass `source` to ground it in real code |
+| `read_mermaid` | `{"path":"<.mmd file>"}` | Read an existing `.mmd` diagram file |
+| `edit_mermaid` | `{"path":"<.mmd file>","instruction":"<changes>"}` | Edit an existing `.mmd` diagram file with a natural-language instruction |
+
+**Recommended pattern for accurate diagrams:**
+1. `ast_parse` the source file to get real structure
+2. `generate_mermaid` with `source="__PREVIOUS_RESULT__"` to prevent hallucinated nodes/edges
+
+---
+
+## Git & HTTP
+
+| Tool | Input hint | Description |
+|------|-----------|-------------|
+| `git_info` | `{"action":"status\|log\|diff\|branch\|show","args":"<optional>"}` | Whitelisted git commands (read-only) |
+| `http_get` | `{"url":"<url>"}` | HTTP GET; subject to `HTTP_TOOL_ALLOWED_HOSTS` allowlist |
+| `http_post` | `{"url":"<url>","body":"<json>","headers?":"<json>"}` | HTTP POST; subject to allowlist |
+
+---
+
+## System
+
+| Tool | Input hint | Description |
+|------|-----------|-------------|
+| `system_info` | `{}` | Hostname, platform, memory, uptime |
+
+---
+
+## Vector Memory Tips
+
+- **Recall first:** `vector_search` early in planning so prior knowledge informs the plan.
+- **Store after success:** `vector_upsert` after a step completes to persist facts, decisions, or summaries.
+- **Size must match:** `QDRANT_VECTOR_SIZE` must match the embedding model dimension (default: **384** for `all-MiniLM-L6-v2`).
+
+---
+
+## Adding a New Tool
+
+1. Create `src/modules/agents/tools/<name>.tool.ts` — export a `ToolDefinition` with a Zod input schema and `execute()` function.
+2. Register in `src/modules/agents/tools/tool.catalog.ts`.
+3. The tool is automatically available to the planner (`availableTools` prompt context) and executor.

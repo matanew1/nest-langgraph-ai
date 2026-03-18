@@ -1,15 +1,6 @@
 # nest-langgraph-ai [![CI](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml)
 
-A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using an LLM-backed agent loop and a rich toolset.
-
-**CI/CD:** GitHub Actions (build, test, coverage)
-
-## Architecture
-
-```mermaid
-# nest-langgraph-ai [![CI](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml)
-
-A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using an LLM-backed agent loop and a rich toolset.
+A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using an LLM-backed agent loop and a rich toolset. Conversational prompts are handled via a fast-path chat mode; complex tasks go through the full planning pipeline.
 
 **CI/CD:** GitHub Actions (build, test, coverage)
 
@@ -20,158 +11,166 @@ User Prompt
      |
      v
 +-----------+
-| SUPERVISOR |  Normalizes objective / feasibility (Zod JSON)
+| SUPERVISOR|  Classifies intent → chat or agent; resolves pronouns via session memory
++-----+-----+
+      |
+      +-- chat ---------> CHAT -------> COMPLETE
+      |
+      v
++-----------+
+| RESEARCHER|  Gathers project context (file tree, git status, vector recall)
 +-----+-----+
       v
 +-----------+
-| RESEARCHER |  Gathers project context (file tree, git status)
+|  PLANNER  |  Creates multi-step execution plan (Zod JSON)
 +-----+-----+
       v
 +-----------+
-|  PLANNER   |  Creates multi-step execution plan (Zod JSON)
+| VALIDATOR |  Validates tools + params (Zod); optional human review pause
++-----+-----+
+      |
+      +-- REQUIRE_PLAN_REVIEW=true --> AWAIT_PLAN_REVIEW (human approve/reject/replan)
+      |
+      v
++-----------+
+|  EXECUTOR |  Runs tool for the current step
 +-----+-----+
       v
 +-----------+
-| PLAN_VALID |  Validates tools + params (Zod)
+|NORMALIZER |  Wraps raw tool output into ToolResult envelope
 +-----+-----+
       v
 +-----------+
-|  EXECUTOR  |  Runs tools step-by-step
+|   CRITIC  |  Decides advance / retry_step / replan / complete / fatal (Zod JSON)
 +-----+-----+
       v
 +-----------+
-| NORMALIZER|  Wraps raw tool output into ToolResult envelope
+|   ROUTER  |  Phase-driven routing + hard stop limits (deadlock-proof)
 +-----+-----+
-      v
-+-----------+
-|   CRITIC  |  Decides advance/retry/replan/complete/fatal (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-|  ROUTER   |  Phase-driven routing + hard stop limits (deadlock-proof)
-+-----------+
+      |
+      +-- complete --> GENERATOR --> COMPLETE
+      |
+      +-- fatal    --> TERMINAL_RESPONSE --> COMPLETE
 ```
 
 ```mermaid
 flowchart LR
-  %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
-
   START((START))
   END((END))
 
-  subgraph Planning["📝 Planning Phase"]
+  subgraph Control["Control"]
     direction TB
-    PLANNER[PLANNER\nnodes/planner.node.ts]
-    PLAN_VALIDATOR[PLAN_VALIDATOR\nnodes/plan-validator.node.ts]
+    SUPERVISOR[SUPERVISOR]
+    ROUTER{ROUTER\nphase-driven}
   end
 
-  subgraph Execution["⚙️ Execution Phase"]
-    direction TB
-    EXECUTE[EXECUTE\nnodes/execution.node.ts]
-    TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\nnodes/tool-result-normalizer.node.ts]
+  subgraph Chat["Chat Fast-Path"]
+    CHAT[CHAT]
   end
 
-  subgraph Analysis["🔍 Analysis Phase"]
+  subgraph Planning["Planning"]
     direction TB
-    RESEARCHER[RESEARCHER\nnodes/researcher.node.ts]
-    CRITIC[CRITIC\nnodes/critic.node.ts]
-    JSON_REPAIR[JSON_REPAIR\nnodes/json-repair.node.ts]
+    RESEARCHER[RESEARCHER]
+    PLANNER[PLANNER]
+    PLAN_VALIDATOR[PLAN_VALIDATOR]
+    AWAIT_REVIEW[AWAIT_PLAN_REVIEW]
   end
 
-  subgraph Control["🎯 Control Phase"]
+  subgraph Execution["Execution"]
     direction TB
-    SUPERVISOR[SUPERVISOR\nnodes/supervisor.node.ts]
-    ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
+    EXECUTE[EXECUTE]
+    NORMALIZER[TOOL_RESULT_NORMALIZER]
   end
 
-  %% Node styling
-  classDef planner fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
-  classDef supervisor fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
-  classDef router fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
-  classDef execution fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-  classDef analysis fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-  classDef startEnd fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#000,stroke-dasharray: 5 5
-  classDef conditionalEdge stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
+  subgraph Analysis["Analysis"]
+    direction TB
+    CRITIC[CRITIC]
+    GENERATOR[GENERATOR]
+    JSON_REPAIR[JSON_REPAIR]
+    TERMINAL[TERMINAL_RESPONSE]
+  end
 
-  class PLANNER,PLAN_VALIDATOR planner
-  class SUPERVISOR supervisor
-  class ROUTER router
-  class EXECUTE,TOOL_RESULT_NORMALIZER execution
-  class RESEARCHER,CRITIC,JSON_REPAIR analysis
-  class START,END startEnd
-
-  %% Fixed edges (every node returns to ROUTER)
-  START -->|Initiates workflow| SUPERVISOR
-  SUPERVISOR -->|Supervisor output| ROUTER
-  PLANNER -->|Planning output| ROUTER
-  PLAN_VALIDATOR -->|Validation output| ROUTER
-  EXECUTE -->|Execution output| ROUTER
-  TOOL_RESULT_NORMALIZER -->|Normalized output| ROUTER
-  RESEARCHER -->|Research output| ROUTER
-  CRITIC -->|Critique output| ROUTER
-  JSON_REPAIR -->|Repaired output| ROUTER
-
-  %% Conditional edges from ROUTER
-  ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
-  ROUTER -->|phase = supervisor| SUPERVISOR
-  ROUTER -->|phase = research| RESEARCHER
-  ROUTER -->|phase = plan| PLANNER
-  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
-  ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
-  ROUTER -->|phase = judge| CRITIC
-  ROUTER -->|phase = route / default fallback| SUPERVISOR
+  START --> SUPERVISOR --> ROUTER
+  ROUTER -->|phase=chat| CHAT --> ROUTER
+  ROUTER -->|phase=research| RESEARCHER --> ROUTER
+  ROUTER -->|phase=plan| PLANNER --> ROUTER
+  ROUTER -->|phase=validate_plan| PLAN_VALIDATOR --> ROUTER
+  ROUTER -->|phase=await_plan_review| AWAIT_REVIEW --> ROUTER
+  ROUTER -->|phase=execute| EXECUTE --> ROUTER
+  ROUTER -->|phase=normalize_tool_result| NORMALIZER --> ROUTER
+  ROUTER -->|phase=judge| CRITIC --> ROUTER
+  ROUTER -->|phase=generate| GENERATOR --> ROUTER
+  ROUTER -->|jsonRepair set| JSON_REPAIR --> ROUTER
+  ROUTER -->|phase=fatal_recovery| TERMINAL --> ROUTER
+  ROUTER -->|phase=complete OR fatal| END
 ```
 
 ## Tech Stack
 
-- **NestJS 11** - HTTP framework, DI, Swagger
-- **LangGraph 1.2** - StateGraph for agent orchestration
-- **LangChain 1.x** - Tool abstractions and integrations
-- **Mistral LLM** - Chat completion provider
-- **Tavily** - Web search API
-- **Redis** - Response caching
-- **Qdrant** - Vector DB (semantic memory)
-- **Local embeddings** - Free on-device embeddings via `@xenova/transformers`
+- **NestJS 11** — HTTP framework, DI, Swagger, throttling
+- **LangGraph 1.2** — StateGraph for agent orchestration + Redis checkpoint saver
+- **LangChain 1.x** — Tool abstractions and integrations
+- **Mistral LLM** — Chat completion provider (`invokeLlm()`)
+- **Tavily** — Web search API
+- **Redis** — Session checkpoints + response caching
+- **Qdrant** — Vector DB for semantic memory (cross-turn recall)
+- **@xenova/transformers** — Free on-device embeddings (384-dim, all-MiniLM-L6-v2)
+- **Zod 4** — Runtime schema validation for all LLM outputs
 - **TypeScript 5.7** / **Jest 30**
 
 ## Available Tools
 
+### File Operations (sandbox-enforced via `sandboxPath`)
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read a local file (100 KB limit) |
+| `write_file` | Write/create a file (creates parent dirs) |
+| `list_dir` | List directory contents |
+| `tree_dir` | Recursive directory tree (ignores node_modules/git/dist) |
+| `glob_files` | Bounded recursive file listing with extension filter |
+| `read_files_batch` | Read multiple files in one call (bounded) |
+| `stat_path` | File metadata: exists / type / size / mtime |
+| `file_patch` | Find-and-replace within a file |
+| `grep_search` | Regex pattern search across files |
+| `ast_parse` | Semantic JS/TS parsing into chunks (for code analysis) |
+
+### Intelligence & Search
+
 | Tool | Description |
 |------|-------------|
 | `search` | Web search via Tavily |
-| `read_file` | Read a local file |
-| `write_file` | Write/create a file |
-| `list_dir` | List directory contents |
-| `tree_dir` | Recursive directory tree |
-| `llm_summarize` | AI-powered content analysis |
-| `git_info` | Git status, log, diff, branches |
-| `grep_search` | Pattern search across files |
-| `file_patch` | Find/replace within a file |
-| `generate_mermaid` | Generate a Mermaid `.mmd` diagram file (optionally grounded in source text) |
-| `read_mermaid` | Read a Mermaid `.mmd` diagram file |
-| `edit_mermaid` | Edit an existing Mermaid `.mmd` diagram file |
-| `glob_files` | Safe recursive file listing (extension filter, bounded) |
-| `read_files_batch` | Read multiple files in one call (bounded) |
-| `stat_path` | File metadata (exists/type/size/mtime) |
-| `vector_upsert` | Embed text locally and upsert into Qdrant for semantic memory |
-| `vector_search` | Embed query locally and search Qdrant for semantic recall |
+| `llm_summarize` | AI-powered analysis of long content |
+| `vector_upsert` | Embed text and store in Qdrant for semantic memory |
+| `vector_search` | Embed query and search Qdrant for semantic recall |
 
-### Diagrams (recommended)
+### Diagrams
 
-For diagrams that must match real code/graph structure, prefer:
+| Tool | Description |
+|------|-------------|
+| `generate_mermaid` | Generate a Mermaid `.mmd` diagram file |
+| `read_mermaid` | Read an existing `.mmd` file |
+| `edit_mermaid` | Edit an existing `.mmd` file with an instruction |
 
-1) `ast_parse` the source file  
-2) `generate_mermaid` with `source="__PREVIOUS_RESULT__"` to prevent hallucinated edges/nodes
+### Git & HTTP
 
-### Vector memory (recommended)
+| Tool | Description |
+|------|-------------|
+| `git_info` | Whitelisted git commands: status, log, diff, branch, show |
+| `http_get` | HTTP GET request (allowlist-controlled) |
+| `http_post` | HTTP POST request (allowlist-controlled) |
 
-When you want the agent to “remember” or “recall” information across turns:
+### System
 
-- **Recall first**: use `vector_search` early when planning depends on prior knowledge.
-- **Store after success**: use `vector_upsert` for durable facts, decisions, or summaries after a step completes successfully.
-- **Vector size must match**: `QDRANT_VECTOR_SIZE` must match the embedding model dimension (default in this repo is **384**).
+| Tool | Description |
+|------|-------------|
+| `system_info` | Hostname, platform, memory, uptime |
+
+### Tool Usage Tips
+
+**Accurate diagrams:** `ast_parse` the source → `generate_mermaid` with `source="__PREVIOUS_RESULT__"` to prevent hallucinated nodes/edges.
+
+**Vector memory:** `vector_search` early in planning to recall prior knowledge; `vector_upsert` after successful steps to persist facts.
 
 ## Quick Start
 
@@ -181,365 +180,129 @@ npm install --legacy-peer-deps
 
 # 2. Configure
 cp .env.example .env
-# Edit .env with your MISTRAL_API_KEY and TAVILY_API_KEY
+# Edit .env: set MISTRAL_API_KEY and TAVILY_API_KEY
 
-# 3. Start the full stack
-docker compose -f docker/docker-compose.yml up -d --build
+# 3. Start infrastructure (Redis + Qdrant)
+npm run docker:up
 
-# 4. Open the API
+# 4. Start the app
+npm run start:dev
+
 # API:     http://localhost:3000/api
-# Swagger: http://localhost:3000/docs
+# Swagger: http://localhost:3000/docs  (requires ENABLE_SWAGGER=true)
 ```
 
 ## API
 
 **Base URL:** `http://localhost:3000/api`
-**Swagger:** `http://localhost:3000/docs`
+**Swagger UI:** `http://localhost:3000/docs` (set `ENABLE_SWAGGER=true`)
 
-### POST `/agents/run`
+### `POST /agents/run` — Synchronous run
 
 ```bash
 curl -X POST http://localhost:3000/api/agents/run \
   -H 'Content-Type: application/json' \
-  -d '{"prompt": "List all TypeScript files in the src directory"}'
+  -d '{"prompt": "List all TypeScript files in src", "sessionId": "my-session"}'
 ```
 
-### GET `/health`
+Response: `{ "result": "...", "sessionId": "..." }`
+
+### `GET /agents/stream` — SSE streaming run
 
 ```bash
-curl http://localhost:3000/health
+curl -N "http://localhost:3000/api/agents/stream?prompt=list+files&sessionId=my-session"
 ```
 
-### GET `/health/live`
+SSE event types: `status` | `plan` | `tool_call_started` | `tool_call_finished` | `llm_token` | `review_required` | `final` | `error`
+
+### `DELETE /agents/session/:sessionId` — Delete session
 
 ```bash
-curl http://localhost:3000/health/live
+curl -X DELETE http://localhost:3000/api/agents/session/my-session
 ```
 
-### GET `/health/ready`
+### Plan Review (requires `REQUIRE_PLAN_REVIEW=true`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agents/review/:sessionId` | GET | Human review HTML page |
+| `/agents/session/:sessionId/review-data` | GET | Review data as JSON |
+| `/agents/session/:sessionId/approve` | POST | Approve plan → resume execution |
+| `/agents/session/:sessionId/reject` | POST | Reject plan → stop run |
+| `/agents/session/:sessionId/replan` | POST | Reject plan → trigger re-plan |
+
+### Health
 
 ```bash
-curl http://localhost:3000/health/ready
-```
-
-### GET `/health/dependencies`
-
-```bash
-curl http://localhost:3000/health/dependencies
+curl http://localhost:3000/health             # Full status
+curl http://localhost:3000/health/live        # Liveness probe
+curl http://localhost:3000/health/ready       # Readiness probe
+curl http://localhost:3000/health/dependencies # Dependency diagnostics
 ```
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MISTRAL_API_KEY` | Yes | - | Mistral API key |
-| `TAVILY_API_KEY` | Yes | - | Tavily search API key |
-| `REDIS_HOST` | Yes | - | Redis hostname |
-| `REDIS_PORT` | Yes | - | Redis port |
+| `MISTRAL_API_KEY` | Yes | — | Mistral API key |
+| `TAVILY_API_KEY` | Yes | — | Tavily search API key |
+| `REDIS_HOST` | Yes | — | Redis hostname |
+| `REDIS_PORT` | Yes | — | Redis port |
 | `PORT` | No | `3000` | HTTP server port |
-| `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model |
+| `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model name |
 | `MISTRAL_TIMEOUT_MS` | No | `30000` | LLM call timeout (ms) |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
-| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit used for router hard stops and derived tool-call caps |
+| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit (derives tool-call caps) |
+| `AGENT_MAX_RETRIES` | No | `3` | Max step retry attempts before replan |
+| `AGENT_MAX_RETBACKS` | No | `3` | Max replan cycles before fatal |
 | `TOOL_TIMEOUT_MS` | No | `15000` | Per-tool invocation timeout (ms) |
-| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Optional comma-separated hostname allowlist for `http_get`/`http_post` |
-| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private/link-local HTTP targets for tools |
-| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects for `http_get`/`http_post` |
-| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
-| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Cache TTL for optional dependency diagnostics |
+| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Comma-separated hostname allowlist for `http_get`/`http_post` |
+| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private targets |
+| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects |
 | `CACHE_TTL_SECONDS` | No | `60` | Redis cache TTL for agent responses |
+| `SESSION_TTL_SECONDS` | No | `86400` | Redis session TTL (24 h) |
 | `CRITIC_RESULT_MAX_CHARS` | No | `8000` | Max chars passed to critic from tool output |
-| `PROMPT_MAX_ATTEMPTS` | No | `5` | Max recent attempts included in supervisor/planner prompts |
-| `PROMPT_MAX_SUMMARY_CHARS` | No | `2000` | Max chars passed into `llm_summarize` tool |
+| `PROMPT_MAX_ATTEMPTS` | No | `5` | Max recent attempts included in prompts |
+| `PROMPT_MAX_SUMMARY_CHARS` | No | `2000` | Max chars for session memory in prompts |
 | `AGENT_WORKING_DIR` | No | `process.cwd()` | Sandbox root for file tools |
 | `QDRANT_URL` | No | `http://localhost:6333` | Qdrant URL |
 | `QDRANT_COLLECTION` | No | `agent_vectors` | Qdrant collection name |
-| `QDRANT_VECTOR_SIZE` | No | `384` | Embedding vector dimensions (matches free local embeddings) |
+| `QDRANT_VECTOR_SIZE` | No | `384` | Embedding dimensions (must match model) |
+| `QDRANT_CHECK_COMPATIBILITY` | No | `false` | Qdrant version compatibility checks |
+| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | External dependency health timeout |
+| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Dependency diagnostics cache TTL |
+| `REQUIRE_PLAN_REVIEW` | No | `false` | Pause for human plan approval before execution |
+| `ENABLE_SWAGGER` | No | `false` | Enable Swagger UI at `/docs` |
+| `NODE_ENV` | No | `development` | Node environment |
 
-See [CLAUDE.md](CLAUDE.md) for the full variable reference.
+See [docs/ENV.md](docs/ENV.md) for the full annotated reference.
 
 ## Development
 
 ```bash
 npm run build          # Production build
+npm run start:dev      # Dev server with watch
 npm run lint           # ESLint with auto-fix
-npm run format         # Prettier
+npm run format         # Prettier format
 npm run test           # Unit tests
 npm run test:cov       # Coverage report
 npm run test:e2e       # End-to-end tests
+
+# Docker helpers
+npm run docker:up          # Start Redis + Qdrant
+npm run docker:up:tools    # Start with Redis Commander
+npm run docker:down        # Stop containers
+npm run docker:clean       # Remove containers + volumes + images
+npm run docker:fresh       # Clean + rebuild
 ```
 
 ## Adding a New Tool
 
-1. Create `src/modules/agents/tools/<name>.tool.ts`
-2. Define Zod input schema
-3. Register in `src/modules/agents/tools/index.ts`
+1. Create `src/modules/agents/tools/<name>.tool.ts` — define a Zod input schema and export a `ToolDefinition`
+2. Register it in `src/modules/agents/tools/tool.catalog.ts`
+3. The tool is automatically available to the planner and executor
 
-## License
-
-MIT
-
-```
-
-```
-User Prompt
-     |
-     v
-+-----------+
-| SUPERVISOR |  Normalizes objective / feasibility (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-| RESEARCHER |  Gathers project context (file tree, git status)
-+-----+-----+
-      v
-+-----------+
-|  PLANNER   |  Creates multi-step execution plan (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-| PLAN_VALID |  Validates tools + params (Zod)
-+-----+-----+
-      v
-+-----------+
-|  EXECUTOR  |  Runs tools step-by-step
-+-----+-----+
-      v
-+-----------+
-| NORMALIZER|  Wraps raw tool output into ToolResult envelope
-+-----+-----+
-      v
-+-----------+
-|   CRITIC  |  Decides advance/retry/replan/complete/fatal (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-|  ROUTER   |  Phase-driven routing + hard stop limits (deadlock-proof)
-+-----------+
-```
-
-```mermaid
-flowchart LR
-  %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
-
-  START((START))
-  END((END))
-
-  subgraph Planning["📝 Planning Phase"]
-    direction TB
-    PLANNER[PLANNER\nnodes/planner.node.ts]
-    PLAN_VALIDATOR[PLAN_VALIDATOR\nnodes/plan-validator.node.ts]
-  end
-
-  subgraph Execution["⚙️ Execution Phase"]
-    direction TB
-    EXECUTE[EXECUTE\nnodes/execution.node.ts]
-    TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\nnodes/tool-result-normalizer.node.ts]
-  end
-
-  subgraph Analysis["🔍 Analysis Phase"]
-    direction TB
-    RESEARCHER[RESEARCHER\nnodes/researcher.node.ts]
-    CRITIC[CRITIC\nnodes/critic.node.ts]
-    JSON_REPAIR[JSON_REPAIR\nnodes/json-repair.node.ts]
-  end
-
-  subgraph Control["🎯 Control Phase"]
-    direction TB
-    SUPERVISOR[SUPERVISOR\nnodes/supervisor.node.ts]
-    ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
-  end
-
-  %% Node styling
-  classDef planner fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
-  classDef supervisor fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
-  classDef router fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
-  classDef execution fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-  classDef analysis fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-  classDef startEnd fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#000,stroke-dasharray: 5 5
-  classDef conditionalEdge stroke:#ff9800,stroke-width:2px,stroke-dasharray: 5 5
-
-  class PLANNER,PLAN_VALIDATOR planner
-  class SUPERVISOR supervisor
-  class ROUTER router
-  class EXECUTE,TOOL_RESULT_NORMALIZER execution
-  class RESEARCHER,CRITIC,JSON_REPAIR analysis
-  class START,END startEnd
-
-  %% Fixed edges (every node returns to ROUTER)
-  START -->|Initiates workflow| SUPERVISOR
-  SUPERVISOR -->|Supervisor output| ROUTER
-  PLANNER -->|Planning output| ROUTER
-  PLAN_VALIDATOR -->|Validation output| ROUTER
-  EXECUTE -->|Execution output| ROUTER
-  TOOL_RESULT_NORMALIZER -->|Normalized output| ROUTER
-  RESEARCHER -->|Research output| ROUTER
-  CRITIC -->|Critique output| ROUTER
-  JSON_REPAIR -->|Repaired output| ROUTER
-
-  %% Conditional edges from ROUTER
-  ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
-  ROUTER -->|phase = supervisor| SUPERVISOR
-  ROUTER -->|phase = research| RESEARCHER
-  ROUTER -->|phase = plan| PLANNER
-  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
-  ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
-  ROUTER -->|phase = judge| CRITIC
-  ROUTER -->|phase = route / default fallback| SUPERVISOR
-```
-
-## Tech Stack
-
-- **NestJS 11** - HTTP framework, DI, Swagger
-- **LangGraph 1.2** - StateGraph for agent orchestration
-- **LangChain 1.x** - Tool abstractions and integrations
-- **Mistral LLM** - Chat completion provider
-- **Tavily** - Web search API
-- **Redis** - Response caching
-- **Qdrant** - Vector DB (semantic memory)
-- **Local embeddings** - Free on-device embeddings via `@xenova/transformers`
-- **TypeScript 5.7** / **Jest 30**
-
-## Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `search` | Web search via Tavily |
-| `read_file` | Read a local file |
-| `write_file` | Write/create a file |
-| `list_dir` | List directory contents |
-| `tree_dir` | Recursive directory tree |
-| `llm_summarize` | AI-powered content analysis |
-| `git_info` | Git status, log, diff, branches |
-| `grep_search` | Pattern search across files |
-| `file_patch` | Find/replace within a file |
-| `generate_mermaid` | Generate a Mermaid `.mmd` diagram file (optionally grounded in source text) |
-| `read_mermaid` | Read a Mermaid `.mmd` diagram file |
-| `edit_mermaid` | Edit an existing Mermaid `.mmd` diagram file |
-| `glob_files` | Safe recursive file listing (extension filter, bounded) |
-| `read_files_batch` | Read multiple files in one call (bounded) |
-| `stat_path` | File metadata (exists/type/size/mtime) |
-| `vector_upsert` | Embed text locally and upsert into Qdrant for semantic memory |
-| `vector_search` | Embed query locally and search Qdrant for semantic recall |
-
-### Diagrams (recommended)
-
-For diagrams that must match real code/graph structure, prefer:
-
-1) `ast_parse` the source file  
-2) `generate_mermaid` with `source="__PREVIOUS_RESULT__"` to prevent hallucinated edges/nodes
-
-### Vector memory (recommended)
-
-When you want the agent to “remember” or “recall” information across turns:
-
-- **Recall first**: use `vector_search` early when planning depends on prior knowledge.
-- **Store after success**: use `vector_upsert` for durable facts, decisions, or summaries after a step completes successfully.
-- **Vector size must match**: `QDRANT_VECTOR_SIZE` must match the embedding model dimension (default in this repo is **384**).
-
-## Quick Start
-
-```bash
-# 1. Install
-npm install --legacy-peer-deps
-
-# 2. Configure
-cp .env.example .env
-# Edit .env with your MISTRAL_API_KEY and TAVILY_API_KEY
-
-# 3. Start the full stack
-docker compose -f docker/docker-compose.yml up -d --build
-
-# 4. Open the API
-# API:     http://localhost:3000/api
-# Swagger: http://localhost:3000/docs
-```
-
-## API
-
-**Base URL:** `http://localhost:3000/api`
-**Swagger:** `http://localhost:3000/docs`
-
-### POST `/agents/run`
-
-```bash
-curl -X POST http://localhost:3000/api/agents/run \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt": "List all TypeScript files in the src directory"}'
-```
-
-### GET `/health`
-
-```bash
-curl http://localhost:3000/health
-```
-
-### GET `/health/live`
-
-```bash
-curl http://localhost:3000/health/live
-```
-
-### GET `/health/ready`
-
-```bash
-curl http://localhost:3000/health/ready
-```
-
-### GET `/health/dependencies`
-
-```bash
-curl http://localhost:3000/health/dependencies
-```
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MISTRAL_API_KEY` | Yes | - | Mistral API key |
-| `TAVILY_API_KEY` | Yes | - | Tavily search API key |
-| `REDIS_HOST` | Yes | - | Redis hostname |
-| `REDIS_PORT` | Yes | - | Redis port |
-| `PORT` | No | `3000` | HTTP server port |
-| `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model |
-| `MISTRAL_TIMEOUT_MS` | No | `30000` | LLM call timeout (ms) |
-| `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
-| `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit used for router hard stops and derived tool-call caps |
-| `TOOL_TIMEOUT_MS` | No | `15000` | Per-tool invocation timeout (ms) |
-| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Optional comma-separated hostname allowlist for `http_get`/`http_post` |
-| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private/link-local HTTP targets for tools |
-| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects for `http_get`/`http_post` |
-| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
-| `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Cache TTL for optional dependency diagnostics |
-| `CACHE_TTL_SECONDS` | No | `60` | Redis cache TTL for agent responses |
-| `CRITIC_RESULT_MAX_CHARS` | No | `8000` | Max chars passed to critic from tool output |
-| `PROMPT_MAX_ATTEMPTS` | No | `5` | Max recent attempts included in supervisor/planner prompts |
-| `PROMPT_MAX_SUMMARY_CHARS` | No | `2000` | Max chars passed into `llm_summarize` tool |
-| `AGENT_WORKING_DIR` | No | `process.cwd()` | Sandbox root for file tools |
-| `QDRANT_URL` | No | `http://localhost:6333` | Qdrant URL |
-| `QDRANT_COLLECTION` | No | `agent_vectors` | Qdrant collection name |
-| `QDRANT_VECTOR_SIZE` | No | `384` | Embedding vector dimensions (matches free local embeddings) |
-
-See [CLAUDE.md](CLAUDE.md) for the full variable reference.
-
-## Development
-
-```bash
-npm run build          # Production build
-npm run lint           # ESLint with auto-fix
-npm run format         # Prettier
-npm run test           # Unit tests
-npm run test:cov       # Coverage report
-npm run test:e2e       # End-to-end tests
-```
-
-## Adding a New Tool
-
-1. Create `src/modules/agents/tools/<name>.tool.ts`
-2. Define Zod input schema
-3. Register in `src/modules/agents/tools/index.ts`
+See [docs/TOOLS.md](docs/TOOLS.md) for the full tool registry reference.
 
 ## License
 
