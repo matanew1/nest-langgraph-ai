@@ -7,7 +7,6 @@ import {
   Delete,
   Post,
   Get,
-  Query,
   UseGuards,
   Param,
 } from '@nestjs/common';
@@ -24,7 +23,6 @@ import { RunAgentDto, RunAgentResponseDto, StreamAgentDto } from './agents.dto';
 import {
   ApiBody,
   ApiOperation,
-  ApiQuery,
   ApiTags,
   ApiResponse,
 } from '@nestjs/swagger';
@@ -50,15 +48,15 @@ export class AgentsController {
     return this.agentsService.run(body.prompt, body.sessionId);
   }
 
-  @Get('stream')
+  @Post('stream')
+  @HttpCode(HttpStatus.OK)
   @Sse()
   @ApiOperation({
     summary: 'Stream the AI agent execution in real-time via SSE',
     description:
       'Server-Sent Events endpoint for progressive agent updates (steps, tool calls, chunks). Supports Swagger UI streaming.',
   })
-  @ApiQuery({ name: 'prompt', type: 'string', required: true })
-  @ApiQuery({ name: 'sessionId', type: 'string', required: false })
+  @ApiBody({ type: StreamAgentDto })
   @ApiResponse({
     status: 200,
     description: 'SSE stream',
@@ -87,9 +85,9 @@ export class AgentsController {
       },
     },
   })
-  stream(@Query() query: StreamAgentDto): Observable<MessageEvent> {
+  stream(@Body() body: StreamAgentDto): Observable<MessageEvent> {
     return from(
-      this.agentsService.streamRun(query.prompt, query.sessionId),
+      this.agentsService.streamRun(body.prompt, body.sessionId),
     ).pipe(
       map((event: StreamEvent) => {
         return {

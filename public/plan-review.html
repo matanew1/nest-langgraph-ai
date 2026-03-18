@@ -1010,7 +1010,7 @@
   let sessionId = generateId();
   let streaming = false;
   const mmdSourceMap = {};
-  let evtSource = null;
+  let abortController = null;
   let hadToolCalls = false;
   let currentActivityGroup = null;
   let activityCount = 0;
@@ -1558,44 +1558,56 @@
     addTyping();
     setProgress('Reviewing request…');
 
-    const url = `${base()}/api/agents/stream?prompt=${encodeURIComponent(prompt)}&sessionId=${encodeURIComponent(sessionId)}`;
-    if (evtSource) { evtSource.close(); evtSource = null; }
-    evtSource = new EventSource(url);
+    if (abortController) { abortController.abort(); abortController = null; }
+    abortController = new AbortController();
 
     let receivedDone = false;
-
-    const SSE_TYPES = ['status','plan','tool_call_started','tool_call_finished','review_required','final','error'];
-    SSE_TYPES.forEach(type => {
-      evtSource.addEventListener(type, (e) => {
-        removeTyping();
-        let event;
-        try { event = JSON.parse(e.data); } catch { return; }
-        if (event.done) receivedDone = true;
-        handleStreamEvent(event);
+    
+    try {
+      const response = await fetch(`${base()}/api/agents/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, sessionId }),
+        signal: abortController.signal
       });
-    });
 
-    evtSource.onmessage = (e) => {
-      removeTyping();
-      let event;
-      try { event = JSON.parse(e.data); } catch { return; }
-      if (event.done) receivedDone = true;
-      handleStreamEvent(event);
-    };
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
-    evtSource.onerror = () => {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+
+        for (const part of parts) {
+          for (const line of part.split('\n')) {
+            if (line.startsWith('data: ')) {
+              removeTyping();
+              try {
+                const event = JSON.parse(line.slice(6));
+                if (event.done) receivedDone = true;
+                handleStreamEvent(event);
+              } catch (e) {}
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return;
       removeTyping();
       clearProgress();
-      evtSource.close();
-      evtSource = null;
-      if (!receivedDone) {
+      if (!receivedDone && !abortController.signal.aborted) {
         finalizeActivityGroup();
-        addErrorBubble('<p>Connection lost. The stream ended unexpectedly.</p>');
-      } else {
-        finalizeActivityGroup();
+        addErrorBubble(`<p>Connection error: ${esc(err.message)}</p>`);
       }
       setIdle();
-    };
+    }
   }
 
   function handleStreamEvent(event) {
@@ -1631,8 +1643,8 @@
       clearProgress();
       finalizeActivityGroup();
       try { buildReviewCard(JSON.parse(data)); } catch { addAgentBubble('<p>Plan review required.</p>'); }
-      evtSource && evtSource.close();
-      evtSource = null;
+      abortController && abortController.abort();
+      abortController = null;
       streaming = false;
       sendBtn.disabled = false;
       attachBtn.disabled = false;
@@ -1642,8 +1654,8 @@
       clearProgress();
       finalizeActivityGroup();
       addAgentBubble(renderMd(data));
-      evtSource && evtSource.close();
-      evtSource = null;
+      abortController && abortController.abort();
+      abortController = null;
       setIdle();
 
     } else if (type === 'error') {
@@ -1654,8 +1666,8 @@
       } else {
         addErrorBubble(renderMd(data));
       }
-      evtSource && evtSource.close();
-      evtSource = null;
+      abortController && abortController.abort();
+      abortController = null;
       setIdle();
     }
   }
@@ -1671,7 +1683,7 @@
 
   // ── New session ───────────────────────────────────────────────────
   function newSession() {
-    if (evtSource) { evtSource.close(); evtSource = null; }
+    if (abortController) { abortController.abort(); abortController = null; }
     sessionId = generateId();
     updateSessionDisplay();
     streaming = false;
