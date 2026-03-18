@@ -6,6 +6,7 @@
   <title>Agent Chat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -648,6 +649,74 @@
       border-radius: 0 6px 6px 0;
     }
 
+    /* ── Preview blocks (mermaid / html / markdown) ─────────────────── */
+    .preview-block {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+      background: var(--bg2);
+    }
+    .preview-block .pre-header {
+      display: flex;
+      align-items: center;
+      padding: 7px 12px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: .7rem;
+      color: var(--muted);
+      gap: 6px;
+    }
+    .preview-tabs {
+      display: flex;
+      gap: 3px;
+      margin-left: auto;
+      margin-right: 4px;
+    }
+    .ptab {
+      padding: 2px 9px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .65rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      line-height: 1.6;
+    }
+    .ptab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ptab:not(.active):hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+    .ptab-panel { display: none; }
+    .ptab-panel.active { display: block; }
+    .ptab-diagram.active {
+      padding: 20px 16px;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      background: var(--surface);
+    }
+    [data-theme="dark"] .ptab-diagram.active { background: var(--surface2); }
+    .ptab-diagram .mermaid { max-width: 100%; }
+    .ptab-code > pre { margin: 0 !important; border: none !important; border-radius: 0 !important; }
+    .ptab-code > pre > code { max-height: 300px; }
+    .ptab-preview.active {
+      background: #fff;
+      border-top: 1px solid var(--border);
+    }
+    [data-theme="dark"] .ptab-preview.active { background: var(--surface); }
+    .ptab-preview iframe {
+      width: 100%;
+      border: none;
+      min-height: 180px;
+      max-height: 440px;
+      display: block;
+    }
+    .md-preview { padding: 12px 16px; color: var(--text); font-size: .875rem; }
+
     /* ── Typing indicator ─────────────────────────────────────────── */
     .typing-row {
       display: flex;
@@ -825,6 +894,7 @@
   // ── State ─────────────────────────────────────────────────────────
   let sessionId = generateId();
   let streaming = false;
+  const mmdSourceMap = {}; // id → mermaid source (for theme re-render)
   let evtSource = null;
   let hadToolCalls = false;
   let currentActivityGroup = null;
@@ -900,6 +970,16 @@
     const isDark = html.getAttribute('data-theme') === 'dark';
     html.setAttribute('data-theme', isDark ? 'light' : 'dark');
     document.getElementById('theme-btn').textContent = isDark ? '🌙' : '☀️';
+    // Re-render mermaid diagrams with new theme
+    if (typeof mermaid !== 'undefined') {
+      const newTheme = isDark ? 'default' : 'dark';
+      mermaid.initialize({ startOnLoad: false, theme: newTheme });
+      document.querySelectorAll('.mermaid[data-processed]').forEach(el => {
+        const src = mmdSourceMap[el.id];
+        if (src) { el.removeAttribute('data-processed'); el.innerHTML = ''; el.textContent = src; }
+      });
+      mermaid.run({ querySelector: '.mermaid:not([data-processed])' });
+    }
   }
 
   // ── Progress pill ─────────────────────────────────────────────────
@@ -927,12 +1007,59 @@
     let s = String(text).replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
       const i = blocks.length;
       const langLabel = lang || 'code';
-      const codeEscaped = esc(code.replace(/\n$/, ''));
-      blocks.push(
-        `<pre><div class="pre-header"><span class="pre-lang">${esc(langLabel)}</span>` +
-        `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
-        `<code>${codeEscaped}</code></pre>`
-      );
+      const raw = code.replace(/\n$/, '');
+
+      if (lang === 'mermaid') {
+        const mmdId = 'mmd-' + Math.random().toString(36).slice(2, 9);
+        mmdSourceMap[mmdId] = raw;
+        blocks.push(
+          `<div class="preview-block preview-mermaid">` +
+          `<div class="pre-header"><span class="pre-lang">mermaid</span>` +
+          `<div class="preview-tabs">` +
+            `<button class="ptab active" onclick="switchTab(this,'diagram')">Diagram</button>` +
+            `<button class="ptab" onclick="switchTab(this,'code')">Code</button>` +
+          `</div>` +
+          `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
+          `<div class="ptab-panel ptab-diagram active"><div class="mermaid" id="${mmdId}"></div></div>` +
+          `<div class="ptab-panel ptab-code"><pre><code>${esc(raw)}</code></pre></div>` +
+          `</div>`
+        );
+      } else if (lang === 'html') {
+        const srcdocAttr = raw.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        blocks.push(
+          `<div class="preview-block preview-html">` +
+          `<div class="pre-header"><span class="pre-lang">html</span>` +
+          `<div class="preview-tabs">` +
+            `<button class="ptab" onclick="switchTab(this,'code')">Code</button>` +
+            `<button class="ptab active" onclick="switchTab(this,'preview')">Preview</button>` +
+          `</div>` +
+          `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
+          `<div class="ptab-panel ptab-code"><pre><code>${esc(raw)}</code></pre></div>` +
+          `<div class="ptab-panel ptab-preview active">` +
+            `<iframe sandbox="allow-scripts" srcdoc="${srcdocAttr}" onload="autoIframeHeight(this)"></iframe>` +
+          `</div>` +
+          `</div>`
+        );
+      } else if (lang === 'md' || lang === 'markdown') {
+        blocks.push(
+          `<div class="preview-block preview-md">` +
+          `<div class="pre-header"><span class="pre-lang">markdown</span>` +
+          `<div class="preview-tabs">` +
+            `<button class="ptab" onclick="switchTab(this,'code')">Code</button>` +
+            `<button class="ptab active" onclick="switchTab(this,'preview')">Preview</button>` +
+          `</div>` +
+          `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
+          `<div class="ptab-panel ptab-code"><pre><code>${esc(raw)}</code></pre></div>` +
+          `<div class="ptab-panel ptab-preview active"><div class="md-preview">${renderMd(raw)}</div></div>` +
+          `</div>`
+        );
+      } else {
+        blocks.push(
+          `<pre><div class="pre-header"><span class="pre-lang">${esc(langLabel)}</span>` +
+          `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
+          `<code>${esc(raw)}</code></pre>`
+        );
+      }
       return `\x00BLOCK${i}\x00`;
     });
 
@@ -964,11 +1091,43 @@
   }
 
   function copyBlock(btn) {
-    const code = btn.closest('pre').querySelector('code');
-    navigator.clipboard.writeText(code.textContent || '').catch(() => {});
+    // works for both plain <pre><code> and preview-block (reads first <code>)
+    const container = btn.closest('.preview-block') || btn.closest('pre');
+    const code = container.querySelector('code');
+    navigator.clipboard.writeText(code ? code.textContent || '' : '').catch(() => {});
     const prev = btn.textContent;
     btn.textContent = '✓ Copied';
     setTimeout(() => { btn.textContent = prev; }, 1500);
+  }
+
+  // ── Preview helpers ───────────────────────────────────────────────
+  function switchTab(btn, panelClass) {
+    const block = btn.closest('.preview-block');
+    block.querySelectorAll('.ptab-panel').forEach(p => p.classList.remove('active'));
+    btn.closest('.preview-tabs').querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const target = block.querySelector('.ptab-' + panelClass);
+    if (target) target.classList.add('active');
+  }
+
+  function autoIframeHeight(iframe) {
+    try { iframe.style.height = (iframe.contentDocument.body.scrollHeight + 24) + 'px'; } catch {}
+  }
+
+  function getMermaidTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+  }
+
+  function initMermaid(container) {
+    if (typeof mermaid === 'undefined') return;
+    const els = Array.from(container.querySelectorAll('.mermaid'));
+    if (!els.length) return;
+    els.forEach(el => {
+      const src = mmdSourceMap[el.id];
+      if (src && !el.textContent.trim()) el.textContent = src;
+    });
+    mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+    mermaid.run({ nodes: els.filter(el => !el.hasAttribute('data-processed')) });
   }
 
   // ── Bubble builders ───────────────────────────────────────────────
@@ -1012,6 +1171,7 @@
         <span class="bubble-time">${ts()}</span>
       </div>`;
     inner.appendChild(row);
+    initMermaid(row);
     scrollFeed();
     return row;
   }
