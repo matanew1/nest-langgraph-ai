@@ -180,7 +180,17 @@ export async function planValidatorNode(
   const first = steps[0];
   logPhaseEnd('PLAN_VALIDATOR', 'OK', elapsed());
 
-  if (env.requirePlanReview && state.sessionId) {
+  // Only pause for human review when the plan contains destructive/irreversible tools.
+  // Read-only operations (search, stat_path, read_file, etc.) run without review.
+  const DESTRUCTIVE_TOOLS = new Set([
+    'file_write',
+    'file_patch',
+    'file_append',
+    'run_command',
+  ]);
+  const hasDestructiveTool = steps.some((s) => DESTRUCTIVE_TOOLS.has(s.tool));
+
+  if (env.requirePlanReview && state.sessionId && hasDestructiveTool) {
     logPhaseEnd('PLAN_VALIDATOR', 'AWAIT_PLAN_REVIEW', elapsed());
     return requestPlanReview(state.sessionId, state);
   }

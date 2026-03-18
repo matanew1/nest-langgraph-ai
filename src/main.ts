@@ -1,6 +1,8 @@
 import 'module-alias/register'; // Register path aliases for compiled JS
 import './extensions/extensions'; // This executes the prototype assignments
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -12,7 +14,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useStaticAssets(join(__dirname, '..', 'public'));
   const logger = new Logger('Bootstrap');
 
   // Security: Helmet helps secure Express apps by setting various HTTP headers

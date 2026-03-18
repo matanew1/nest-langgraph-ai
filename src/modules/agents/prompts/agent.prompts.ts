@@ -53,9 +53,19 @@ export const buildPlannerPrompt = (state: AgentState): string =>
 
 export const buildChatPrompt = (state: AgentState): string => {
   const memory = state.sessionMemory
-    ? `\n\nPrevious conversation summary:\n${state.sessionMemory.slice(0, 600)}`
+    ? `\n\nConversation history:\n${state.sessionMemory.slice(0, 800)}`
     : '';
-  return `You are a helpful assistant. Answer the user's question directly and concisely.${memory}\n\nUser: ${state.input}\n\nAssistant:`;
+
+  return [
+    `You are a friendly, helpful AI assistant. Be warm, natural, and conversational.`,
+    `- For greetings, respond warmly and offer to help.`,
+    `- For follow-up questions, use the conversation history to give context-aware answers.`,
+    `- Keep answers concise but complete. Use markdown for structure when helpful.`,
+    `- Never say you "cannot" answer something that is a simple conversational or general knowledge question.`,
+    memory,
+    `\nUser: ${state.input}`,
+    `\nAssistant:`,
+  ].join('\n');
 };
 
 export const buildGeneratorPrompt = (state: AgentState): string => {

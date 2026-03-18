@@ -52,7 +52,12 @@ export async function supervisorNode(
 
     const objective = decision.objective ?? state.input;
 
-    if (decision.mode === 'chat') {
+    // Default to chat when no mode specified and input looks conversational
+    const isChatMode =
+      decision.mode === 'chat' ||
+      (!decision.mode && state.input.trim().split(/\s+/).length <= 5);
+
+    if (isChatMode) {
       logPhaseEnd(
         'SUPERVISOR',
         `CHAT MODE → "${preview(objective)}"`,

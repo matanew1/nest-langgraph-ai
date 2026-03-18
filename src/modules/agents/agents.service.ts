@@ -13,6 +13,7 @@ import { env } from '@config/env';
 import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
+import type { PlanStep } from './state/agent.state';
 import { AGENT_PHASES } from './state/agent-phase';
 import { createInitialAgentRunState } from './state/agent-run-state.util';
 import {
@@ -28,6 +29,12 @@ import * as crypto from 'crypto';
 export interface AgentRunResult {
   result: string;
   sessionId: string;
+}
+
+export interface ReviewPageData {
+  sessionId: string;
+  objective: string;
+  plan: PlanStep[];
 }
 
 const SEPARATOR = '━'.repeat(60);
@@ -227,12 +234,25 @@ export class AgentsService {
             done: false,
           };
         } else {
-          yield {
-            type: 'status',
-            data: `Phase: ${snap.phase ?? node}`,
-            sessionId: threadId,
-            done: false,
-          };
+          // Only surface phases that are meaningful to the end user.
+          // Skip internal routing/bookkeeping phases (route, complete, fatal,
+          // normalize_tool_result, judge, clarification, etc.).
+          const USER_VISIBLE_PHASES = new Set([
+            AGENT_PHASES.SUPERVISOR,
+            AGENT_PHASES.RESEARCH,
+            AGENT_PHASES.VALIDATE_PLAN,
+            AGENT_PHASES.GENERATE,
+            AGENT_PHASES.CHAT,
+            AGENT_PHASES.FATAL_RECOVERY,
+          ]);
+          if (snap.phase && USER_VISIBLE_PHASES.has(snap.phase as any)) {
+            yield {
+              type: 'status',
+              data: `Phase: ${snap.phase}`,
+              sessionId: threadId,
+              done: false,
+            };
+          }
         }
       }
 
@@ -317,11 +337,20 @@ export class AgentsService {
       throw new BadRequestException('Session has an empty plan.');
     }
 
+    const previousMemory = await this._tryLoadSessionMemory(sessionId);
     await this.app.updateState(
       config,
       beginExecutionStep(first, 0, { reviewRequest: undefined }),
     );
     const result: any = await this.app.invoke(null, config);
+
+    await this._persistSessionMemory(
+      sessionId,
+      values.objective ?? values.input ?? '',
+      result,
+      previousMemory,
+    );
+
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
 
@@ -359,6 +388,7 @@ export class AgentsService {
       throw new BadRequestException('No pending plan review for this session.');
     }
 
+    const previousMemory = await this._tryLoadSessionMemory(sessionId);
     await this.app.updateState(
       config,
       transitionToPhase(AGENT_PHASES.RESEARCH, {
@@ -367,7 +397,34 @@ export class AgentsService {
       }),
     );
     const result: any = await this.app.invoke(null, config);
+
+    await this._persistSessionMemory(
+      sessionId,
+      values.objective ?? values.input ?? '',
+      result,
+      previousMemory,
+    );
+
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
+  }
+
+  async getReviewPageData(sessionId: string): Promise<ReviewPageData> {
+    const config = {
+      configurable: { thread_id: sessionId },
+      recursionLimit: 200,
+    };
+    const snapshot = await this.app.getState(config);
+    const values = snapshot.values as Partial<AgentState>;
+
+    if (!values.reviewRequest) {
+      throw new BadRequestException('No pending plan review for this session.');
+    }
+
+    return {
+      sessionId,
+      objective: values.reviewRequest.objective ?? '(no objective set)',
+      plan: values.reviewRequest.plan,
+    };
   }
 
   private _repoFingerprintCache?: string;
