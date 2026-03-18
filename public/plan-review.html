@@ -1,276 +1,536 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #f0f2f5;
+      --bg: #f5f7fb;
+      --bg2: #eef0f7;
       --surface: #ffffff;
+      --surface2: #f8fafc;
       --border: #e2e8f0;
-      --text: #1a202c;
-      --muted: #718096;
-      --accent: #3b82f6;
-      --accent-dark: #2563eb;
-      --green: #16a34a;
-      --red: #dc2626;
-      --orange: #d97706;
-      --radius: 18px;
-      --radius-sm: 8px;
+      --border2: #cbd5e1;
+      --text: #0f172a;
+      --text2: #334155;
+      --muted: #64748b;
+      --muted2: #94a3b8;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-dark: #4f46e5;
+      --accent-bg: #eef2ff;
+      --green: #10b981;
+      --green-bg: #ecfdf5;
+      --red: #ef4444;
+      --red-bg: #fef2f2;
+      --orange: #f59e0b;
+      --orange-bg: #fffbeb;
+      --purple: #8b5cf6;
+      --user-bubble: linear-gradient(135deg, #6366f1, #8b5cf6);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+      --radius: 20px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
     }
+
+    [data-theme="dark"] {
+      --bg: #0f0f13;
+      --bg2: #17171d;
+      --surface: #1c1c24;
+      --surface2: #22222c;
+      --border: #2d2d3d;
+      --border2: #3d3d50;
+      --text: #f1f5f9;
+      --text2: #cbd5e1;
+      --muted: #94a3b8;
+      --muted2: #64748b;
+      --accent: #818cf8;
+      --accent-light: #a5b4fc;
+      --accent-dark: #6366f1;
+      --accent-bg: #1e1b4b;
+      --green: #34d399;
+      --green-bg: #064e3b;
+      --red: #f87171;
+      --red-bg: #450a0a;
+      --orange: #fbbf24;
+      --orange-bg: #451a03;
+      --user-bubble: linear-gradient(135deg, #4f46e5, #7c3aed);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+    }
+
+    html, body { height: 100%; }
 
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
-      height: 100vh;
       display: flex;
       flex-direction: column;
+      height: 100vh;
       overflow: hidden;
+      transition: background .2s, color .2s;
     }
 
-    /* ── Top bar ── */
-    .topbar {
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 10px 18px;
+      padding: 0 20px;
+      height: 56px;
       display: flex;
       align-items: center;
       gap: 12px;
       flex-shrink: 0;
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      z-index: 10;
     }
 
-    .topbar-logo {
-      width: 28px; height: 28px;
-      background: linear-gradient(135deg, var(--accent), #8b5cf6);
-      border-radius: 8px;
+    .header-logo {
+      width: 32px; height: 32px;
+      background: var(--user-bubble);
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       color: #fff;
-      font-size: .85rem; font-weight: 700;
+      font-size: .85rem;
+      font-weight: 800;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(99,102,241,.35);
     }
 
-    .topbar h1 { font-size: .95rem; font-weight: 700; }
+    .header-title {
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -.01em;
+    }
 
-    .session-badge {
-      font-size: .73rem;
-      background: #f1f5f9;
+    .header-subtitle {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .header-mid {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Progress bar during streaming */
+    .progress-pill {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      background: var(--accent-bg);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--accent);
+      animation: fadeIn .2s ease;
+    }
+    .progress-pill.visible { display: flex; }
+    .progress-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:.4;transform:scale(.85)} 50%{opacity:1;transform:scale(1)} }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .session-chip {
+      font-size: .72rem;
+      background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 3px 10px;
+      padding: 4px 10px;
       color: var(--muted);
-      font-family: monospace;
+      font-family: 'JetBrains Mono', monospace;
       cursor: pointer;
       user-select: all;
-      transition: background .15s;
+      transition: all .15s;
+      white-space: nowrap;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .session-badge:hover { background: #e2e8f0; }
+    .session-chip:hover { background: var(--border); color: var(--text); }
+
+    .icon-btn {
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { background: var(--border); color: var(--text); }
 
     .api-input {
-      margin-left: auto;
-      font-size: .78rem;
+      font-size: .75rem;
+      font-family: 'JetBrains Mono', monospace;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 9px;
+      border-radius: 8px;
+      padding: 5px 10px;
       color: var(--muted);
+      background: var(--surface2);
       outline: none;
-      width: 200px;
+      width: 190px;
+      transition: all .15s;
     }
-    .api-input:focus { border-color: var(--accent); color: var(--text); }
+    .api-input:focus { border-color: var(--accent); color: var(--text); background: var(--surface); }
 
-    /* ── Feed ── */
+    /* ── Feed ────────────────────────────────────────────────────── */
     #feed {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 16px;
+      padding: 24px 0;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
+      scroll-behavior: smooth;
     }
 
-    /* ── Empty state ── */
-    #empty {
+    #feed::-webkit-scrollbar { width: 5px; }
+    #feed::-webkit-scrollbar-track { background: transparent; }
+    #feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+
+    .feed-inner {
+      max-width: 820px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────── */
+    #empty-wrap {
       flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #empty {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: .95rem;
-      gap: 10px;
-      padding-bottom: 60px;
+      gap: 16px;
+      padding: 40px 20px 80px;
+      max-width: 460px;
+      text-align: center;
     }
-    #empty .empty-icon { font-size: 2.5rem; opacity: .4; }
-    #empty .empty-title { font-weight: 600; color: var(--text); opacity: .5; }
-    #empty .empty-sub { font-size: .82rem; opacity: .5; }
+    .empty-icon-ring {
+      width: 64px; height: 64px;
+      background: var(--user-bubble);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 8px 24px rgba(99,102,241,.3);
+    }
+    .empty-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -.02em;
+    }
+    .empty-sub {
+      font-size: .85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .suggestions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .suggestion-btn {
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: .83rem;
+      color: var(--text2);
+      cursor: pointer;
+      text-align: left;
+      transition: all .15s;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+    .suggestion-btn:hover {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
 
-    /* ── Row layouts ── */
-    .row {
+    /* ── Message rows ────────────────────────────────────────────── */
+    .msg-row {
       display: flex;
       align-items: flex-end;
-      gap: 8px;
-      animation: fadeIn .18s ease;
+      gap: 10px;
+      animation: slideUp .2s cubic-bezier(.16,1,.3,1);
     }
-    .row.row-user  { flex-direction: row-reverse; }
-    .row.row-agent { flex-direction: row; }
-    .row.row-full  { flex-direction: column; align-items: stretch; }
+    .msg-row.row-user  { flex-direction: row-reverse; padding-left: 20%; }
+    .msg-row.row-agent { flex-direction: row; padding-right: 20%; }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; } }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-    /* ── Avatar ── */
+    /* ── Avatar ──────────────────────────────────────────────────── */
     .avatar {
-      width: 30px; height: 30px;
+      width: 32px; height: 32px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: .82rem;
       flex-shrink: 0;
       margin-bottom: 2px;
+      position: relative;
     }
-    .avatar-user  { background: var(--accent); color: #fff; }
-    .avatar-agent { background: #e2e8f0; color: var(--text); }
+    .avatar-user {
+      background: var(--user-bubble);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 700;
+    }
+    .avatar-agent {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+    }
 
-    /* ── Bubble ── */
+    /* ── Bubble ──────────────────────────────────────────────────── */
+    .bubble-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
+
     .bubble {
-      max-width: 72%;
-      padding: 10px 14px;
+      padding: 12px 16px;
       border-radius: 18px;
-      font-size: .9rem;
-      line-height: 1.55;
+      font-size: .875rem;
+      line-height: 1.6;
       word-break: break-word;
+      position: relative;
     }
 
     .bubble-user {
-      background: var(--accent);
+      background: var(--user-bubble);
       color: #fff;
-      border-bottom-right-radius: 4px;
+      border-bottom-right-radius: 5px;
+      box-shadow: 0 4px 14px rgba(99,102,241,.25);
     }
 
     .bubble-agent {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text);
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      border-bottom-left-radius: 5px;
+      box-shadow: var(--shadow-sm);
     }
 
-    .bubble-agent.bubble-error {
-      background: #fef2f2;
-      border-color: #fca5a5;
-      color: #991b1b;
+    .bubble-error {
+      background: var(--red-bg) !important;
+      border-color: var(--red) !important;
+      color: var(--red) !important;
     }
 
-    /* ── Activity group (tool calls, status updates) ── */
+    /* Copy button on agent bubbles */
+    .bubble-copy {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: .7rem;
+      transition: all .15s;
+    }
+    .bubble-agent:hover .bubble-copy { display: flex; }
+    .bubble-copy:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+    /* Timestamp */
+    .bubble-time {
+      font-size: .67rem;
+      color: var(--muted2);
+      padding: 0 4px;
+      align-self: flex-end;
+    }
+    .msg-row.row-user .bubble-time { align-self: flex-end; }
+
+    /* ── Activity group ──────────────────────────────────────────── */
     .activity-group {
-      margin: 2px 0 2px 38px;
+      padding-left: 42px;
+      animation: slideUp .2s ease;
     }
 
     .activity-toggle {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: .76rem;
+      gap: 7px;
+      font-size: .75rem;
       color: var(--muted);
       cursor: pointer;
-      padding: 3px 8px;
-      border-radius: 12px;
-      border: 1px solid transparent;
+      padding: 5px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
       transition: all .15s;
       user-select: none;
-      background: transparent;
+      font-family: inherit;
+      box-shadow: var(--shadow-sm);
     }
-    .activity-toggle:hover {
-      background: #f1f5f9;
-      border-color: var(--border);
-      color: var(--text);
+    .activity-toggle:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+    .toggle-icon { transition: transform .2s; font-style: normal; font-size: .65rem; }
+    .activity-toggle.open .toggle-icon { transform: rotate(90deg); }
+
+    .activity-spinner {
+      width: 12px; height: 12px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
     }
-    .activity-toggle .toggle-arrow { transition: transform .2s; display: inline-block; }
-    .activity-toggle.open .toggle-arrow { transform: rotate(90deg); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .activity-toggle.done .activity-spinner { display: none; }
+    .activity-toggle.done { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+    .activity-toggle.done:hover { opacity: .85; }
 
     .activity-items {
       display: none;
-      margin-top: 4px;
-      border-left: 2px solid #e2e8f0;
-      padding-left: 12px;
-      display: none;
+      margin-top: 6px;
+      border-left: 2px solid var(--border);
+      padding-left: 14px;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
     .activity-items.open { display: flex; }
 
     .activity-item {
       display: flex;
       align-items: flex-start;
-      gap: 7px;
-      font-size: .8rem;
+      gap: 8px;
+      font-size: .78rem;
       color: var(--muted);
       padding: 3px 0;
+      line-height: 1.45;
     }
-    .activity-item-icon { font-size: .78rem; flex-shrink: 0; margin-top: 1px; }
-    .activity-item-text { word-break: break-word; }
+    .activity-item-icon { flex-shrink: 0; margin-top: 1px; font-size: .75rem; }
+    .activity-item-text { word-break: break-word; min-width: 0; }
     .activity-item-text code {
-      font-family: monospace;
-      font-size: .78rem;
-      background: #f1f5f9;
-      padding: 1px 4px;
-      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--accent);
     }
 
-    /* ── Review card ── */
+    /* ── Review card ─────────────────────────────────────────────── */
     .review-card {
-      background: #fffbeb;
-      border: 1.5px solid #fde68a;
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin: 4px 0 4px 38px;
+      background: var(--orange-bg);
+      border: 1.5px solid var(--orange);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-left: 42px;
+      animation: slideUp .2s ease;
+      box-shadow: 0 4px 16px rgba(245,158,11,.12);
     }
 
     .review-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 10px;
+      margin-bottom: 12px;
     }
     .review-badge {
-      font-size: .72rem;
+      font-size: .7rem;
       font-weight: 700;
-      background: #fef3c7;
-      color: #92400e;
+      background: rgba(245,158,11,.2);
+      color: var(--orange);
       border-radius: 10px;
-      padding: 2px 9px;
+      padding: 3px 10px;
       text-transform: uppercase;
-      letter-spacing: .04em;
+      letter-spacing: .05em;
+      border: 1px solid rgba(245,158,11,.3);
     }
     .review-objective {
       font-size: .84rem;
-      color: #78350f;
-      margin-bottom: 12px;
+      color: var(--text2);
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,.5);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      line-height: 1.5;
     }
+    [data-theme="dark"] .review-objective { background: rgba(0,0,0,.2); }
 
-    .plan-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: .83rem;
-      margin-bottom: 12px;
+    .plan-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
     }
-    .plan-table th {
-      text-align: left;
-      padding: 6px 10px;
-      background: #fef9c3;
-      border-bottom: 1.5px solid #fde68a;
-      color: #78350f;
-      font-weight: 600;
+    .plan-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,.5);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: .8rem;
     }
-    .plan-table td {
-      padding: 7px 10px;
-      border-bottom: 1px solid #fef3c7;
-      vertical-align: top;
+    [data-theme="dark"] .plan-step { background: rgba(0,0,0,.2); }
+    .plan-step-num {
+      width: 22px; height: 22px;
+      background: var(--orange);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem;
+      font-weight: 700;
+      flex-shrink: 0;
     }
-    .plan-table td:first-child { width: 28px; color: var(--muted); font-weight: 700; }
-    .plan-table td:nth-child(2) { width: 120px; font-family: monospace; font-size: .78rem; color: #6d28d9; background: #f5f3ff; border-radius: 3px; }
+    .plan-step-tool {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      color: var(--purple);
+      background: rgba(139,92,246,.1);
+      padding: 1px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .plan-step-desc { color: var(--text2); line-height: 1.4; }
 
     .review-actions {
       display: flex;
@@ -278,211 +538,312 @@
       flex-wrap: wrap;
     }
     .review-actions button {
-      padding: 7px 18px;
+      padding: 8px 18px;
       border: none;
-      border-radius: 7px;
-      font-size: .84rem;
-      font-weight: 700;
+      border-radius: 9px;
+      font-size: .83rem;
+      font-weight: 600;
       cursor: pointer;
-      transition: opacity .15s;
+      transition: all .15s;
+      font-family: inherit;
+      letter-spacing: -.01em;
     }
     .review-actions button:disabled { opacity: .45; cursor: not-allowed; }
+    .review-actions button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
     .btn-approve { background: var(--green); color: #fff; }
     .btn-reject  { background: var(--red);   color: #fff; }
     .btn-replan  { background: var(--accent); color: #fff; }
 
     .review-status {
-      margin-top: 8px;
-      font-size: .82rem;
-      padding: 6px 10px;
-      border-radius: 5px;
+      margin-top: 10px;
+      font-size: .8rem;
+      padding: 7px 12px;
+      border-radius: 8px;
       display: none;
     }
-    .review-status.processing { background: #eff6ff; color: #1e40af; }
-    .review-status.success    { background: #f0fdf4; color: #166534; }
-    .review-status.error      { background: #fef2f2; color: #991b1b; }
+    .review-status.processing { background: var(--accent-bg); color: var(--accent); }
+    .review-status.success    { background: var(--green-bg);  color: var(--green); }
+    .review-status.error      { background: var(--red-bg);    color: var(--red); }
 
-    /* ── Markdown content inside bubbles ── */
-    .md-content h1, .md-content h2, .md-content h3 {
-      margin: 8px 0 4px;
+    /* ── Markdown ─────────────────────────────────────────────────── */
+    .md h1, .md h2, .md h3 {
       font-weight: 700;
       line-height: 1.3;
+      letter-spacing: -.02em;
+      margin: 10px 0 5px;
     }
-    .md-content h1 { font-size: 1.1rem; }
-    .md-content h2 { font-size: 1rem; }
-    .md-content h3 { font-size: .95rem; }
-    .md-content p  { margin: 4px 0; }
-    .md-content ul, .md-content ol { padding-left: 18px; margin: 4px 0; }
-    .md-content li { margin: 2px 0; }
-    .md-content code {
-      font-family: monospace;
-      font-size: .82rem;
-      background: rgba(0,0,0,.08);
-      padding: 1px 5px;
-      border-radius: 3px;
+    .md h1 { font-size: 1.1rem; }
+    .md h2 { font-size: 1rem; }
+    .md h3 { font-size: .92rem; }
+    .md p  { margin: 5px 0; }
+    .md ul, .md ol { padding-left: 20px; margin: 5px 0; }
+    .md li { margin: 3px 0; line-height: 1.55; }
+    .md code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      background: rgba(99,102,241,.1);
+      color: var(--accent);
+      padding: 1px 6px;
+      border-radius: 4px;
     }
-    .bubble-user .md-content code { background: rgba(255,255,255,.25); }
-    .md-content pre {
-      background: #f8fafc;
+    .bubble-user .md code { background: rgba(255,255,255,.2); color: #fff; }
+    .md pre {
+      background: var(--bg2);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-      margin: 8px 0;
+      border-radius: 10px;
+      padding: 0;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .bubble-user .md pre { background: rgba(0,0,0,.2); border-color: rgba(255,255,255,.2); }
+    .pre-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: .7rem;
+      color: var(--muted);
+    }
+    .bubble-user .pre-header { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
+    .pre-lang { font-family: 'JetBrains Mono', monospace; text-transform: lowercase; }
+    .pre-copy {
+      font-size: .7rem;
+      padding: 2px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .15s;
+    }
+    .pre-copy:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+    .md pre code {
+      display: block;
+      background: none;
+      color: var(--text2);
+      padding: 12px 14px;
+      font-size: .8rem;
       white-space: pre-wrap;
       word-break: break-word;
-      font-size: .8rem;
-      font-family: monospace;
-      max-height: 300px;
-      overflow-y: auto;
+      border-radius: 0;
+      overflow-x: auto;
+      max-height: 320px;
     }
-    .bubble-user .md-content pre { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.3); }
-    .md-content strong { font-weight: 700; }
-    .md-content em { font-style: italic; }
-    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+    .bubble-user .md pre code { color: rgba(255,255,255,.9); }
+    .md strong { font-weight: 700; }
+    .md em { font-style: italic; }
+    .md hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .md a { color: var(--accent); text-decoration: none; }
+    .md a:hover { text-decoration: underline; }
+    .md blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 4px 12px;
+      color: var(--muted);
+      margin: 8px 0;
+      font-style: italic;
+      background: var(--accent-bg);
+      border-radius: 0 6px 6px 0;
+    }
 
-    /* ── Typing indicator ── */
+    /* ── Typing indicator ─────────────────────────────────────────── */
     .typing-row {
       display: flex;
       align-items: flex-end;
-      gap: 8px;
-      animation: fadeIn .18s ease;
+      gap: 10px;
+      padding-right: 20%;
+      animation: slideUp .2s ease;
     }
     .typing-bubble {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 18px;
-      border-bottom-left-radius: 4px;
-      padding: 10px 16px;
+      border-bottom-left-radius: 5px;
+      padding: 12px 16px;
       display: flex;
-      gap: 4px;
+      gap: 5px;
       align-items: center;
+      box-shadow: var(--shadow-sm);
     }
     .typing-bubble span {
       width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--muted);
-      animation: bounce .8s infinite ease-in-out;
+      animation: typingBounce .9s infinite ease-in-out;
     }
-    .typing-bubble span:nth-child(2) { animation-delay: .15s; }
-    .typing-bubble span:nth-child(3) { animation-delay: .3s; }
-
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(.75); opacity: .5; }
-      40% { transform: scale(1.1); opacity: 1; }
+    .typing-bubble span:nth-child(2) { animation-delay: .18s; }
+    .typing-bubble span:nth-child(3) { animation-delay: .36s; }
+    @keyframes typingBounce {
+      0%,80%,100% { transform: scale(.75); opacity: .5; }
+      40% { transform: scale(1.15); opacity: 1; }
     }
 
-    /* ── Input bar ── */
+    /* ── Input bar ────────────────────────────────────────────────── */
     .inputbar {
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 12px 16px;
+      padding: 12px 20px 14px;
+      flex-shrink: 0;
+    }
+    .inputbar-inner {
+      max-width: 820px;
+      margin: 0 auto;
       display: flex;
       gap: 8px;
       align-items: flex-end;
-      flex-shrink: 0;
     }
 
     #prompt-input {
       flex: 1;
       border: 1.5px solid var(--border);
-      border-radius: 22px;
-      padding: 10px 16px;
-      font-size: .9rem;
-      font-family: inherit;
+      border-radius: 14px;
+      padding: 11px 16px;
+      font-size: .875rem;
+      font-family: 'Inter', sans-serif;
       outline: none;
       resize: none;
-      min-height: 42px;
-      max-height: 120px;
-      line-height: 1.45;
-      transition: border-color .15s;
-      background: #f8fafc;
+      min-height: 44px;
+      max-height: 130px;
+      line-height: 1.5;
+      transition: all .15s;
+      background: var(--surface2);
+      color: var(--text);
     }
-    #prompt-input:focus { border-color: var(--accent); background: #fff; }
-    #prompt-input:disabled { background: #f1f5f9; color: var(--muted); }
+    #prompt-input::placeholder { color: var(--muted2); }
+    #prompt-input:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+    #prompt-input:disabled { opacity: .5; cursor: not-allowed; }
 
-    #send-btn {
-      width: 42px; height: 42px;
-      background: var(--accent);
+    .send-btn {
+      width: 44px; height: 44px;
+      background: var(--user-bubble);
       color: #fff;
       border: none;
-      border-radius: 50%;
-      font-size: 1rem;
+      border-radius: 12px;
       cursor: pointer;
-      transition: opacity .15s, background .15s;
+      transition: all .15s;
       flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(99,102,241,.3);
     }
-    #send-btn:disabled { opacity: .45; cursor: not-allowed; }
-    #send-btn:hover:not(:disabled) { background: var(--accent-dark); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+    .send-btn:not(:disabled):hover { transform: scale(1.05); box-shadow: 0 6px 16px rgba(99,102,241,.4); }
+    .send-btn:not(:disabled):active { transform: scale(.97); }
 
-    #new-btn {
-      padding: 8px 13px;
-      background: #f1f5f9;
+    .new-btn {
+      padding: 0 14px;
+      height: 44px;
+      background: var(--surface2);
       color: var(--muted);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      font-size: .82rem;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: .8rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background .15s;
+      transition: all .15s;
       flex-shrink: 0;
-      align-self: flex-end;
-      height: 42px;
+      font-family: inherit;
+      white-space: nowrap;
     }
-    #new-btn:hover { background: #e2e8f0; }
+    .new-btn:hover { background: var(--border); color: var(--text); }
+
+    /* ── Divider ───────────────────────────────────────────────────── */
+    .date-divider {
+      text-align: center;
+      font-size: .7rem;
+      color: var(--muted2);
+      padding: 4px 0;
+      position: relative;
+    }
+    .date-divider::before, .date-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 30%;
+      height: 1px;
+      background: var(--border);
+    }
+    .date-divider::before { left: 10%; }
+    .date-divider::after { right: 10%; }
   </style>
 </head>
 <body>
 
-<!-- ── Top bar ── -->
-<div class="topbar">
-  <div class="topbar-logo">A</div>
-  <h1>Agent Chat</h1>
-  <span class="session-badge" id="session-display" title="Click to copy session ID">New session</span>
-  <input class="api-input" id="api-base" type="text" value="http://localhost:3000" placeholder="API base URL">
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-logo">✦</div>
+  <div>
+    <div class="header-title">Agent Chat</div>
+    <div class="header-subtitle">Powered by LangGraph + Mistral</div>
+  </div>
+  <div class="header-mid">
+    <div class="progress-pill" id="progress-pill">
+      <div class="progress-dot"></div>
+      <span id="progress-label">Processing…</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="session-chip" id="session-display" title="Click to copy">New session</span>
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
+    <input class="api-input" id="api-base" type="text" value="http://localhost:3000" placeholder="API base URL" title="API base URL">
+  </div>
 </div>
 
-<!-- ── Event feed ── -->
+<!-- ── Feed ── -->
 <div id="feed">
-  <div id="empty">
-    <div class="empty-icon">💬</div>
-    <div class="empty-title">Agent Chat</div>
-    <div class="empty-sub">Ask the agent anything — it can search, read files, write code, and more.</div>
+  <div id="empty-wrap">
+    <div id="empty">
+      <div class="empty-icon-ring">✦</div>
+      <div class="empty-title">What can I help you with?</div>
+      <div class="empty-sub">Ask me anything — I can search the web, read &amp; write files, run commands, explain code, and hold multi-step conversations.</div>
+      <div class="suggestions">
+        <button class="suggestion-btn" onclick="useSuggestion(this)">📂 List all TypeScript files in this project</button>
+        <button class="suggestion-btn" onclick="useSuggestion(this)">🔍 Search for all TODO comments in the codebase</button>
+        <button class="suggestion-btn" onclick="useSuggestion(this)">💡 What is the architecture of this project?</button>
+        <button class="suggestion-btn" onclick="useSuggestion(this)">✏️ Explain how the agent graph works</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- ── Input bar ── -->
 <div class="inputbar">
-  <button id="new-btn" onclick="newSession()" title="Start a new session">+ New</button>
-  <textarea id="prompt-input" rows="1" placeholder="Ask the agent anything…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-  <button id="send-btn" onclick="sendPrompt()" title="Send (Enter)">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-  </button>
+  <div class="inputbar-inner">
+    <button class="new-btn" onclick="newSession()" title="Start fresh session">+ New</button>
+    <textarea id="prompt-input" rows="1"
+      placeholder="Message the agent…"
+      onkeydown="handleKey(event)"
+      oninput="autoResize(this)"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendPrompt()" title="Send (Enter)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
 </div>
 
 <script>
-  // ── State ──────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────
   let sessionId = generateId();
   let streaming = false;
   let evtSource = null;
   let hadToolCalls = false;
-  // Current activity group being built (tool calls + status during a run)
   let currentActivityGroup = null;
   let activityCount = 0;
 
-  const feed    = document.getElementById('feed');
-  const empty   = document.getElementById('empty');
+  const feed        = document.getElementById('feed');
+  const emptyWrap   = document.getElementById('empty-wrap');
   const promptInput = document.getElementById('prompt-input');
-  const sendBtn = document.getElementById('send-btn');
+  const sendBtn     = document.getElementById('send-btn');
   const sessionDisplay = document.getElementById('session-display');
+  const progressPill   = document.getElementById('progress-pill');
+  const progressLabel  = document.getElementById('progress-label');
 
   updateSessionDisplay();
 
-  // ── Helpers ─────────────────────────────────────────────────────
+  // ── Utils ─────────────────────────────────────────────────────────
   function generateId() {
-    return 'sess-' + Math.random().toString(36).slice(2, 10);
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
   }
 
   function base() {
@@ -490,112 +851,167 @@
   }
 
   function esc(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function ts() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   function updateSessionDisplay() {
-    const short = sessionId.length > 20 ? sessionId.slice(0, 20) + '…' : sessionId;
+    const short = sessionId.length > 18 ? sessionId.slice(0,8)+'…'+sessionId.slice(-4) : sessionId;
     sessionDisplay.textContent = short;
-    sessionDisplay.title = 'Session: ' + sessionId + ' (click to copy)';
+    sessionDisplay.title = 'Session ID: ' + sessionId + ' (click to copy)';
   }
 
   sessionDisplay.addEventListener('click', () => {
     navigator.clipboard.writeText(sessionId).catch(() => {});
-    const orig = sessionDisplay.textContent;
-    sessionDisplay.textContent = 'Copied!';
-    setTimeout(() => { sessionDisplay.textContent = orig; }, 1200);
+    const prev = sessionDisplay.textContent;
+    sessionDisplay.textContent = '✓ Copied';
+    setTimeout(() => { sessionDisplay.textContent = prev; }, 1400);
   });
 
-  function hideEmpty() { empty.style.display = 'none'; }
-  function scrollFeed() { feed.scrollTop = feed.scrollHeight; }
+  function hideEmpty() {
+    emptyWrap.style.display = 'none';
+  }
+
+  function scrollFeed() {
+    requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
+  }
 
   function autoResize(el) {
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
   }
 
   function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPrompt(); }
   }
 
-  // ── Markdown renderer ───────────────────────────────────────────
+  function useSuggestion(btn) {
+    promptInput.value = btn.textContent.replace(/^[^\s]+\s/, '').trim();
+    promptInput.focus();
+    autoResize(promptInput);
+  }
+
+  // ── Theme ─────────────────────────────────────────────────────────
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('theme-btn').textContent = isDark ? '🌙' : '☀️';
+  }
+
+  // ── Progress pill ─────────────────────────────────────────────────
+  const PHASE_LABELS = {
+    'Phase: supervisor':    'Reviewing request…',
+    'Phase: research':      'Gathering context…',
+    'Phase: validate_plan': 'Validating plan…',
+    'Phase: generate':      'Composing answer…',
+    'Phase: chat':          'Thinking…',
+    'Phase: fatal_recovery':'Recovering…',
+  };
+
+  function setProgress(label) {
+    progressLabel.textContent = label;
+    progressPill.classList.add('visible');
+  }
+
+  function clearProgress() {
+    progressPill.classList.remove('visible');
+  }
+
+  // ── Markdown renderer ─────────────────────────────────────────────
   function renderMd(text) {
-    // Fenced code blocks first
     const blocks = [];
-    let s = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    let s = String(text).replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
       const i = blocks.length;
-      blocks.push(`<pre><code>${esc(code.replace(/\n$/, ''))}</code></pre>`);
+      const langLabel = lang || 'code';
+      const codeEscaped = esc(code.replace(/\n$/, ''));
+      blocks.push(
+        `<pre><div class="pre-header"><span class="pre-lang">${esc(langLabel)}</span>` +
+        `<button class="pre-copy" onclick="copyBlock(this)">Copy</button></div>` +
+        `<code>${codeEscaped}</code></pre>`
+      );
       return `\x00BLOCK${i}\x00`;
     });
 
-    // Headings
+    s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
     s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
     s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-    // Bold / italic
     s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-    // Inline code (escape first)
     s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`);
-
-    // HR
     s = s.replace(/^---+$/gm, '<hr>');
-
-    // Unordered lists
-    s = s.replace(/((?:^[\s]*[-*+] .+\n?)+)/gm, match => {
-      const items = match.trim().split('\n').map(l => `<li>${l.replace(/^[\s]*[-*+] /, '').trim()}</li>`).join('');
+    s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, m => {
+      const items = m.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /,'').trim()}</li>`).join('');
       return `<ul>${items}</ul>`;
     });
-
-    // Ordered lists
-    s = s.replace(/((?:^\d+\. .+\n?)+)/gm, match => {
-      const items = match.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /, '').trim()}</li>`).join('');
+    s = s.replace(/((?:^\d+\. .+\n?)+)/gm, m => {
+      const items = m.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /,'').trim()}</li>`).join('');
       return `<ol>${items}</ol>`;
     });
-
-    // Paragraphs (double newline = new paragraph)
     s = s.split(/\n{2,}/).map(block => {
-      if (block.startsWith('<h') || block.startsWith('<ul') || block.startsWith('<ol') || block.startsWith('<hr') || block.startsWith('\x00BLOCK')) {
-        return block;
-      }
+      if (/^<(h[1-6]|ul|ol|hr|pre|blockquote|\x00BLOCK)/.test(block.trimStart())) return block;
       const inner = block.replace(/\n/g, '<br>').trim();
       return inner ? `<p>${inner}</p>` : '';
     }).join('');
 
-    // Restore code blocks
     blocks.forEach((b, i) => { s = s.replace(`\x00BLOCK${i}\x00`, b); });
-
-    return `<div class="md-content">${s}</div>`;
+    return `<div class="md">${s}</div>`;
   }
 
-  // ── Chat row builders ────────────────────────────────────────────
+  function copyBlock(btn) {
+    const code = btn.closest('pre').querySelector('code');
+    navigator.clipboard.writeText(code.textContent || '').catch(() => {});
+    const prev = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = prev; }, 1500);
+  }
+
+  // ── Bubble builders ───────────────────────────────────────────────
+  function getFeedInner() {
+    let inner = feed.querySelector('.feed-inner');
+    if (!inner) {
+      inner = document.createElement('div');
+      inner.className = 'feed-inner';
+      feed.appendChild(inner);
+    }
+    return inner;
+  }
+
   function addUserBubble(text) {
     hideEmpty();
+    const inner = getFeedInner();
     const row = document.createElement('div');
-    row.className = 'row row-user';
+    row.className = 'msg-row row-user';
     row.innerHTML = `
-      <div class="avatar avatar-user">👤</div>
-      <div class="bubble bubble-user"><div class="md-content">${esc(text).replace(/\n/g, '<br>')}</div></div>`;
-    feed.appendChild(row);
+      <div class="bubble-wrap">
+        <div class="bubble bubble-user"><div class="md"><p>${esc(text).replace(/\n/g,'<br>')}</p></div></div>
+        <span class="bubble-time">${ts()}</span>
+      </div>
+      <div class="avatar avatar-user">You</div>`;
+    inner.appendChild(row);
     scrollFeed();
-    return row;
   }
 
   function addAgentBubble(htmlContent, extraClass = '') {
     hideEmpty();
+    const inner = getFeedInner();
     const row = document.createElement('div');
-    row.className = 'row row-agent';
+    row.className = 'msg-row row-agent';
     row.innerHTML = `
-      <div class="avatar avatar-agent">🤖</div>
-      <div class="bubble bubble-agent ${extraClass}">${htmlContent}</div>`;
-    feed.appendChild(row);
+      <div class="avatar avatar-agent">✦</div>
+      <div class="bubble-wrap">
+        <div class="bubble bubble-agent ${extraClass}">
+          ${htmlContent}
+          <button class="bubble-copy" onclick="copyBubble(this)" title="Copy text">📋</button>
+        </div>
+        <span class="bubble-time">${ts()}</span>
+      </div>`;
+    inner.appendChild(row);
     scrollFeed();
     return row;
   }
@@ -604,46 +1020,60 @@
     return addAgentBubble(htmlContent, 'bubble-error');
   }
 
-  // ── Activity group (tool calls + status) ──────────────────────
+  function copyBubble(btn) {
+    const bubble = btn.closest('.bubble');
+    const text = bubble.innerText.replace('📋', '').trim();
+    navigator.clipboard.writeText(text).catch(() => {});
+    const prev = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = prev; }, 1400);
+  }
+
+  // ── Activity group ────────────────────────────────────────────────
   function ensureActivityGroup() {
     if (currentActivityGroup) return;
     hideEmpty();
+    const inner = getFeedInner();
     const wrap = document.createElement('div');
     wrap.className = 'activity-group';
     wrap.innerHTML = `
       <button class="activity-toggle" onclick="toggleActivity(this)">
-        <span class="toggle-arrow">▶</span>
+        <div class="activity-spinner"></div>
         <span class="toggle-label">Working…</span>
+        <em class="toggle-icon">▶</em>
       </button>
       <div class="activity-items"></div>`;
-    feed.appendChild(wrap);
+    inner.appendChild(wrap);
     currentActivityGroup = wrap;
     activityCount = 0;
     scrollFeed();
   }
 
-  function addActivityItem(icon, text) {
+  function addActivityItem(icon, html) {
     ensureActivityGroup();
     activityCount++;
     const items = currentActivityGroup.querySelector('.activity-items');
     const item = document.createElement('div');
     item.className = 'activity-item';
-    item.innerHTML = `<span class="activity-item-icon">${icon}</span><span class="activity-item-text">${text}</span>`;
+    item.innerHTML = `<span class="activity-item-icon">${icon}</span><span class="activity-item-text">${html}</span>`;
     items.appendChild(item);
-    // Update toggle label
-    const label = currentActivityGroup.querySelector('.toggle-label');
-    if (label) label.textContent = `${activityCount} action${activityCount > 1 ? 's' : ''}`;
     scrollFeed();
   }
 
-  function updateActivityStatus(label) {
+  function updateActivityLabel(label) {
     if (!currentActivityGroup) ensureActivityGroup();
-    const btn = currentActivityGroup.querySelector('.toggle-label');
-    if (btn) btn.textContent = label;
+    currentActivityGroup.querySelector('.toggle-label').textContent = label;
   }
 
   function finalizeActivityGroup() {
+    if (currentActivityGroup && activityCount > 0) {
+      const btn = currentActivityGroup.querySelector('.activity-toggle');
+      btn.classList.add('done');
+      btn.querySelector('.toggle-label').textContent =
+        `${activityCount} step${activityCount !== 1 ? 's' : ''} completed`;
+    }
     currentActivityGroup = null;
+    activityCount = 0;
   }
 
   function toggleActivity(btn) {
@@ -655,16 +1085,17 @@
     scrollFeed();
   }
 
-  // ── Typing indicator ─────────────────────────────────────────────
+  // ── Typing indicator ──────────────────────────────────────────────
   function addTyping() {
     hideEmpty();
+    const inner = getFeedInner();
     const row = document.createElement('div');
     row.className = 'typing-row';
     row.id = 'typing-indicator';
     row.innerHTML = `
-      <div class="avatar avatar-agent">🤖</div>
+      <div class="avatar avatar-agent">✦</div>
       <div class="typing-bubble"><span></span><span></span><span></span></div>`;
-    feed.appendChild(row);
+    inner.appendChild(row);
     scrollFeed();
   }
 
@@ -673,38 +1104,35 @@
     if (el) el.remove();
   }
 
-  // ── Review card ──────────────────────────────────────────────────
+  // ── Review card ───────────────────────────────────────────────────
   function buildReviewCard(reviewData) {
     hideEmpty();
+    const inner = getFeedInner();
     const { plan = [], objective = '' } = reviewData;
 
-    const rows = plan.map(step =>
-      `<tr>
-        <td>${esc(String(step.step_id))}</td>
-        <td>${esc(step.tool)}</td>
-        <td>${esc(step.description)}</td>
-      </tr>`
-    ).join('');
+    const steps = plan.map(step => `
+      <div class="plan-step">
+        <div class="plan-step-num">${esc(String(step.step_id))}</div>
+        <span class="plan-step-tool">${esc(step.tool)}</span>
+        <span class="plan-step-desc">${esc(step.description)}</span>
+      </div>`).join('');
 
     const wrap = document.createElement('div');
     wrap.className = 'review-card';
     wrap.innerHTML = `
       <div class="review-header">
-        <span class="review-badge">⚠ Plan Review</span>
+        <span class="review-badge">⚠ Plan Review Required</span>
       </div>
       <div class="review-objective"><strong>Objective:</strong> ${esc(objective)}</div>
-      <table class="plan-table">
-        <thead><tr><th>#</th><th>Tool</th><th>Description</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="plan-steps">${steps}</div>
       <div class="review-actions">
-        <button class="btn-approve" onclick="reviewAction('approve', this)">✓ Approve</button>
+        <button class="btn-approve" onclick="reviewAction('approve', this)">✓ Approve &amp; Run</button>
         <button class="btn-reject"  onclick="reviewAction('reject', this)">✗ Reject</button>
         <button class="btn-replan"  onclick="reviewAction('replan', this)">↺ Replan</button>
       </div>
       <div class="review-status"></div>`;
 
-    feed.appendChild(wrap);
+    inner.appendChild(wrap);
     scrollFeed();
     return wrap;
   }
@@ -728,7 +1156,7 @@
       if (action === 'reject') {
         statusEl.className = 'review-status success';
         statusEl.textContent = 'Plan rejected.';
-        addAgentBubble(renderMd('Plan rejected. You can start a new request or try rephrasing your prompt.'), 'bubble-error');
+        addAgentBubble(renderMd('Plan rejected. Feel free to rephrase or try a different approach.'));
         setIdle();
         return;
       }
@@ -747,9 +1175,8 @@
       if (action === 'replan') {
         setTimeout(() => loadReviewAfterReplan(), 600);
       } else {
-        const answer = body.result || 'Done.';
         finalizeActivityGroup();
-        addAgentBubble(renderMd(answer));
+        addAgentBubble(renderMd(body.result || 'Done.'));
         setIdle();
       }
     } catch {
@@ -768,15 +1195,14 @@
         setIdle();
         return;
       }
-      const data = await res.json();
-      buildReviewCard(data);
+      buildReviewCard(await res.json());
     } catch {
       addErrorBubble(renderMd('Network error loading replanned review.'));
       setIdle();
     }
   }
 
-  // ── Send prompt & stream ─────────────────────────────────────────
+  // ── Send & stream ─────────────────────────────────────────────────
   async function sendPrompt() {
     const prompt = promptInput.value.trim();
     if (!prompt || streaming) return;
@@ -788,20 +1214,20 @@
 
     sendBtn.disabled = true;
     promptInput.disabled = true;
-
-    addUserBubble(prompt);
     promptInput.value = '';
     promptInput.style.height = 'auto';
 
+    addUserBubble(prompt);
     addTyping();
+    setProgress('Reviewing request…');
 
     const url = `${base()}/api/agents/stream?prompt=${encodeURIComponent(prompt)}&sessionId=${encodeURIComponent(sessionId)}`;
     if (evtSource) { evtSource.close(); evtSource = null; }
     evtSource = new EventSource(url);
 
-    const SSE_TYPES = ['status','plan','tool_call_started','tool_call_finished','review_required','final','error'];
     let receivedDone = false;
 
+    const SSE_TYPES = ['status','plan','tool_call_started','tool_call_finished','review_required','final','error'];
     SSE_TYPES.forEach(type => {
       evtSource.addEventListener(type, (e) => {
         removeTyping();
@@ -822,61 +1248,52 @@
 
     evtSource.onerror = () => {
       removeTyping();
+      clearProgress();
       evtSource.close();
       evtSource = null;
-      if (streaming && !receivedDone) {
+      if (!receivedDone) {
         finalizeActivityGroup();
         addErrorBubble('<p>Connection lost. The stream ended unexpectedly.</p>');
-        setIdle();
-      } else if (streaming) {
+      } else {
         finalizeActivityGroup();
-        setIdle();
       }
+      setIdle();
     };
   }
-
-  const PHASE_LABELS = {
-    'Phase: supervisor':      'Reviewing request…',
-    'Phase: research':        'Gathering context…',
-    'Phase: validate_plan':   'Validating plan…',
-    'Phase: generate':        'Writing answer…',
-    'Phase: chat':            'Thinking…',
-    'Phase: fatal_recovery':  'Recovering…',
-  };
 
   function handleStreamEvent(event) {
     const { type, data } = event;
 
     if (type === 'status') {
-      const label = PHASE_LABELS[data];
-      if (label) updateActivityStatus(label);
+      const label = PHASE_LABELS[data] || data;
+      setProgress(label);
+      if (data && !data.startsWith('Phase:')) {
+        updateActivityLabel(label);
+      }
 
     } else if (type === 'plan') {
-      // Plan is now shown inside the activity group as a summary item
       try {
         const steps = JSON.parse(data);
-        const summary = steps.map(s => `${s.step_id}. <code>${esc(s.tool)}</code> — ${esc(s.description)}`).join('<br>');
-        addActivityItem('📋', `<span>Plan created (${steps.length} step${steps.length > 1 ? 's' : ''})</span>`);
+        addActivityItem('📋',
+          `Plan ready — <strong>${steps.length} step${steps.length !== 1 ? 's' : ''}</strong>`);
+        setProgress('Executing plan…');
       } catch {
         addActivityItem('📋', esc(data));
       }
 
     } else if (type === 'tool_call_started') {
       hadToolCalls = true;
-      addActivityItem('🔧', `Running <code>${esc(data)}</code>`);
+      addActivityItem('⚙️', `Running <code>${esc(data)}</code>`);
+      setProgress(`Running ${data.split(' ')[0]}…`);
 
     } else if (type === 'tool_call_finished') {
-      const preview = data.length > 120 ? data.slice(0, 120) + '…' : data;
+      const preview = data.length > 140 ? data.slice(0,140) + '…' : data;
       addActivityItem('✅', esc(preview));
 
     } else if (type === 'review_required') {
+      clearProgress();
       finalizeActivityGroup();
-      try {
-        buildReviewCard(JSON.parse(data));
-      } catch {
-        addAgentBubble(`<p>Plan review required.</p>`);
-      }
-      // Pause — keep input enabled so user can still type; they must act via buttons
+      try { buildReviewCard(JSON.parse(data)); } catch { addAgentBubble('<p>Plan review required.</p>'); }
       evtSource && evtSource.close();
       evtSource = null;
       streaming = false;
@@ -884,6 +1301,7 @@
       promptInput.disabled = false;
 
     } else if (type === 'final') {
+      clearProgress();
       finalizeActivityGroup();
       addAgentBubble(renderMd(data));
       evtSource && evtSource.close();
@@ -891,10 +1309,9 @@
       setIdle();
 
     } else if (type === 'error') {
+      clearProgress();
       finalizeActivityGroup();
-      // Clarification / rejection — show as agent message not red error
-      const isRejection = !hadToolCalls;
-      if (isRejection) {
+      if (!hadToolCalls) {
         addAgentBubble(renderMd(data));
       } else {
         addErrorBubble(renderMd(data));
@@ -907,12 +1324,13 @@
 
   function setIdle() {
     streaming = false;
+    clearProgress();
     sendBtn.disabled = false;
     promptInput.disabled = false;
     promptInput.focus();
   }
 
-  // ── New session ──────────────────────────────────────────────────
+  // ── New session ───────────────────────────────────────────────────
   function newSession() {
     if (evtSource) { evtSource.close(); evtSource = null; }
     sessionId = generateId();
@@ -920,16 +1338,19 @@
     streaming = false;
     hadToolCalls = false;
     currentActivityGroup = null;
+    activityCount = 0;
+    clearProgress();
     sendBtn.disabled = false;
     promptInput.disabled = false;
 
-    while (feed.firstChild) feed.removeChild(feed.firstChild);
-    feed.appendChild(empty);
-    empty.style.display = 'flex';
+    // Reset feed
+    const inner = feed.querySelector('.feed-inner');
+    if (inner) inner.remove();
+    emptyWrap.style.display = '';
     promptInput.focus();
   }
 
-  // ── URL param auto-load ──────────────────────────────────────────
+  // ── URL param init ────────────────────────────────────────────────
   (function init() {
     const params = new URLSearchParams(window.location.search);
     const sid = params.get('sessionId');

@@ -21,12 +21,35 @@ import {
 
 const logger = new Logger('Supervisor');
 
+/**
+ * Returns true when the input is clearly a short conversational message or
+ * follow-up that should never be rejected — even if the LLM disagrees.
+ */
+function isObviouslyConversational(input: string): boolean {
+  const words = input.trim().split(/\s+/);
+  if (words.length <= 8 && /\b(what|who|why|how|when|where|tell|show|explain|the|it|this|that|they|them|those|his|her|its)\b/i.test(input)) {
+    return true;
+  }
+  // Greetings / single-word utterances
+  if (words.length <= 3) return true;
+  return false;
+}
+
 export async function supervisorNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
 
   logPhaseStart('SUPERVISOR', `input="${preview(state.input)}"`);
+
+  // Fast-path: obvious follow-up or conversational message — skip LLM routing
+  if (isObviouslyConversational(state.input) && state.sessionMemory) {
+    logPhaseEnd('SUPERVISOR', `FAST-PATH CHAT → "${preview(state.input)}"`, elapsed());
+    return transitionToPhase(AGENT_PHASES.CHAT, {
+      objective: state.input,
+      jsonRepairResult: undefined,
+    });
+  }
 
   const raw = await getStructuredNodeRawResponse(state, logger, () =>
     buildSupervisorPrompt(state),
@@ -36,6 +59,14 @@ export async function supervisorNode(
     const decision = parseStructuredNodeOutput(raw, supervisorOutputSchema);
 
     if (decision.status === 'reject') {
+      // If the LLM rejected something that looks conversational, override to chat
+      if (isObviouslyConversational(state.input)) {
+        logPhaseEnd('SUPERVISOR', `REJECT OVERRIDE → CHAT MODE`, elapsed());
+        return transitionToPhase(AGENT_PHASES.CHAT, {
+          objective: state.input,
+          jsonRepairResult: undefined,
+        });
+      }
       logPhaseEnd('SUPERVISOR', `REJECTED: ${decision.message}`, elapsed());
       return requestClarification(
         {

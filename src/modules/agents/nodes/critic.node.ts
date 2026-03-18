@@ -18,6 +18,19 @@ import {
 
 const logger = new Logger('Critic');
 
+/**
+ * Synthesize a finalAnswer from whatever the agent has produced so far.
+ * Used as a fallback when the LLM omits finalAnswer on a complete/fatal decision.
+ */
+function synthesizeFinalAnswer(state: AgentState): string {
+  return (
+    state.toolResult?.preview ??
+    state.toolResultRaw ??
+    state.attempts?.at(-1)?.result?.preview ??
+    'Task completed successfully.'
+  );
+}
+
 export async function criticNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
@@ -30,6 +43,36 @@ export async function criticNode(
   const raw = await getStructuredNodeRawResponse(state, logger, () =>
     buildCriticPrompt(state),
   );
+
+  // Try lenient parse first: extract decision/reason even if finalAnswer is missing,
+  // then synthesize finalAnswer to avoid the infinite json_repair loop.
+  let parsed: ReturnType<typeof JSON.parse> | null = null;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    parsed = null;
+  }
+
+  if (
+    parsed &&
+    (parsed.decision === 'complete' || parsed.decision === 'fatal') &&
+    !parsed.finalAnswer
+  ) {
+    const synthesized = synthesizeFinalAnswer(state);
+    logger.warn(
+      `Critic returned "${parsed.decision}" without finalAnswer — synthesizing from state`,
+    );
+    const decision = {
+      decision: parsed.decision as 'complete' | 'fatal',
+      reason: parsed.reason ?? 'Task completed.',
+      finalAnswer: synthesized,
+    };
+    logPhaseEnd('CRITIC', `DECISION: ${decision.decision} (synthesized answer)`, elapsed());
+    return transitionToPhase(AGENT_PHASES.ROUTE, {
+      criticDecision: decision,
+      jsonRepairResult: undefined,
+    });
+  }
 
   try {
     const decision = parseStructuredNodeOutput(raw, criticDecisionSchema);
