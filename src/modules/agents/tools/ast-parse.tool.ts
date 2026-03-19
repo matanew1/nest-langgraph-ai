@@ -178,6 +178,30 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
         });
         count++;
       }
+    } else if (
+      t.isExpressionStatement(node) &&
+      t.isCallExpression(node.expression) &&
+      t.isMemberExpression(node.expression.callee) &&
+      t.isIdentifier(node.expression.callee.property)
+    ) {
+      // Capture standalone method calls: graph.addEdge(...), graph.addConditionalEdges(...)
+      const call = node.expression;
+      const methodName = (node.expression.callee.property as t.Identifier).name;
+      let objectName = 'obj';
+      if (t.isIdentifier(node.expression.callee.object)) {
+        objectName = node.expression.callee.object.name;
+      }
+      const snippet = code.slice(node.start!, node.end!);
+      chunks.push({
+        chunk_id: `call_${chunks.length}`,
+        type: 'call',
+        name: `${objectName}.${methodName}`,
+        summary: `${objectName}.${methodName}(${call.arguments.length} args)`,
+        code_snippet:
+          snippet.slice(0, 500) + (snippet.length > 500 ? '...' : ''),
+        loc: { start: loc.start, end: loc.end },
+      });
+      count++;
     }
 
     // Traverse children (only top-level program body; class body handled above)
@@ -185,6 +209,13 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
       node.body.forEach((child) => traverse(child));
     } else if (t.isBlock(node)) {
       node.body.forEach((child) => traverse(child));
+    } else if (
+      t.isForOfStatement(node) ||
+      t.isForInStatement(node) ||
+      t.isForStatement(node) ||
+      t.isWhileStatement(node)
+    ) {
+      traverse(node.body, parentClassName);
     }
   }
 

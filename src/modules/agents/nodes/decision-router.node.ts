@@ -41,6 +41,15 @@ export async function decisionRouterNode(
   const elapsed = startTimer();
   logPhaseStart('DECISION_ROUTER', `phase=${state.phase}`);
 
+  // Terminal phases must never be re-routed — the graph topology ends here.
+  if (
+    state.phase === AGENT_PHASES.COMPLETE ||
+    state.phase === AGENT_PHASES.FATAL
+  ) {
+    logPhaseEnd('DECISION_ROUTER', `TERMINAL (${state.phase}) → skip`, elapsed());
+    return {};
+  }
+
   const counters = getAgentCounters(state.counters);
 
   const AGENT_LIMITS = getAgentLimits();

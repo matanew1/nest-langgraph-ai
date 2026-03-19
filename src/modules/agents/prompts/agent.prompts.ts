@@ -90,7 +90,7 @@ export const buildGeneratorPrompt = (state: AgentState): string => {
     ``,
     `INSTRUCTIONS:`,
     `1. Directly answer the objective based on the step outputs above.`,
-    `2. If the result is a file, code block, or structured data — present it formatted and complete.`,
+    `2. If a tool saved content to a file (result contains 'saved to', 'written to', or a file path) — confirm the file path and describe what was saved in one sentence. Do NOT reproduce, embed, or quote the file contents inline.`,
     `3. If the result is informational — summarize clearly in 1-3 short paragraphs or a bullet list.`,
     `4. Include concrete facts, file paths, function names, or values from the tool outputs when they are part of the answer.`,
     `5. Do NOT say "the agent did X" or "step N shows Y" — speak directly to the user as if you did the work yourself.`,

@@ -65,6 +65,7 @@ LOOP PREVENTION RULES:
 - Repeated identical failures MUST escalate: retry_step → replan → fatal. Never loop at the same level.
 
 IMPORTANT:
+- The `decision` field MUST be one of: `advance`, `retry_step`, `replan`, `complete`, `fatal`. Classifications from Step 1 (`partial_success`, `success`, `failure`, `wrong_tool`) are internal thinking labels ONLY — they must NEVER appear as the `decision` value.
 - `finalAnswer` must be concise and user-facing. Summarize; do not copy raw tool dumps.
 - Never copy huge tool output; summarize and cite only key facts.
 
