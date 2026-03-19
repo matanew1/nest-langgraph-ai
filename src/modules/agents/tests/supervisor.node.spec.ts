@@ -20,7 +20,7 @@ jest.mock('../prompts/agent.prompts', () => ({
 const mockedInvokeLlm = jest.mocked(invokeLlm);
 
 const baseState: Partial<AgentState> = {
-  input: 'test task',
+  input: 'build a typescript script that processes user data files',
   attempts: [],
 };
 
@@ -29,7 +29,7 @@ describe('supervisorNode', () => {
 
   it('returns plan_required when LLM approves', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"ok","objective":"do the test task"}',
+      '{"status":"ok","mode":"agent","objective":"do the test task"}',
     );
 
     const result = await supervisorNode(baseState as AgentState);
@@ -40,7 +40,7 @@ describe('supervisorNode', () => {
 
   it('routes rejected tasks to clarification with a structured error', async () => {
     mockedInvokeLlm.mockResolvedValue(
-      '{"status":"reject","message":"Cannot do this","missing_capabilities":["x"]}',
+      '{"status":"reject","mode":"agent","message":"Cannot do this","missing_capabilities":["x"]}',
     );
 
     const result = await supervisorNode(baseState as AgentState);

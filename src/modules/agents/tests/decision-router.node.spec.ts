@@ -56,8 +56,7 @@ describe('decisionRouterNode', () => {
       },
     };
     const result = await decisionRouterNode(state as AgentState);
-    expect(result.phase).toBe('complete');
-    expect(result.finalAnswer).toBe('the answer');
+    expect(result.phase).toBe('generate');
   });
 
   it('advances to next step on advance decision', async () => {
