@@ -1014,6 +1014,7 @@
     /* ── Responsiveness ──────────────────────────────────────────────── */
     @media (max-width: 640px) {
       .api-input { display: none; }
+      .api-input.visible { display: block; position: absolute; top: 56px; right: 16px; z-index: 50; width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideUp 0.2s; }
       .msg-row.row-user  { padding-left: 8%; }
       .msg-row.row-agent { padding-right: 8%; }
       .review-card { margin-left: 0; }
@@ -1081,7 +1082,7 @@
     <button class="stop-btn" id="stop-btn" onclick="stopStreaming()" title="Stop generation">
       <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="1.5"/></svg>
     </button>
-    <button class="trash-btn" id="trash-btn" onclick="deleteSession()" title="Delete session from server">
+    <button class="trash-btn" id="trash-btn" onclick="deleteSession()" title="Delete session memory">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
     </button>
     <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
@@ -1160,6 +1161,15 @@
 
   updateSessionDisplay();
 
+  // ── Header Events ────────────────────────────────────────────────
+  const header = document.querySelector('.header');
+  let headerPressTimer;
+  header.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button') || e.target.closest('input')) return;
+    headerPressTimer = setTimeout(() => document.getElementById('api-base').classList.toggle('visible'), 600);
+  });
+  header.addEventListener('touchend', () => clearTimeout(headerPressTimer));
+
   // ── Utils ─────────────────────────────────────────────────────────
   function generateId() {
     return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -1182,6 +1192,16 @@
     const short = sessionId.length > 18 ? sessionId.slice(0,8)+'…'+sessionId.slice(-4) : sessionId;
     sessionDisplay.textContent = short;
     sessionDisplay.title = 'Session ID: ' + sessionId + ' (click to copy)';
+  }
+
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 3000);
   }
 
   sessionDisplay.addEventListener('click', () => {
@@ -1563,8 +1583,8 @@
     const inner = getFeedInner();
     const { plan = [], objective = '' } = reviewData;
 
-    const steps = plan.map(step => `
-      <div class="plan-step">
+    const steps = plan.map((step, i) => `
+      <div class="plan-step" style="animation-delay: ${i * 40}ms">
         <div class="plan-step-num">${esc(String(step.step_id))}</div>
         <span class="plan-step-tool">${esc(step.tool)}</span>
         <span class="plan-step-desc">${esc(step.description)}</span>
@@ -1594,8 +1614,11 @@
     const card = btn.closest('.review-card');
     const btns = card.querySelectorAll('.review-actions button');
     const statusEl = card.querySelector('.review-status');
+    const originalHtml = btn.innerHTML;
 
     btns.forEach(b => b.disabled = true);
+    btn.innerHTML = `<div class="btn-spinner"></div> ${action === 'replan' ? 'Replanning…' : 'Processing…'}`;
+
     statusEl.className = 'review-status processing';
     statusEl.textContent = 'Processing…';
     statusEl.style.display = 'block';
@@ -1622,11 +1645,24 @@
         return;
       }
 
+      if (action === 'approve') {
+        card.classList.add('flash-approve');
+        await new Promise(r => setTimeout(r, 600)); // Let flash animation play
+      }
+
       statusEl.className = 'review-status success';
       statusEl.textContent = action === 'replan' ? 'Replanning…' : 'Approved — executing…';
 
       if (action === 'replan') {
-        setTimeout(() => loadReviewAfterReplan(), 600);
+        if (body.result) {
+          // Replan loop finished with a final answer directly
+          finalizeActivityGroup();
+          addAgentBubble(renderMd(body.result));
+          setIdle();
+        } else {
+          // Load new review card
+          setTimeout(() => loadReviewAfterReplan(), 600);
+        }
       } else {
         finalizeActivityGroup();
         addAgentBubble(renderMd(body.result || 'Done.'));
@@ -1635,6 +1671,7 @@
     } catch {
       statusEl.className = 'review-status error';
       statusEl.textContent = 'Network error — please try again.';
+      btn.innerHTML = originalHtml;
       btns.forEach(b => b.disabled = false);
     }
   }
@@ -1656,6 +1693,26 @@
   }
 
   // ── Send & stream ─────────────────────────────────────────────────
+  function stopStreaming() {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+      fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}`, { method: 'DELETE' }).catch(() => {});
+      showToast('Stopped & session cleared');
+      document.getElementById('stop-btn').classList.remove('visible');
+      setIdle();
+    }
+  }
+
+  async function deleteSession() {
+    if (!confirm('Are you sure you want to delete this session memory?')) return;
+    try {
+      await fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+      showToast('Session deleted');
+      newSession();
+    } catch { showToast('Error deleting session'); }
+  }
+
   async function sendPrompt() {
     const rawPrompt = promptInput.value.trim();
     if (!rawPrompt && !attachedFile) return;
@@ -1690,6 +1747,7 @@
 
     if (abortController) { abortController.abort(); abortController = null; }
     abortController = new AbortController();
+    document.getElementById('stop-btn').classList.add('visible');
 
     let receivedDone = false;
     
@@ -1731,6 +1789,7 @@
     } catch (err) {
       if (err.name === 'AbortError') return;
       removeTyping();
+      document.getElementById('stop-btn').classList.remove('visible');
       clearProgress();
       if (!receivedDone && !abortController.signal.aborted) {
         finalizeActivityGroup();
@@ -1775,6 +1834,7 @@
       try { buildReviewCard(JSON.parse(data)); } catch { addAgentBubble('<p>Plan review required.</p>'); }
       abortController && abortController.abort();
       abortController = null;
+      document.getElementById('stop-btn').classList.remove('visible');
       streaming = false;
       sendBtn.disabled = false;
       attachBtn.disabled = false;
@@ -1786,6 +1846,7 @@
       addAgentBubble(renderMd(data));
       abortController && abortController.abort();
       abortController = null;
+      document.getElementById('stop-btn').classList.remove('visible');
       setIdle();
 
     } else if (type === 'error') {
@@ -1798,12 +1859,14 @@
       }
       abortController && abortController.abort();
       abortController = null;
+      document.getElementById('stop-btn').classList.remove('visible');
       setIdle();
     }
   }
 
   function setIdle() {
     streaming = false;
+    document.getElementById('stop-btn').classList.remove('visible');
     clearProgress();
     sendBtn.disabled = false;
     attachBtn.disabled = false;
