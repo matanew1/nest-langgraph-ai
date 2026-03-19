@@ -75,12 +75,30 @@ export const buildGeneratorPrompt = (state: AgentState): string => {
         `Step ${i + 1} [${a.tool}]: ${a.result?.preview ?? JSON.stringify(a.result)}`,
     )
     .join('\n');
+
+  const criticReason = state.criticDecision?.reason ?? '';
+
   return [
-    `You are a technical assistant. The user's objective was:`,
+    `You are a technical assistant synthesizing a final answer for the user.`,
+    ``,
+    `OBJECTIVE:`,
     state.objective ?? state.input,
-    `\nThe agent completed the following steps:\n${steps || '(none)'}`,
-    `\nSynthesize a clear, complete, user-facing answer. Be concise. Do not include raw tool output unless it is the answer itself.`,
-    `\nAnswer:`,
+    ``,
+    `COMPLETED STEPS (tool → output preview):`,
+    steps || '(none)',
+    ...(criticReason ? [`\nCRITIC ASSESSMENT:\n${criticReason}`] : []),
+    ``,
+    `INSTRUCTIONS:`,
+    `1. Directly answer the objective based on the step outputs above.`,
+    `2. If the result is a file, code block, or structured data — present it formatted and complete.`,
+    `3. If the result is informational — summarize clearly in 1-3 short paragraphs or a bullet list.`,
+    `4. Include concrete facts, file paths, function names, or values from the tool outputs when they are part of the answer.`,
+    `5. Do NOT say "the agent did X" or "step N shows Y" — speak directly to the user as if you did the work yourself.`,
+    `6. Do NOT repeat raw tool dumps verbatim; distill to what the user needs to know.`,
+    `7. If the task involved creating or editing a file, confirm the file path and what changed.`,
+    `8. End with a one-line summary of what was accomplished if the answer is longer than 3 lines.`,
+    ``,
+    `Answer:`,
   ].join('\n');
 };
 

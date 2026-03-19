@@ -25,6 +25,7 @@ import { upsertVectorMemory } from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
 import * as crypto from 'crypto';
+import { invokeLlm } from '@llm/llm.provider';
 
 export interface AgentRunResult {
   result: string;
@@ -223,19 +224,6 @@ export class AgentsService {
             sessionId: threadId,
             done: false,
           };
-        } else if (node === AGENT_PHASES.AWAIT_PLAN_REVIEW) {
-          // The await_plan_review node interrupts execution. The node delta (snap) is often empty,
-          // so we must fetch the full state to get the reviewRequest.
-          const currentState = await this.app.getState(config);
-          const values = currentState.values as Partial<AgentState>;
-          if (values.reviewRequest) {
-            yield {
-              type: 'review_required',
-              data: JSON.stringify(values.reviewRequest),
-              sessionId: threadId,
-              done: false,
-            };
-          }
         } else {
           // Only surface phases that are meaningful to the end user.
           // Skip internal routing/bookkeeping phases (route, complete, fatal,
@@ -275,6 +263,18 @@ export class AgentsService {
           data: finalAnswer,
           sessionId: threadId,
           done: true,
+        };
+      } else if (
+        finalValues.phase === AGENT_PHASES.AWAIT_PLAN_REVIEW &&
+        finalValues.reviewRequest
+      ) {
+        // LangGraph interrupt() throws before emitting the node's stream event,
+        // so the review_required event must be emitted here from the final state.
+        yield {
+          type: 'review_required',
+          data: JSON.stringify(finalValues.reviewRequest),
+          sessionId: threadId,
+          done: false,
         };
       } else {
         yield {
@@ -477,7 +477,7 @@ export class AgentsService {
     result: Partial<AgentState>,
     previousMemory?: string,
   ): Promise<void> {
-    const entry = this._buildSessionMemoryEntry(prompt, result);
+    const entry = await this._buildSessionMemoryEntry(prompt, result);
     if (!entry) return;
 
     const merged = this._mergeSessionMemory(previousMemory, entry);
@@ -490,10 +490,18 @@ export class AgentsService {
     }
   }
 
-  private _buildSessionMemoryEntry(
+  /**
+   * Build a session memory entry for the completed run.
+   *
+   * When the run produced a final answer, we ask the LLM to extract a compact
+   * set of key facts so future turns receive structured, signal-dense context
+   * rather than a raw answer dump. Falls back to the plain objective+outcome
+   * format if the LLM call fails or there is no final answer.
+   */
+  private async _buildSessionMemoryEntry(
     prompt: string,
     result: Partial<AgentState>,
-  ): string | undefined {
+  ): Promise<string | undefined> {
     const objective = (result.objective ?? prompt).trim();
     const answer =
       result.finalAnswer ??
@@ -503,8 +511,47 @@ export class AgentsService {
 
     if (!objective || !answer) return undefined;
 
+    const timestamp = new Date().toISOString();
+
+    // Attempt LLM-based fact extraction for richer cross-turn context.
+    if (result.finalAnswer) {
+      try {
+        const extractionPrompt = [
+          `Extract 2-4 key facts or learnings from this completed AI agent run.`,
+          `Each fact must be a single sentence that would help a future AI agent answer`,
+          `follow-up questions or avoid repeating the same work.`,
+          ``,
+          `Objective: ${preview(objective, 200)}`,
+          `Outcome: ${preview(answer, 400)}`,
+          ``,
+          `Rules:`,
+          `- Include concrete values: file paths, function names, command results, decisions made.`,
+          `- Do NOT include vague summaries like "the task was completed successfully".`,
+          `- Output as plain numbered list (1. ... 2. ... etc.), no JSON, no markdown headers.`,
+          `- Maximum 4 facts, each under 120 characters.`,
+          ``,
+          `Facts:`,
+        ].join('\n');
+
+        const facts = await invokeLlm(extractionPrompt);
+        const trimmedFacts = facts.trim();
+
+        if (trimmedFacts) {
+          return [
+            `[${timestamp}]`,
+            `Objective: ${preview(objective, 160)}`,
+            `Key facts:\n${trimmedFacts}`,
+          ].join('\n');
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Session memory fact extraction failed: ${message} — using plain format`);
+      }
+    }
+
+    // Fallback: plain objective + outcome format
     return [
-      `[${new Date().toISOString()}]`,
+      `[${timestamp}]`,
       `Objective: ${preview(objective, 160)}`,
       `Outcome: ${preview(answer, 280)}`,
     ].join('\n');

@@ -16,27 +16,64 @@ Tool result preview:
 
 {{stepContext}}
 
-DECISION LOGIC:
-- If the result clearly moves the plan forward and more steps remain -> advance
-- If the last step achieved the objective and expected result -> complete
-- If the step failed but a single retry with the same tool is plausibly useful -> retry_step
-- If the plan/tool choice is wrong, prerequisites are missing, or a deterministic fix is needed -> replan
-- If the task is impossible, unsafe, or blocked by a non-retriable invariant -> fatal
+EVALUATION PROCESS (follow in order):
+
+STEP 1 — CLASSIFY the tool result into one of four categories:
+- **success**: The tool ran without error and produced output that directly advances or completes the objective.
+- **partial_success**: The tool ran without error but the output is incomplete, ambiguous, or only partially useful.
+- **failure**: The tool ran but produced an error, empty result, or output that does not move the plan forward.
+- **wrong_tool**: The tool completed but it was the wrong choice — the output reveals the approach itself is flawed.
+
+STEP 2 — DECIDE the action based on classification and context:
+
+| Classification | Context | Decision |
+|---------------|---------|----------|
+| success | more steps remain | advance |
+| success | this is the last step AND objective is met | complete |
+| partial_success | a single targeted retry could fill the gap | retry_step |
+| partial_success | a different tool or approach is needed | replan |
+| failure | transient error (network, timeout, race condition) AND first failure | retry_step |
+| failure | same failure occurred before, OR structural/logic error | replan |
+| wrong_tool | any context | replan |
+
+STEP 3 — WRITE the reason with the required specifics:
+- For `advance`: State clearly what the step produced and why it moves the plan forward.
+- For `retry_step`: You MUST specify (a) exactly what went wrong, (b) what SPECIFICALLY to change in the retry (different param, different value, etc.). Generic "retry may work" is not acceptable.
+- For `replan`: You MUST identify (a) which assumption in the plan was wrong, (b) what the plan should do differently. Generic "replan needed" is not acceptable.
+- For `complete`: Summarize the outcome achieved and why the objective is satisfied.
+- For `fatal`: Explain what makes this impossible or unsafe, and why no tool or approach can resolve it.
+
+DECISION EXAMPLES:
+
+Example — retry_step (correct):
+{"decision":"retry_step","reason":"grep_search returned zero matches because the pattern used single-quotes but the file uses double-quotes. Retry with the pattern changed to use double-quotes around the import path."}
+
+Example — retry_step (wrong — too vague):
+{"decision":"retry_step","reason":"The search failed, retry may work."}
+
+Example — replan (correct):
+{"decision":"replan","reason":"The plan assumed the config file was at src/config.ts but ast_parse reveals it does not exist there. The assumption about the file location was wrong — the plan should use glob_files first to locate the actual config file before attempting to read or patch it."}
+
+Example — replan (wrong — too vague):
+{"decision":"replan","reason":"The tool did not work as expected, replanning is needed."}
+
+LOOP PREVENTION RULES:
+- If the same tool with the same params failed twice → escalate to `replan`, never `retry_step`.
+- If `file_patch` failed because the exact `find` string was not found → always `replan` (the text changed or was never there; retry will not help).
+- If `vector_search` returned weak/irrelevant results → prefer `replan` with a more specific query, not blind retry.
+- If `vector_upsert` fails due to Qdrant connectivity → `replan` suggesting a fallback; avoid upsert retry loops.
+- Repeated identical failures MUST escalate: retry_step → replan → fatal. Never loop at the same level.
+
+IMPORTANT:
+- `finalAnswer` must be concise and user-facing. Summarize; do not copy raw tool dumps.
+- Never copy huge tool output; summarize and cite only key facts.
 
 Output JSON schema (strict; no extra keys):
 
-{"decision":"advance","reason":"<why this step succeeded>"}
-{"decision":"retry_step","reason":"<what went wrong and why retry may work>"}
-{"decision":"replan","reason":"<why re-planning is needed>"}
-{"decision":"complete","reason":"<why done>","finalAnswer":"<user-facing answer>"}
+{"decision":"advance","reason":"<what step produced and why it moves the plan forward>"}
+{"decision":"retry_step","reason":"<exactly what went wrong AND exactly what to change in retry>"}
+{"decision":"replan","reason":"<which assumption was wrong AND what the plan should do differently>"}
+{"decision":"complete","reason":"<why objective is satisfied>","finalAnswer":"<user-facing answer>"}
 {"decision":"fatal","reason":"<why impossible/unsafe>","finalAnswer":"<user-facing error explanation>"}
-
-IMPORTANT:
-- `finalAnswer` must be concise and user-facing.
-- Never copy huge tool output; summarize and cite only key facts.
-- If `vector_search` results are weak or irrelevant, prefer `replan` with a better query over guessing.
-- If `vector_upsert` fails due to Qdrant connectivity, suggest a concrete plan fix and avoid loops.
-- If `file_patch` failed because the exact `find` string was missing, choose `replan`, not `retry_step`.
-- Use the attempts history to stop loops. Repeated identical failures should escalate to `replan` or `fatal`, not endless retries.
 
 {{SELF_REFLECTION}}

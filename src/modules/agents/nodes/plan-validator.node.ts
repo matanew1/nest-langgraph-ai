@@ -183,7 +183,7 @@ export async function planValidatorNode(
   // Only pause for human review when the plan contains destructive/irreversible tools.
   // Read-only operations (search, stat_path, read_file, etc.) run without review.
   const DESTRUCTIVE_TOOLS = new Set([
-    'file_write',
+    'write_file',
     'file_patch',
     'file_append',
     'run_command',

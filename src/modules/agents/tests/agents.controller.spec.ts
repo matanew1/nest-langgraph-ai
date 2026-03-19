@@ -11,7 +11,18 @@ jest.mock('@config/env', () => ({
     redisPort: 6379,
     agentMaxIterations: 3,
     agentMaxRetries: 3,
+    mistralTimeoutMs: 5000,
+    promptMaxSummaryChars: 1200,
   },
+}));
+
+jest.mock('@llm/llm.provider', () => ({
+  invokeLlm: jest.fn(),
+}));
+
+jest.mock('@vector-db/vector-memory.util', () => ({
+  upsertVectorMemory: jest.fn(),
+  buildVectorResearchContext: jest.fn(),
 }));
 
 jest.mock('@redis/redis.provider', () => ({

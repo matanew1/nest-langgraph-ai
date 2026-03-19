@@ -10,7 +10,17 @@ jest.mock('@config/env', () => ({
     mistralTimeoutMs: 5000,
     agentMaxIterations: 3,
     agentMaxRetries: 3,
+    promptMaxSummaryChars: 1200,
   },
+}));
+
+jest.mock('@llm/llm.provider', () => ({
+  invokeLlm: jest.fn(),
+}));
+
+jest.mock('@vector-db/vector-memory.util', () => ({
+  upsertVectorMemory: jest.fn(),
+  buildVectorResearchContext: jest.fn(),
 }));
 
 jest.mock('../graph/agent.graph', () => ({

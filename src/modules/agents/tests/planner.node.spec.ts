@@ -1,6 +1,7 @@
 import { plannerNode } from '../nodes/planner.node';
 import { AgentState, PlanStep } from '../state/agent.state';
 import { invokeLlm } from '@llm/llm.provider';
+import { buildPlannerPrompt } from '../prompts/agent.prompts';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -18,6 +19,8 @@ jest.mock('@llm/llm.provider', () => ({
 jest.mock('../prompts/agent.prompts', () => ({
   buildPlannerPrompt: jest.fn().mockReturnValue('mock planner prompt'),
 }));
+
+const mockedBuildPlannerPrompt = jest.mocked(buildPlannerPrompt);
 
 const mockedInvokeLlm = jest.mocked(invokeLlm);
 
@@ -205,5 +208,81 @@ describe('plannerNode', () => {
 
     expect(result.phase).toBe('route');
     expect(result.jsonRepair).toBeDefined();
+  });
+
+  it('propagates an unhandled error when invokeLlm throws (LLM call is outside try/catch)', async () => {
+    // The await getStructuredNodeRawResponse() is outside the try/catch block in planner.node.ts,
+    // so a rejection from invokeLlm propagates unhandled to the caller.
+    const timeoutError = new Error('Request timed out after 5000ms');
+    mockedInvokeLlm.mockRejectedValue(timeoutError);
+
+    await expect(plannerNode(baseState as AgentState)).rejects.toThrow(
+      'Request timed out after 5000ms',
+    );
+  });
+
+  it('accepts a plan with more than 20 steps (no max constraint in schema)', async () => {
+    const twentyFiveSteps = Array.from({ length: 25 }, (_, i) => ({
+      step_id: i + 1,
+      description: `Step ${i + 1}`,
+      tool: 'read_file',
+      input: { path: `file${i + 1}.txt` },
+    }));
+
+    mockedInvokeLlm.mockResolvedValue(
+      JSON.stringify({
+        objective: 'Large plan objective',
+        steps: twentyFiveSteps,
+        expected_result: 'All 25 steps done',
+      }),
+    );
+
+    const result = await plannerNode(baseState as AgentState);
+
+    // Schema has .min(1) but no .max(), so >20 steps are accepted
+    expect(result.phase).toBe('validate_plan');
+    expect(result.plan!.length).toBe(25);
+  });
+
+  it('passes projectContext and memoryContext from state into the prompt builder', async () => {
+    const stateWithContext: Partial<AgentState> = {
+      ...baseState,
+      projectContext: 'src/\n  index.ts\n  main.ts',
+      memoryContext: 'Previous run: searched for config files',
+    };
+
+    mockedInvokeLlm.mockResolvedValue(validPlanOutput);
+
+    await plannerNode(stateWithContext as AgentState);
+
+    expect(mockedBuildPlannerPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectContext: 'src/\n  index.ts\n  main.ts',
+        memoryContext: 'Previous run: searched for config files',
+      }),
+    );
+  });
+
+  it('accepts plan steps referencing an unknown tool (planner does not validate tool names)', async () => {
+    mockedInvokeLlm.mockResolvedValue(
+      JSON.stringify({
+        objective: 'Do something with a custom tool',
+        steps: [
+          {
+            step_id: 1,
+            description: 'Use a non-existent tool',
+            tool: 'non_existent_tool_xyz',
+            input: { param: 'value' },
+          },
+        ],
+        expected_result: 'Done',
+      }),
+    );
+
+    const result = await plannerNode(baseState as AgentState);
+
+    // Planner does not validate tool names — that is the plan-validator's responsibility
+    expect(result.phase).toBe('validate_plan');
+    expect(result.plan![0].tool).toBe('non_existent_tool_xyz');
   });
 });

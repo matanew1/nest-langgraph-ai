@@ -2,6 +2,17 @@ import { researcherNode } from '../nodes/researcher.node';
 import { AgentState } from '../state/agent.state';
 import { AGENT_PHASES } from '../state/agent-phase';
 
+jest.mock('@config/env', () => ({
+  env: {
+    mistralTimeoutMs: 5000,
+    agentMaxRetries: 0,
+  },
+}));
+
+jest.mock('@llm/llm.provider', () => ({
+  invokeLlm: jest.fn(),
+}));
+
 const mockTreeInvoke = jest.fn();
 const mockGitInvoke = jest.fn();
 const mockBuildVectorResearchContext = jest.fn();
