@@ -64,4 +64,48 @@ describe('streamLlm', () => {
 
     expect(fullText).toBe('abcd');
   });
+
+  it('throws immediately when circuit breaker is open', async () => {
+    // Trip the circuit breaker by exhausting failures
+    llm.stream.mockRejectedValue(new Error('server error'));
+    for (let i = 0; i < 5; i++) {
+      try {
+        for await (const _ of streamLlm('p', 100, 0)) { /* drain */ }
+      } catch { /* expected */ }
+    }
+    llm.stream.mockClear();
+
+    // Circuit is now open — next call should throw without calling llm.stream
+    await expect(async () => {
+      for await (const _ of streamLlm('p', 100, 0)) { /* drain */ }
+    }).rejects.toThrow(/circuit breaker open/);
+    expect(llm.stream).not.toHaveBeenCalled();
+  });
+
+  it('does not retry on 401 authentication error', async () => {
+    llm.stream.mockRejectedValue(new Error('401 Unauthorized'));
+
+    await expect(async () => {
+      for await (const _ of streamLlm('p', 100, 2)) { /* drain */ }
+    }).rejects.toThrow('401 Unauthorized');
+
+    expect(llm.stream).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on transient error and succeeds on second attempt', async () => {
+    const chunks = [{ content: 'ok' }];
+    llm.stream
+      .mockRejectedValueOnce(new Error('network timeout'))
+      .mockResolvedValueOnce((async function* () {
+        for (const c of chunks) yield c;
+      })());
+
+    const tokens: string[] = [];
+    for await (const token of streamLlm('p', 100, 1)) {
+      tokens.push(token);
+    }
+
+    expect(tokens).toEqual(['ok']);
+    expect(llm.stream).toHaveBeenCalledTimes(2);
+  });
 });

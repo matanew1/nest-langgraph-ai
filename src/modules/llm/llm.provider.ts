@@ -192,7 +192,6 @@ export async function* streamLlm(
       }
 
       recordLlmSuccess();
-      clearTimeout(timer);
       return;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
@@ -212,7 +211,6 @@ export async function* streamLlm(
         lastError.message.includes('401') ||
         lastError.message.includes('400')
       ) {
-        clearTimeout(timer);
         throw lastError;
       }
 
@@ -220,6 +218,7 @@ export async function* streamLlm(
       attempt++;
     } finally {
       clearTimeout(timer);
+      controller.abort();
     }
   }
 
