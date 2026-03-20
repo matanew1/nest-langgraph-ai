@@ -139,3 +139,94 @@ export async function invokeLlm(
     )
   );
 }
+
+/**
+ * Stream the LLM response as an async generator, yielding each chunk's content
+ * individually. Uses the same circuit breaker, timeout, and retry logic as
+ * `invokeLlm()`.
+ */
+export async function* streamLlm(
+  prompt: string,
+  timeoutMs: number = env.mistralTimeoutMs,
+  maxRetries: number = env.agentMaxRetries,
+): AsyncGenerator<string> {
+  const effectiveTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
+  const retryLimit =
+    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
+  checkCircuitBreaker();
+
+  let attempt = 0;
+  let lastError: Error | undefined;
+
+  while (attempt <= retryLimit) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+
+    try {
+      if (attempt > 0) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+        logger.warn(
+          `Retrying LLM stream (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+
+      const stream = await llm.stream(prompt, { signal: controller.signal });
+
+      for await (const chunk of stream) {
+        const content = chunk.content;
+        let token: string;
+        if (typeof content === 'string') {
+          token = content;
+        } else if (Array.isArray(content)) {
+          token = content
+            .map((c) =>
+              typeof c === 'string' ? c : ((c as { text?: string }).text ?? ''),
+            )
+            .join('');
+        } else {
+          token = String(content);
+        }
+        yield token;
+      }
+
+      recordLlmSuccess();
+      clearTimeout(timer);
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (controller.signal.aborted) {
+        logger.error(
+          `LLM stream timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      } else {
+        logger.error(
+          `LLM stream failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      }
+
+      // Don't retry if it's a fatal error (e.g., authentication, invalid request)
+      if (
+        lastError.message.includes('401') ||
+        lastError.message.includes('400')
+      ) {
+        clearTimeout(timer);
+        throw lastError;
+      }
+
+      recordLlmFailure();
+      attempt++;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      `LLM stream failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
+    )
+  );
+}

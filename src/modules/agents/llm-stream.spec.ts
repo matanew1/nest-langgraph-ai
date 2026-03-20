@@ -9,12 +9,10 @@ jest.mock('@config/env', () => ({
   },
 }));
 
-// Mock the ChatMistralAI stream method
-const mockStream = jest.fn();
 jest.mock('@langchain/mistralai', () => ({
   ChatMistralAI: jest.fn().mockImplementation(() => ({
     invoke: jest.fn(),
-    stream: mockStream,
+    stream: jest.fn(),
   })),
 }));
 
@@ -23,6 +21,9 @@ jest.mock('@utils/pretty-log.util', () => ({
   logPhaseEnd: jest.fn(),
   startTimer: jest.fn(() => () => 0),
 }));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { llm } = require('@llm/llm.provider') as { llm: { stream: jest.Mock } };
 
 describe('streamLlm', () => {
   beforeEach(() => {
@@ -36,7 +37,7 @@ describe('streamLlm', () => {
       { content: ' world' },
       { content: '!' },
     ];
-    mockStream.mockResolvedValue((async function* () {
+    llm.stream.mockResolvedValue((async function* () {
       for (const chunk of chunks) yield chunk;
     })());
 
@@ -51,7 +52,7 @@ describe('streamLlm', () => {
 
   it('returns full concatenated string from generator.return()', async () => {
     const chunks = [{ content: 'ab' }, { content: 'cd' }];
-    mockStream.mockResolvedValue((async function* () {
+    llm.stream.mockResolvedValue((async function* () {
       for (const chunk of chunks) yield chunk;
     })());
 
