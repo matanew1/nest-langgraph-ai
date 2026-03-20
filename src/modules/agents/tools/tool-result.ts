@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 
 export type ToolResultKind = 'text' | 'json' | 'empty';
 
@@ -73,7 +74,7 @@ export function toToolResult(args: {
   rawMaxChars?: number;
 }): ToolResult {
   const previewMaxChars = args.previewMaxChars ?? 4000;
-  const rawMaxChars = args.rawMaxChars ?? 200_000;
+  const rawMaxChars = args.rawMaxChars ?? AGENT_CONSTANTS.rawResultMaxBytes;
 
   const originalRaw = args.raw ?? '';
   const truncated = originalRaw.length > rawMaxChars;

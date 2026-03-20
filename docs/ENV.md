@@ -31,9 +31,9 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `AGENT_MAX_ITERATIONS` | `3` | Base recovery-cycle limit; drives router hard stops and derived caps |
-| `AGENT_MAX_RETRIES` | `3` | Max step-retry attempts before triggering a replan |
-| `AGENT_MAX_RETBACKS` | `3` | Max replan cycles before the run is marked fatal |
+| `AGENT_MAX_ITERATIONS` | `3` | Base recovery-cycle limit (1–10); drives router hard stops and derived caps |
+| `AGENT_MAX_RETRIES` | `3` | Max step-retry attempts before triggering a replan (1–10) |
+| `AGENT_MAX_RETBACKS` | `3` | Max replan cycles before the run is marked fatal (1–10) |
 | `AGENT_WORKING_DIR` | `process.cwd()` | Sandbox root — all file-tool paths are resolved inside this directory |
 | `REQUIRE_PLAN_REVIEW` | `false` | When `true`, pause after plan validation for human approve/reject/replan |
 
@@ -74,5 +74,5 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | `2000` | Timeout for optional Mistral/Tavily health diagnostics |
+| `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | `2000` | Timeout for optional Mistral/Tavily health diagnostics (min 100) |
 | `HEALTH_EXTERNAL_CACHE_TTL_MS` | `60000` | Cache TTL for dependency diagnostics |

@@ -9,12 +9,12 @@ import { buildPlannerPrompt } from '../prompts/agent.prompts';
 import { AGENT_PHASES } from '../state/agent-phase';
 import {
   failAgentRun,
+  requestJsonRepair,
   transitionToPhase,
 } from '../state/agent-transition.util';
 import { AgentState, PlanStep } from '../state/agent.state';
 import { plannerOutputSchema } from '../state/agent.schemas';
 import {
-  buildJsonRepairState,
   getStructuredNodeRawResponse,
   parseStructuredNodeOutput,
 } from './structured-output.util';
@@ -68,7 +68,7 @@ export async function plannerNode(
   } catch (e) {
     logPhaseEnd('PLANNER', 'PARSE FAILED → json_repair', elapsed());
     logger.error(`Raw response: ${preview(raw)}`);
-    return buildJsonRepairState({
+    return requestJsonRepair({
       fromPhase: AGENT_PHASES.PLAN,
       raw,
       schema:

@@ -2,9 +2,11 @@
 
 All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and discovered automatically by the planner and executor. File-operation tools enforce `sandboxPath()` — all paths are resolved within `AGENT_WORKING_DIR`.
 
+**Total tools: 21**
+
 ---
 
-## File Operations
+## File Operations (10 tools)
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|
@@ -21,7 +23,7 @@ All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and disco
 
 ---
 
-## Intelligence & Search
+## Intelligence & Search (4 tools)
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|
@@ -32,7 +34,7 @@ All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and disco
 
 ---
 
-## Diagrams
+## Diagrams (3 tools)
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|
@@ -46,17 +48,17 @@ All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and disco
 
 ---
 
-## Git & HTTP
+## Git & HTTP (3 tools)
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|
 | `git_info` | `{"action":"status\|log\|diff\|branch\|show","args":"<optional>"}` | Whitelisted git commands (read-only) |
-| `http_get` | `{"url":"<url>"}` | HTTP GET; subject to `HTTP_TOOL_ALLOWED_HOSTS` allowlist |
-| `http_post` | `{"url":"<url>","body":"<json>","headers?":"<json>"}` | HTTP POST; subject to allowlist |
+| `http_get` | `{"url":"<url>"}` | HTTP GET; subject to `HTTP_TOOL_ALLOWED_HOSTS` allowlist and SSRF protection |
+| `http_post` | `{"url":"<url>","body":"<json>","headers?":"<json>"}` | HTTP POST; subject to allowlist and SSRF protection |
 
 ---
 
-## System
+## System (1 tool)
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|

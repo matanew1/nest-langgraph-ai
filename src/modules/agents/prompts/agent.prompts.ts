@@ -1,5 +1,6 @@
 import { env } from '@config/env';
 import type { AgentState } from '../state/agent.state';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 import {
   formatAttempts,
   formatPromptSection,
@@ -53,7 +54,7 @@ export const buildPlannerPrompt = (state: AgentState): string =>
 
 export const buildChatPrompt = (state: AgentState): string => {
   const memory = state.sessionMemory
-    ? `\n\nConversation history:\n${state.sessionMemory.slice(0, 800)}`
+    ? `\n\nConversation history:\n${state.sessionMemory.slice(0, AGENT_CONSTANTS.chatMemoryMaxChars)}`
     : '';
 
   return [

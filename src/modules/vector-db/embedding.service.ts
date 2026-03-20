@@ -32,6 +32,14 @@ async function getEmbeddingPipeline(): Promise<FeatureExtractionPipeline> {
   return pipelinePromise;
 }
 
+/**
+ * Eagerly load the embedding model so the first vector operation
+ * does not pay the cold-start penalty.
+ */
+export async function warmUpEmbeddings(): Promise<void> {
+  await getEmbeddingPipeline();
+}
+
 @Injectable()
 export class EmbeddingService {
   /**

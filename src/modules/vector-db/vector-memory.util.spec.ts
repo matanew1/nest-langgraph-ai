@@ -1,7 +1,4 @@
-import {
-  searchVectorMemories,
-  upsertVectorMemory,
-} from './vector-memory.util';
+import { searchVectorMemories, upsertVectorMemory } from './vector-memory.util';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -64,7 +61,7 @@ describe('searchVectorMemories', () => {
       },
       {
         id: 'def-456',
-        score: 0.80,
+        score: 0.8,
         payload: { summary: 'Another relevant result.' },
       },
     ]);
@@ -216,7 +213,9 @@ describe('searchVectorMemories', () => {
 
     expect(results[0].id).toBe('xyz');
     // text may be a JSON preview of the metadata
-    expect(typeof results[0].text === 'string' || results[0].text === undefined).toBe(true);
+    expect(
+      typeof results[0].text === 'string' || results[0].text === undefined,
+    ).toBe(true);
   });
 });
 
@@ -265,9 +264,7 @@ describe('upsertVectorMemory', () => {
     expect(mockQdrantUpsert).toHaveBeenCalledWith(
       'test_collection',
       expect.objectContaining({
-        points: [
-          expect.objectContaining({ id: 'my-custom-id' }),
-        ],
+        points: [expect.objectContaining({ id: 'my-custom-id' })],
       }),
     );
   });

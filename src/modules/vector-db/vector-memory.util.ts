@@ -169,9 +169,19 @@ export async function upsertVectorMemory(
   };
 }
 
+const VECTOR_CACHE_TTL_MS = 60_000;
+const VECTOR_CACHE_MAX_SIZE = 20;
+const vectorResearchCache = new Map<string, { result: string; ts: number }>();
+
 export async function buildVectorResearchContext(
   query: string,
 ): Promise<string> {
+  const cacheKey = query.trim().toLowerCase();
+  const cached = vectorResearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < VECTOR_CACHE_TTL_MS) {
+    return cached.result;
+  }
+
   try {
     const memories = await searchVectorMemories(query);
 
@@ -184,7 +194,16 @@ export async function buildVectorResearchContext(
       lines.push(`${index + 1}. ${memory.text ?? '(no text payload)'}`);
     }
 
-    return lines.join('\n');
+    const result = lines.join('\n');
+
+    // Evict oldest entries if cache is full
+    if (vectorResearchCache.size >= VECTOR_CACHE_MAX_SIZE) {
+      const oldest = vectorResearchCache.keys().next().value!;
+      vectorResearchCache.delete(oldest);
+    }
+    vectorResearchCache.set(cacheKey, { result, ts: Date.now() });
+
+    return result;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(`Vector research context unavailable: ${message}`);

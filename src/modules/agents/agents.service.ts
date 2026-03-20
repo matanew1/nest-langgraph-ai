@@ -307,11 +307,31 @@ export class AgentsService {
       const totalTime = elapsed();
       this.logger.log(`🏁 AGENT STREAM COMPLETE | ${totalTime}ms`);
     } catch (err: any) {
-      const message = err.message || String(err);
-      this.logger.error(`Agent stream failed: ${message}`);
+      const message = err?.message || String(err);
+      let errorDetail: string;
+
+      if (err instanceof HttpException) {
+        errorDetail = `Stream failed (HTTP ${err.getStatus()}): ${message}`;
+      } else if (
+        message.includes('timed out') ||
+        message.includes('timeout') ||
+        err?.name === 'AbortError'
+      ) {
+        errorDetail = `Stream failed (timeout): ${message}`;
+      } else if (
+        message.includes('ECONNREFUSED') ||
+        message.includes('ECONNRESET') ||
+        message.includes('Redis')
+      ) {
+        errorDetail = `Stream failed (infrastructure): ${message}`;
+      } else {
+        errorDetail = `Stream failed: ${message}`;
+      }
+
+      this.logger.error(errorDetail);
       yield {
         type: 'error',
-        data: `Stream failed: ${message}`,
+        data: errorDetail,
         sessionId: threadId,
         done: true,
       };
@@ -513,8 +533,11 @@ export class AgentsService {
 
     const timestamp = new Date().toISOString();
 
+    // Skip LLM fact extraction for short answers — plain format is sufficient.
+    const SHORT_ANSWER_THRESHOLD = 300;
+
     // Attempt LLM-based fact extraction for richer cross-turn context.
-    if (result.finalAnswer) {
+    if (result.finalAnswer && answer.length >= SHORT_ANSWER_THRESHOLD) {
       try {
         const extractionPrompt = [
           `Extract 2-4 key facts or learnings from this completed AI agent run.`,
@@ -545,7 +568,9 @@ export class AgentsService {
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(`Session memory fact extraction failed: ${message} — using plain format`);
+        this.logger.warn(
+          `Session memory fact extraction failed: ${message} — using plain format`,
+        );
       }
     }
 

@@ -32,6 +32,7 @@ export const planStepSchema = z
     description: z.string().min(1),
     tool: z.string().min(1),
     input: z.record(z.string(), z.unknown()),
+    parallel_group: z.number().int().positive().optional(),
   })
   .strict();
 

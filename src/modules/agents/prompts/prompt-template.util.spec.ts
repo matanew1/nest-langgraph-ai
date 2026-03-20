@@ -24,26 +24,24 @@ describe('renderPromptTemplate', () => {
   });
 
   it('replaces multiple distinct placeholders', () => {
-    const result = renderPromptTemplate(
-      'User: {{user}} Task: {{task}}',
-      { user: 'Alice', task: 'code review' },
-    );
+    const result = renderPromptTemplate('User: {{user}} Task: {{task}}', {
+      user: 'Alice',
+      task: 'code review',
+    });
     expect(result).toBe('User: Alice Task: code review');
   });
 
   it('replaces the same placeholder when it appears twice', () => {
-    const result = renderPromptTemplate(
-      '{{greeting}} there, {{greeting}}!',
-      { greeting: 'Hello' },
-    );
+    const result = renderPromptTemplate('{{greeting}} there, {{greeting}}!', {
+      greeting: 'Hello',
+    });
     expect(result).toBe('Hello there, Hello!');
   });
 
   it('leaves a placeholder unchanged when no matching var exists', () => {
-    const result = renderPromptTemplate(
-      'Hello {{unknown}} world',
-      { name: 'Alice' },
-    );
+    const result = renderPromptTemplate('Hello {{unknown}} world', {
+      name: 'Alice',
+    });
     expect(result).toBe('Hello {{unknown}} world');
   });
 
@@ -64,10 +62,10 @@ describe('renderPromptTemplate', () => {
   });
 
   it('replaces only the matching variable and leaves others', () => {
-    const result = renderPromptTemplate(
-      '{{a}} {{b}} {{c}}',
-      { a: 'alpha', c: 'charlie' },
-    );
+    const result = renderPromptTemplate('{{a}} {{b}} {{c}}', {
+      a: 'alpha',
+      c: 'charlie',
+    });
     expect(result).toBe('alpha {{b}} charlie');
   });
 });
@@ -109,7 +107,11 @@ describe('getPromptTemplate', () => {
 
   it('TypeScript type prevents invalid template names at compile time', () => {
     // This is a type-level test — only valid names are accepted by PromptTemplateName
-    const validNames: PromptTemplateName[] = ['supervisor', 'planner', 'critic'];
+    const validNames: PromptTemplateName[] = [
+      'supervisor',
+      'planner',
+      'critic',
+    ];
     for (const name of validNames) {
       expect(() => getPromptTemplate(name)).not.toThrow();
     }

@@ -99,14 +99,26 @@ export async function executionNode(
     const message = error instanceof Error ? error.message : String(error);
     const errorResult = `Tool "${toolName}" failed: ${message}`;
     logPhaseEnd('EXECUTOR', `ERROR: ${message}`, elapsed());
+
+    const details: Record<string, unknown> = { tool: toolName };
+    if (error instanceof Error) {
+      if ('code' in error) details.code = (error as any).code;
+      if ('statusCode' in error) details.statusCode = (error as any).statusCode;
+      details.stack = error.stack?.split('\n').slice(0, 3).join('\n');
+    }
+
     return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
       toolResultRaw: `ERROR: ${errorResult}`,
       counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
-          code: 'tool_error',
+          code:
+            error instanceof Error && 'code' in error
+              ? 'tool_error'
+              : 'tool_error',
           message: errorResult,
           atPhase: AGENT_PHASES.EXECUTE,
+          details,
         },
       ],
     });

@@ -21,12 +21,7 @@ import {
 } from './agents.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { RunAgentDto, RunAgentResponseDto, StreamAgentDto } from './agents.dto';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiTags,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
 import { ApiSessionIdParam } from '@common/decorators/api-session-id-param.decorator';
@@ -87,9 +82,7 @@ export class AgentsController {
     },
   })
   stream(@Body() body: StreamAgentDto): Observable<MessageEvent> {
-    return from(
-      this.agentsService.streamRun(body.prompt, body.sessionId),
-    ).pipe(
+    return from(this.agentsService.streamRun(body.prompt, body.sessionId)).pipe(
       map((event: StreamEvent) => {
         return {
           data: JSON.stringify(event),
@@ -113,7 +106,9 @@ export class AgentsController {
 
   @Get('review/:sessionId')
   @Header('Content-Type', 'text/html')
-  @ApiOperation({ summary: 'Human plan review page for a paused agent session' })
+  @ApiOperation({
+    summary: 'Human plan review page for a paused agent session',
+  })
   @ApiSessionIdParam()
   async reviewPlan(@Param('sessionId') sessionId: string): Promise<string> {
     const data = await this.agentsService.getReviewPageData(sessionId);
@@ -185,7 +180,7 @@ export class AgentsController {
 
     // Staggered slide-in: each row gets a delay based on its index
     const rows = plan
-      .map( 
+      .map(
         (step, i) =>
           `<tr class="step-row" style="animation-delay: ${i * 40}ms"><td>${step.step_id}</td><td>${esc(step.tool)}</td><td>${esc(step.description)}</td></tr>`,
       )

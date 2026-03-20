@@ -60,12 +60,16 @@ describe('generatorNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('transitions to complete phase with a final answer', async () => {
-    mockedInvokeLlm.mockResolvedValue('Here is the final answer based on the research.');
+    mockedInvokeLlm.mockResolvedValue(
+      'Here is the final answer based on the research.',
+    );
 
     const result = await generatorNode(baseState as AgentState);
 
     expect(result.phase).toBe('complete');
-    expect(result.finalAnswer).toBe('Here is the final answer based on the research.');
+    expect(result.finalAnswer).toBe(
+      'Here is the final answer based on the research.',
+    );
   });
 
   it('trims whitespace from the LLM answer', async () => {
@@ -110,7 +114,9 @@ describe('generatorNode', () => {
       ],
     };
 
-    mockedInvokeLlm.mockResolvedValue('Comprehensive answer from all attempts.');
+    mockedInvokeLlm.mockResolvedValue(
+      'Comprehensive answer from all attempts.',
+    );
 
     const result = await generatorNode(stateWithManyAttempts as AgentState);
 
@@ -131,9 +137,7 @@ describe('generatorNode', () => {
 
     await generatorNode(baseState as AgentState);
 
-    expect(mockedInvokeLlm).toHaveBeenCalledWith(
-      expect.any(String),
-    );
+    expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String));
   });
 
   it('does not set jsonRepair field (generator never routes to repair)', async () => {

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { toolRegistry } from '../tools/index';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
 import { AGENT_PHASES } from '../state/agent-phase';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 import { transitionToPhase } from '../state/agent-transition.util';
 import type { AgentState } from '../state/agent.state';
 import { buildVectorResearchContext } from '@vector-db/vector-memory.util';
@@ -13,7 +14,7 @@ const logger = new Logger('Researcher');
  * Summarize a large context block using the LLM when it exceeds the threshold.
  * Returns the original text if it is within the threshold or summarization fails.
  */
-const SUMMARIZE_THRESHOLD = 2000;
+const SUMMARIZE_THRESHOLD = 4000;
 
 async function maybeSummarize(
   label: string,
@@ -47,7 +48,9 @@ async function maybeSummarize(
     );
     return summary.trim();
   } catch (e) {
-    logger.warn(`Researcher: LLM summarization failed for "${label}", using original`);
+    logger.warn(
+      `Researcher: LLM summarization failed for "${label}", using original`,
+    );
     return text;
   }
 }
@@ -92,7 +95,7 @@ export async function researcherNode(
     if (treeTool) {
       try {
         const tree = (await treeTool.invoke({ path: '.' })) as string;
-        const maxLines = 80;
+        const maxLines = AGENT_CONSTANTS.researcherTreeMaxLines;
         const lines = tree.split('\n');
         const truncated =
           lines.length > maxLines
@@ -136,6 +139,16 @@ export async function researcherNode(
   const vectorContext = await buildVectorResearchContext(objective);
   memorySections.push(vectorContext);
 
+  // Track vector search failures as non-fatal warnings in state errors.
+  const vectorWarnings: import('../state/agent.state').AgentError[] = [];
+  if (vectorContext.includes('(unavailable:')) {
+    vectorWarnings.push({
+      code: 'tool_error',
+      message: 'Vector memory search was unavailable during research',
+      atPhase: AGENT_PHASES.RESEARCH,
+    });
+  }
+
   const projectContext = workspaceSections.join('\n\n');
   const memoryContext = memorySections.join('\n\n');
 
@@ -148,5 +161,6 @@ export async function researcherNode(
   return transitionToPhase(AGENT_PHASES.PLAN, {
     projectContext,
     memoryContext,
+    ...(vectorWarnings.length > 0 ? { errors: vectorWarnings } : {}),
   });
 }

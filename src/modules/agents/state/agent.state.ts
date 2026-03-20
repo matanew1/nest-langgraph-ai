@@ -2,12 +2,14 @@ import { Annotation } from '@langchain/langgraph';
 import type { ToolResult } from '../tools/tool-result';
 import { DEFAULT_AGENT_COUNTERS } from './agent-state.helpers';
 import type { AgentPhase } from './agent-phase';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 
 export interface PlanStep {
   step_id: number;
   description: string;
   tool: string;
   input: Record<string, unknown>;
+  parallel_group?: number;
 }
 
 export interface AgentCounters {
@@ -82,6 +84,14 @@ export interface AgentStateShape {
   jsonRepairFromPhase?: AgentPhase;
   criticDecision?: CriticDecisionState;
   attempts: Attempt[];
+  /** True when toolResultRaw contains parallel execution results (JSON array) */
+  parallelResult?: boolean;
+  /** Transient token callback for streaming — never checkpointed */
+  onToken?: (token: string) => void;
+  /** Which phases should stream tokens (set at graph invocation time) */
+  streamPhases?: string[];
+  /** Transient: vector memory IDs retrieved during research (for feedback loop) */
+  vectorMemoryIds?: string[];
 }
 
 export const AgentStateAnnotation = Annotation.Root({
@@ -136,7 +146,8 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Structured error history (bounded) */
   errors: Annotation<AgentError[]>({
-    reducer: (prev, curr) => [...prev, ...curr].slice(-20),
+    reducer: (prev, curr) =>
+      [...prev, ...curr].slice(-AGENT_CONSTANTS.errorsHistoryCap),
     default: () => [],
   }),
   /** When set, the workflow routes to json repair */
@@ -161,8 +172,14 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Full history of every tool call; reducer appends each new entry (capped at 10 to prevent bloat) */
   attempts: Annotation<Attempt[]>({
-    reducer: (prev, curr) => [...prev, ...curr].slice(-10),
+    reducer: (prev, curr) =>
+      [...prev, ...curr].slice(-AGENT_CONSTANTS.attemptsHistoryCap),
     default: () => [],
+  }),
+  /** Boolean flag to indicate if toolResultRaw contains multiple parallel results */
+  parallelResult: Annotation<boolean | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
   }),
 });
 

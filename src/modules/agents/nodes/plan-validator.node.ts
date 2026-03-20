@@ -69,6 +69,19 @@ export async function planValidatorNode(
         );
       }
 
+      // Skip grep verification when find/replace use __PREVIOUS_RESULT__ —
+      // the placeholder is resolved at execution time, so there is nothing to
+      // verify against the actual file content at plan-validation time.
+      if (
+        input.find.includes('__PREVIOUS_RESULT__') ||
+        (input.replace && input.replace.includes('__PREVIOUS_RESULT__'))
+      ) {
+        logger.log(
+          `⏭ Skipping anchor verification for step ${step.step_id} (uses __PREVIOUS_RESULT__)`,
+        );
+        continue;
+      }
+
       logger.log(`Verifying file_patch step ${step.step_id}: ${input.path}`);
 
       try {
@@ -164,15 +177,15 @@ export async function planValidatorNode(
     if (schema?.safeParse) {
       const parsed = schema.safeParse(step.input);
       if (!parsed.success) {
-        logPhaseEnd(
-          'PLAN_VALIDATOR',
-          `FAILED: invalid params for "${step.tool}"`,
-          elapsed(),
-        );
-        return failValidation(
-          `Invalid params for ${step.tool}`,
-          `Invalid params for ${step.tool}`,
-        );
+        const issues = parsed.error.issues
+          .map(
+            (i: { path: (string | number)[]; message: string }) =>
+              `${i.path.join('.')}: ${i.message}`,
+          )
+          .join('; ');
+        const detail = `Invalid params for ${step.tool}: ${issues}`;
+        logPhaseEnd('PLAN_VALIDATOR', `FAILED: ${detail}`, elapsed());
+        return failValidation(detail, detail);
       }
     }
   }

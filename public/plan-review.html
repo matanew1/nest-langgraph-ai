@@ -1699,13 +1699,12 @@
       statusEl.textContent = action === 'replan' ? 'Replanning…' : 'Approved — executing…';
 
       if (action === 'replan') {
-        if (body.result) {
-          finalizeActivityGroup();
+        finalizeActivityGroup();
+        if (body && body.result) {
           addAgentBubble(renderMd(body.result));
-          setIdle();
-        } else {
-          setTimeout(() => loadReviewAfterReplan(), 600);
         }
+        // Fetch new plan immediately (short delay to allow UI render)
+        setTimeout(() => loadReviewAfterReplan(), 100);
       } else {
         finalizeActivityGroup();
         addAgentBubble(renderMd(body.result || 'Done.'));
@@ -1729,8 +1728,8 @@
         return;
       }
       buildReviewCard(await res.json());
-    } catch {
-      addErrorBubble(renderMd('Network error loading replanned review.'));
+    } catch (err) {
+      addErrorBubble(renderMd('Error loading review: ' + (err.message || String(err))));
       setIdle();
     }
   }

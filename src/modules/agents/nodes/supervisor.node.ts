@@ -9,12 +9,12 @@ import { buildSupervisorPrompt } from '../prompts/agent.prompts';
 import { AGENT_PHASES } from '../state/agent-phase';
 import {
   requestClarification,
+  requestJsonRepair,
   transitionToPhase,
 } from '../state/agent-transition.util';
 import { AgentState } from '../state/agent.state';
 import { supervisorOutputSchema } from '../state/agent.schemas';
 import {
-  buildJsonRepairState,
   getStructuredNodeRawResponse,
   parseStructuredNodeOutput,
 } from './structured-output.util';
@@ -27,7 +27,12 @@ const logger = new Logger('Supervisor');
  */
 function isObviouslyConversational(input: string): boolean {
   const words = input.trim().split(/\s+/);
-  if (words.length <= 8 && /\b(what|who|why|how|when|where|tell|show|explain|the|it|this|that|they|them|those|his|her|its)\b/i.test(input)) {
+  if (
+    words.length <= 8 &&
+    /\b(what|who|why|how|when|where|tell|show|explain|the|it|this|that|they|them|those|his|her|its)\b/i.test(
+      input,
+    )
+  ) {
     return true;
   }
   // Greetings / single-word utterances
@@ -44,7 +49,11 @@ export async function supervisorNode(
 
   // Fast-path: obvious follow-up or conversational message — skip LLM routing
   if (isObviouslyConversational(state.input) && state.sessionMemory) {
-    logPhaseEnd('SUPERVISOR', `FAST-PATH CHAT → "${preview(state.input)}"`, elapsed());
+    logPhaseEnd(
+      'SUPERVISOR',
+      `FAST-PATH CHAT → "${preview(state.input)}"`,
+      elapsed(),
+    );
     return transitionToPhase(AGENT_PHASES.CHAT, {
       objective: state.input,
       jsonRepairResult: undefined,
@@ -107,7 +116,7 @@ export async function supervisorNode(
     });
   } catch (e) {
     logPhaseEnd('SUPERVISOR', 'PARSE FAILED → json_repair', elapsed());
-    return buildJsonRepairState({
+    return requestJsonRepair({
       fromPhase: AGENT_PHASES.SUPERVISOR,
       raw,
       schema:

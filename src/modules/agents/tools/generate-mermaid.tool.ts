@@ -5,99 +5,15 @@ import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { invokeLlm } from '@llm/llm.provider';
 import { sandboxPath } from '@utils/path.util';
+import {
+  stripMarkdownFences,
+  sanitizeMermaid,
+  isLikelyMermaid,
+  looksLikeCodeListingDiagram,
+  REFERENCE_STYLE,
+} from './mermaid.util';
 
 const logger = new Logger('GenerateMermaidTool');
-
-function stripMarkdownFences(text: string): string {
-  return text
-    .replace(/^```(?:mermaid)?\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-}
-
-function isLikelyMermaid(text: string): boolean {
-  const t = text.trimStart();
-  return (
-    t.startsWith('flowchart') ||
-    t.startsWith('graph') ||
-    t.startsWith('sequenceDiagram') ||
-    t.startsWith('stateDiagram') ||
-    t.startsWith('classDiagram') ||
-    t.startsWith('erDiagram') ||
-    t.startsWith('gantt') ||
-    t.startsWith('journey') ||
-    t.startsWith('mindmap') ||
-    t.startsWith('timeline') ||
-    t.startsWith('C4Context') ||
-    t.startsWith('C4Container') ||
-    t.startsWith('C4Component') ||
-    t.startsWith('C4Dynamic') ||
-    t.startsWith('C4Deployment')
-  );
-}
-
-function sanitizeMermaid(text: string): string {
-  // Mermaid "flowchart" grammar uses "graph" as a reserved keyword in some contexts.
-  // If an LLM emits a node id named `graph`, many renderers will parse-fail on `graph[...]`.
-  // Rewrite it to a safe identifier.
-  return text
-    .replace(/(^|\n)\s*graph\s*\[/g, '$1G[')
-    .replace(/(^|\n)\s*graph\s*-->/g, '$1G -->')
-    .replace(/\bgraph\s*-->/g, 'G -->')
-    .replace(/\bgraph\s*\[/g, 'G[');
-}
-
-const REFERENCE_STYLE = `flowchart LR
-  %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
-
-  START((START))
-  END((END))
-
-  SUPERVISOR[SUPERVISOR\\nnodes/supervisor.node.ts]
-  RESEARCHER[RESEARCHER\\nnodes/researcher.node.ts]
-  PLANNER[PLANNER\\nnodes/planner.node.ts]
-  PLAN_VALIDATOR[PLAN_VALIDATOR\\nnodes/plan-validator.node.ts]
-  EXECUTE[EXECUTE\\nnodes/execution.node.ts]
-  TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\\nnodes/tool-result-normalizer.node.ts]
-  CRITIC[CRITIC\\nnodes/critic.node.ts]
-  JSON_REPAIR[JSON_REPAIR\\nnodes/json-repair.node.ts]
-
-  ROUTER{ROUTER\\nnodes/decision-router.node.ts\\nroutes by state.phase + flags}
-
-  %% Fixed edges (every node returns to ROUTER)
-  START --> SUPERVISOR
-  SUPERVISOR --> ROUTER
-  RESEARCHER --> ROUTER
-  PLANNER --> ROUTER
-  PLAN_VALIDATOR --> ROUTER
-  EXECUTE --> ROUTER
-  TOOL_RESULT_NORMALIZER --> ROUTER
-  CRITIC --> ROUTER
-  JSON_REPAIR --> ROUTER
-
-  %% Conditional edges from ROUTER
-  ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
-
-  ROUTER -->|phase = supervisor| SUPERVISOR
-  ROUTER -->|phase = research| RESEARCHER
-  ROUTER -->|phase = plan| PLANNER
-  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
-  ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
-  ROUTER -->|phase = judge| CRITIC
-
-  %% Fallback (when phase is route/unknown and no other condition matched)
-  ROUTER -->|phase = route / default fallback| SUPERVISOR`;
-
-function looksLikeCodeListingDiagram(text: string): boolean {
-  return (
-    text.includes('.addNode(') ||
-    text.includes('.addEdge(') ||
-    text.includes('const graph =') ||
-    text.includes('new StateGraph(')
-  );
-}
 
 const SYSTEM_PROMPT = `You are a Mermaid diagram author.
 Output ONLY Mermaid syntax (no explanation, no markdown fences).

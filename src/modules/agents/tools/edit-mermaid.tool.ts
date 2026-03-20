@@ -5,75 +5,15 @@ import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { invokeLlm } from '@llm/llm.provider';
 import { sandboxPath } from '@utils/path.util';
+import {
+  stripMarkdownFences,
+  sanitizeMermaid,
+  isLikelyMermaid,
+  looksLikeCodeListingDiagram,
+  REFERENCE_STYLE,
+} from './mermaid.util';
 
 const logger = new Logger('EditMermaidTool');
-
-function stripMarkdownFences(text: string): string {
-  return text
-    .replace(/^```(?:mermaid)?\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-}
-
-function sanitizeMermaid(text: string): string {
-  return text
-    .replace(/(^|\n)\s*graph\s*\[/g, '$1G[')
-    .replace(/(^|\n)\s*graph\s*-->/g, '$1G -->')
-    .replace(/\bgraph\s*-->/g, 'G -->')
-    .replace(/\bgraph\s*\[/g, 'G[');
-}
-
-const REFERENCE_STYLE = `flowchart LR
-  %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
-
-  START((START))
-  END((END))
-
-  SUPERVISOR[SUPERVISOR\\nnodes/supervisor.node.ts]
-  RESEARCHER[RESEARCHER\\nnodes/researcher.node.ts]
-  PLANNER[PLANNER\\nnodes/planner.node.ts]
-  PLAN_VALIDATOR[PLAN_VALIDATOR\\nnodes/plan-validator.node.ts]
-  EXECUTE[EXECUTE\\nnodes/execution.node.ts]
-  TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\\nnodes/tool-result-normalizer.node.ts]
-  CRITIC[CRITIC\\nnodes/critic.node.ts]
-  JSON_REPAIR[JSON_REPAIR\\nnodes/json-repair.node.ts]
-
-  ROUTER{ROUTER\\nnodes/decision-router.node.ts\\nroutes by state.phase + flags}
-
-  %% Fixed edges (every node returns to ROUTER)
-  START --> SUPERVISOR
-  SUPERVISOR --> ROUTER
-  RESEARCHER --> ROUTER
-  PLANNER --> ROUTER
-  PLAN_VALIDATOR --> ROUTER
-  EXECUTE --> ROUTER
-  TOOL_RESULT_NORMALIZER --> ROUTER
-  CRITIC --> ROUTER
-  JSON_REPAIR --> ROUTER
-
-  %% Conditional edges from ROUTER
-  ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
-
-  ROUTER -->|phase = supervisor| SUPERVISOR
-  ROUTER -->|phase = research| RESEARCHER
-  ROUTER -->|phase = plan| PLANNER
-  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
-  ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
-  ROUTER -->|phase = judge| CRITIC
-
-  %% Fallback (when phase is route/unknown and no other condition matched)
-  ROUTER -->|phase = route / default fallback| SUPERVISOR`;
-
-function looksLikeCodeListingDiagram(text: string): boolean {
-  return (
-    text.includes('.addNode(') ||
-    text.includes('.addEdge(') ||
-    text.includes('const graph =') ||
-    text.includes('new StateGraph(')
-  );
-}
 
 const SYSTEM_PROMPT = `You are editing an existing Mermaid diagram.
 Return ONLY the full updated Mermaid diagram text (no explanation, no markdown fences).
@@ -114,27 +54,11 @@ export const editMermaidTool = tool(
     const raw = (await invokeLlm(prompt)).trim();
     const updated = sanitizeMermaid(stripMarkdownFences(raw));
 
-    // Basic guardrail: updated must not be empty and should start like a Mermaid diagram.
-    const start = updated.trimStart();
-    if (!start) return 'ERROR: LLM returned empty Mermaid output.';
-    const ok =
-      start.startsWith('flowchart') ||
-      start.startsWith('graph') ||
-      start.startsWith('sequenceDiagram') ||
-      start.startsWith('stateDiagram') ||
-      start.startsWith('classDiagram') ||
-      start.startsWith('erDiagram') ||
-      start.startsWith('gantt') ||
-      start.startsWith('journey') ||
-      start.startsWith('mindmap') ||
-      start.startsWith('timeline') ||
-      start.startsWith('C4Context') ||
-      start.startsWith('C4Container') ||
-      start.startsWith('C4Component') ||
-      start.startsWith('C4Dynamic') ||
-      start.startsWith('C4Deployment');
+    if (!updated.trimStart()) {
+      return 'ERROR: LLM returned empty Mermaid output.';
+    }
 
-    if (!ok) {
+    if (!isLikelyMermaid(updated)) {
       return `ERROR: LLM did not return Mermaid syntax. Got: ${updated.slice(0, 200)}`;
     }
 

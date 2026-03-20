@@ -12,12 +12,12 @@ export class RunAgentDto {
     description: 'The prompt to send to the AI agent',
     example: 'Search for NestJS best practices',
     minLength: 1,
-    maxLength: 4000,
+    maxLength: 100_000,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(100_000)
   prompt: string;
 
   @ApiProperty({
@@ -49,12 +49,12 @@ export class StreamAgentDto {
     description: 'The prompt to send to the AI agent for streaming',
     example: 'Search for NestJS best practices',
     minLength: 1,
-    maxLength: 4000,
+    maxLength: 100_000,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(100_000)
   prompt: string;
 
   @ApiProperty({

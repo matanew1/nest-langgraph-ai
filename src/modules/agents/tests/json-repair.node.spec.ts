@@ -55,7 +55,14 @@ describe('jsonRepairNode', () => {
 
       const repairedObj = {
         objective: 'Do something',
-        steps: [{ step_id: 1, description: 'step', tool: 'search', input: { query: 'q' } }],
+        steps: [
+          {
+            step_id: 1,
+            description: 'step',
+            tool: 'search',
+            input: { query: 'q' },
+          },
+        ],
         expected_result: 'Done',
       };
 
@@ -104,7 +111,9 @@ describe('jsonRepairNode', () => {
         schema: '{"status":"string"}',
       };
 
-      mockedInvokeLlm.mockResolvedValue('{"status":"ok","objective":"do task"}');
+      mockedInvokeLlm.mockResolvedValue(
+        '{"status":"ok","objective":"do task"}',
+      );
 
       const result = await jsonRepairNode(makeState(repairReq));
 
@@ -119,9 +128,7 @@ describe('jsonRepairNode', () => {
       };
 
       const innerObj = { key: 'value' };
-      mockedInvokeLlm.mockResolvedValue(
-        JSON.stringify({ repaired: innerObj }),
-      );
+      mockedInvokeLlm.mockResolvedValue(JSON.stringify({ repaired: innerObj }));
 
       const result = await jsonRepairNode(makeState(repairReq));
 
@@ -198,7 +205,8 @@ describe('jsonRepairNode', () => {
 
   describe('prompt construction', () => {
     it('calls invokeLlm with a prompt containing the schema and raw output', async () => {
-      const schema = '{"objective":"string","steps":[],"expected_result":"string"}';
+      const schema =
+        '{"objective":"string","steps":[],"expected_result":"string"}';
       const raw = 'bad output';
       const repairReq: JsonRepairRequest = {
         fromPhase: 'plan',
@@ -206,7 +214,9 @@ describe('jsonRepairNode', () => {
         schema,
       };
 
-      mockedInvokeLlm.mockResolvedValue('{"objective":"test","steps":[],"expected_result":"done"}');
+      mockedInvokeLlm.mockResolvedValue(
+        '{"objective":"test","steps":[],"expected_result":"done"}',
+      );
 
       await jsonRepairNode(makeState(repairReq));
 

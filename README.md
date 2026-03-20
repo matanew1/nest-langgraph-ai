@@ -207,10 +207,12 @@ curl -X POST http://localhost:3000/api/agents/run \
 
 Response: `{ "result": "...", "sessionId": "..." }`
 
-### `GET /agents/stream` — SSE streaming run
+### `POST /agents/stream` — SSE streaming run
 
 ```bash
-curl -N "http://localhost:3000/api/agents/stream?prompt=list+files&sessionId=my-session"
+curl -N -X POST http://localhost:3000/api/agents/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt": "List all TypeScript files in src", "sessionId": "my-session"}'
 ```
 
 SSE event types: `status` | `plan` | `tool_call_started` | `tool_call_finished` | `llm_token` | `review_required` | `final` | `error`
