@@ -110,7 +110,6 @@ export async function parallelExecutionNode(
           signal: controller.signal,
         })) as string;
       } catch (err) {
-        clearTimeout(timer);
         const message = err instanceof Error ? err.message : String(err);
         const errorMsg = `Tool "${step.tool}" failed: ${message}`;
         logger.error(errorMsg);

@@ -84,7 +84,9 @@ export async function terminalResponseNode(
   // Log the raw error for debugging (the user sees the friendly version)
   const lastError = state.errors?.[state.errors.length - 1];
   if (lastError) {
-    logger.warn(`Terminal response for phase=${lastError.atPhase}: ${lastError.message}`);
+    logger.warn(
+      `Terminal response for phase=${lastError.atPhase}: ${lastError.message}`,
+    );
   }
 
   logPhaseEnd(mode, 'Prepared terminal response', elapsed());

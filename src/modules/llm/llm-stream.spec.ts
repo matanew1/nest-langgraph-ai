@@ -37,9 +37,11 @@ describe('streamLlm', () => {
       { content: ' world' },
       { content: '!' },
     ];
-    llm.stream.mockResolvedValue((async function* () {
-      for (const chunk of chunks) yield chunk;
-    })());
+    llm.stream.mockResolvedValue(
+      (async function* () {
+        for (const chunk of chunks) yield chunk;
+      })(),
+    );
 
     const tokens: string[] = [];
     const generator = streamLlm('test prompt');
@@ -52,9 +54,11 @@ describe('streamLlm', () => {
 
   it('returns full concatenated string from generator.return()', async () => {
     const chunks = [{ content: 'ab' }, { content: 'cd' }];
-    llm.stream.mockResolvedValue((async function* () {
-      for (const chunk of chunks) yield chunk;
-    })());
+    llm.stream.mockResolvedValue(
+      (async function* () {
+        for (const chunk of chunks) yield chunk;
+      })(),
+    );
 
     let fullText = '';
     const generator = streamLlm('test prompt');
@@ -70,14 +74,20 @@ describe('streamLlm', () => {
     llm.stream.mockRejectedValue(new Error('server error'));
     for (let i = 0; i < 5; i++) {
       try {
-        for await (const _ of streamLlm('p', 100, 0)) { /* drain */ }
-      } catch { /* expected */ }
+        for await (const _ of streamLlm('p', 100, 0)) {
+          /* drain */
+        }
+      } catch {
+        /* expected */
+      }
     }
     llm.stream.mockClear();
 
     // Circuit is now open — next call should throw without calling llm.stream
     await expect(async () => {
-      for await (const _ of streamLlm('p', 100, 0)) { /* drain */ }
+      for await (const _ of streamLlm('p', 100, 0)) {
+        /* drain */
+      }
     }).rejects.toThrow(/circuit breaker open/);
     expect(llm.stream).not.toHaveBeenCalled();
   });
@@ -86,7 +96,9 @@ describe('streamLlm', () => {
     llm.stream.mockRejectedValue(new Error('401 Unauthorized'));
 
     await expect(async () => {
-      for await (const _ of streamLlm('p', 100, 2)) { /* drain */ }
+      for await (const _ of streamLlm('p', 100, 2)) {
+        /* drain */
+      }
     }).rejects.toThrow('401 Unauthorized');
 
     expect(llm.stream).toHaveBeenCalledTimes(1);
@@ -96,9 +108,11 @@ describe('streamLlm', () => {
     const chunks = [{ content: 'ok' }];
     llm.stream
       .mockRejectedValueOnce(new Error('network timeout'))
-      .mockResolvedValueOnce((async function* () {
-        for (const c of chunks) yield c;
-      })());
+      .mockResolvedValueOnce(
+        (async function* () {
+          for (const c of chunks) yield c;
+        })(),
+      );
 
     const tokens: string[] = [];
     for await (const token of streamLlm('p', 100, 1)) {
