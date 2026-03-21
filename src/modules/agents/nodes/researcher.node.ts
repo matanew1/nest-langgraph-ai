@@ -136,7 +136,8 @@ export async function researcherNode(
 
   // 3. Vector search: retrieve past attempts that semantically match the current objective.
   // This gives the planner awareness of what has been tried before, avoiding redundant plans.
-  const vectorContext = await buildVectorResearchContext(objective);
+  const { text: vectorContext, ids: vectorIds } =
+    await buildVectorResearchContext(objective);
   memorySections.push(vectorContext);
 
   // Track vector search failures as non-fatal warnings in state errors.
@@ -161,6 +162,7 @@ export async function researcherNode(
   return transitionToPhase(AGENT_PHASES.PLAN, {
     projectContext,
     memoryContext,
+    vectorMemoryIds: vectorIds,
     ...(vectorWarnings.length > 0 ? { errors: vectorWarnings } : {}),
   });
 }

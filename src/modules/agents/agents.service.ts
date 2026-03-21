@@ -136,6 +136,13 @@ export class AgentsService {
 
       await this._persistSessionMemory(threadId, prompt, result, sessionMemory);
 
+      if (result.vectorMemoryIds?.length) {
+        await this.checkpointer.setVectorMemoryIds(
+          threadId,
+          result.vectorMemoryIds,
+        );
+      }
+
       if (result.phase === AGENT_PHASES.COMPLETE) {
         void this._autoUpsertVectorMemory(
           prompt,
@@ -341,6 +348,13 @@ export class AgentsService {
         finalValues,
         sessionMemory,
       );
+
+      if (finalValues.vectorMemoryIds?.length) {
+        await this.checkpointer.setVectorMemoryIds(
+          threadId,
+          finalValues.vectorMemoryIds,
+        );
+      }
 
       if (finalValues.phase === AGENT_PHASES.COMPLETE) {
         void this._autoUpsertVectorMemory(

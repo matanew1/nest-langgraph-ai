@@ -137,6 +137,10 @@ export class RedisSaver extends BaseCheckpointSaver {
     return `agent:thread:${threadId}:memory`;
   }
 
+  private getVectorIdsKey(threadId: string): string {
+    return `agent:thread:${threadId}:vector_ids`;
+  }
+
   private async loadRecord(
     checkpointId: string,
   ): Promise<StoredCheckpointRecord | undefined> {
@@ -510,6 +514,7 @@ export class RedisSaver extends BaseCheckpointSaver {
     pipeline.del(this.getLegacyThreadKey(threadId));
     pipeline.del(this.getLegacyCheckpointSetKey(threadId));
     pipeline.del(this.getThreadMemoryKey(threadId));
+    pipeline.del(this.getVectorIdsKey(threadId));
     await this.execWithRetry(pipeline);
 
     this.logger.log(
@@ -533,5 +538,28 @@ export class RedisSaver extends BaseCheckpointSaver {
     }
 
     await this.client.set(key, memory);
+  }
+
+  public async getVectorMemoryIds(threadId: string): Promise<string[]> {
+    const value = await this.client.get(this.getVectorIdsKey(threadId));
+    if (!value) return [];
+    try {
+      return JSON.parse(value) as string[];
+    } catch {
+      return [];
+    }
+  }
+
+  public async setVectorMemoryIds(
+    threadId: string,
+    ids: string[],
+  ): Promise<void> {
+    const key = this.getVectorIdsKey(threadId);
+    const value = JSON.stringify(ids);
+    if (this.ttlSeconds > 0) {
+      await this.client.set(key, value, 'EX', this.ttlSeconds);
+    } else {
+      await this.client.set(key, value);
+    }
   }
 }

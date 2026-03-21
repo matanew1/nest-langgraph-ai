@@ -17,7 +17,12 @@ const DEFAULT_TEXT_PREVIEW_CHARS = 240;
 
 type VectorClient = Pick<
   QdrantClient,
-  'getCollections' | 'createCollection' | 'getCollection' | 'search' | 'upsert'
+  | 'getCollections'
+  | 'createCollection'
+  | 'getCollection'
+  | 'search'
+  | 'upsert'
+  | 'setPayload'
 >;
 
 export interface VectorCollectionSnapshot {
@@ -171,26 +176,45 @@ export async function upsertVectorMemory(
 
 const VECTOR_CACHE_TTL_MS = 60_000;
 const VECTOR_CACHE_MAX_SIZE = 20;
-const vectorResearchCache = new Map<string, { result: string; ts: number }>();
+const vectorResearchCache = new Map<
+  string,
+  { result: string; ids: string[]; ts: number }
+>();
 
 export async function buildVectorResearchContext(
   query: string,
-): Promise<string> {
+): Promise<{ text: string; ids: string[] }> {
   const cacheKey = query.trim().toLowerCase();
   const cached = vectorResearchCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < VECTOR_CACHE_TTL_MS) {
-    return cached.result;
+    return { text: cached.result, ids: cached.ids };
   }
 
   try {
     const memories = await searchVectorMemories(query);
 
     if (memories.length === 0) {
-      return `## Relevant past memories:\nNone found for "${query}".`;
+      return {
+        text: `## Relevant past memories:\nNone found for "${query}".`,
+        ids: [],
+      };
     }
 
+    // Re-rank by combining similarity score (70%) and salience (30%)
+    const ranked = [...memories].sort((a, b) => {
+      const salienceA =
+        typeof a.payload.salience === 'number' ? a.payload.salience : 0.5;
+      const salienceB =
+        typeof b.payload.salience === 'number' ? b.payload.salience : 0.5;
+      const scoreA = 0.7 * a.score + 0.3 * salienceA;
+      const scoreB = 0.7 * b.score + 0.3 * salienceB;
+      return scoreB - scoreA;
+    });
+
+    const ids = ranked.map((m) => m.id);
+
     const lines = ['## Relevant past memories:'];
-    for (const [index, memory] of memories.entries()) {
+    for (const [index, memory] of ranked.entries()) {
       lines.push(`${index + 1}. ${memory.text ?? '(no text payload)'}`);
     }
 
@@ -201,12 +225,28 @@ export async function buildVectorResearchContext(
       const oldest = vectorResearchCache.keys().next().value!;
       vectorResearchCache.delete(oldest);
     }
-    vectorResearchCache.set(cacheKey, { result, ts: Date.now() });
+    vectorResearchCache.set(cacheKey, { result, ids, ts: Date.now() });
 
-    return result;
+    return { text: result, ids };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(`Vector research context unavailable: ${message}`);
-    return `## Relevant past memories:\n(unavailable: ${message})`;
+    return {
+      text: `## Relevant past memories:\n(unavailable: ${message})`,
+      ids: [],
+    };
   }
+}
+
+export async function updatePointSalience(
+  id: string,
+  salience: number,
+  client: Pick<QdrantClient, 'setPayload'> = qdrantClient,
+): Promise<void> {
+  await ensureQdrantReady();
+  await client.setPayload(env.qdrantCollection, {
+    payload: { salience },
+    points: [id],
+    wait: true,
+  });
 }

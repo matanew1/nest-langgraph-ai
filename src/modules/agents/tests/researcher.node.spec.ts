@@ -41,9 +41,10 @@ describe('researcherNode', () => {
   afterEach(() => jest.clearAllMocks());
 
   beforeEach(() => {
-    mockBuildVectorResearchContext.mockResolvedValue(
-      '## Vector memory (Qdrant)\nRelevant memories: none found.',
-    );
+    mockBuildVectorResearchContext.mockResolvedValue({
+      text: '## Vector memory (Qdrant)\nRelevant memories: none found.',
+      ids: [],
+    });
   });
 
   it('returns projectContext with file tree and git status', async () => {
