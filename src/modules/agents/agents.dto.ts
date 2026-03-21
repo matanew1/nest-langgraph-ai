@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -65,6 +66,19 @@ export class StreamAgentDto {
   @IsString()
   @IsOptional()
   sessionId?: string;
+
+  @ApiProperty({
+    description:
+      'Phases in which LLM tokens are streamed to the client. If omitted, streaming is active in all phases.',
+    example: ['chat', 'generate'],
+    required: false,
+    isArray: true,
+    type: String,
+  })
+  @IsString({ each: true })
+  @IsArray()
+  @IsOptional()
+  streamPhases?: string[];
 }
 
 export interface StreamEventDto {
@@ -74,6 +88,7 @@ export interface StreamEventDto {
     | 'tool_call_started'
     | 'tool_call_finished'
     | 'llm_token'
+    | 'llm_stream_reset'
     | 'review_required'
     | 'final'
     | 'error';
