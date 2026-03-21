@@ -112,7 +112,10 @@ describe('globFilesTool', () => {
       );
       mockedStat.mockResolvedValue(makeFileStat(false));
 
-      const result = await globFilesTool.invoke({ root: '/tmp', maxResults: 3 });
+      const result = await globFilesTool.invoke({
+        root: '/tmp',
+        maxResults: 3,
+      });
 
       const lines = result.trim().split('\n');
       expect(lines).toHaveLength(3);

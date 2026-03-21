@@ -15,9 +15,7 @@ jest.mock('@utils/path.util', () => ({
     const root = '/tmp';
     const target = p === '.' ? root : resolve(p);
     if (target !== root && !target.startsWith(root + '/')) {
-      throw new Error(
-        `Access denied: "${p}" is outside the sandbox "${root}"`,
-      );
+      throw new Error(`Access denied: "${p}" is outside the sandbox "${root}"`);
     }
     return target;
   },

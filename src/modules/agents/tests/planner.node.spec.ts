@@ -77,7 +77,7 @@ describe('plannerNode', () => {
 
     const result = await plannerNode(baseState as AgentState);
 
-    const firstStep = result.plan![0] as PlanStep;
+    const firstStep = result.plan![0];
     expect(firstStep.step_id).toBe(1);
     expect(firstStep.description).toBe('Search for relevant files');
     expect(firstStep.tool).toBe('search');

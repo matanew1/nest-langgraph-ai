@@ -186,7 +186,7 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
     ) {
       // Capture standalone method calls: graph.addEdge(...), graph.addConditionalEdges(...)
       const call = node.expression;
-      const methodName = (node.expression.callee.property as t.Identifier).name;
+      const methodName = node.expression.callee.property.name;
       let objectName = 'obj';
       if (t.isIdentifier(node.expression.callee.object)) {
         objectName = node.expression.callee.object.name;

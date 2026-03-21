@@ -14,6 +14,7 @@ export interface ToolPromptMetadata {
 export class ToolRegistry {
   private readonly tools = new Map<string, StructuredToolInterface>();
   private readonly paramHints = new Map<string, string>();
+  private readonly descriptionCache = new Map<string, string>();
 
   register(tool: StructuredToolInterface, paramHint?: string): void {
     if (this.tools.has(tool.name)) {
@@ -50,13 +51,20 @@ export class ToolRegistry {
 
   describeForPrompt(options?: { excludeNames?: Iterable<string> }): string {
     const excluded = new Set(options?.excludeNames ?? []);
+    const cacheKey = Array.from(excluded).sort().join(',');
 
-    return this.list()
+    const cached = this.descriptionCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const result = this.list()
       .filter((tool) => !excluded.has(tool.name))
       .map((tool) => {
         return `- ${tool.name}: ${tool.description}${tool.paramHint ? `\n  params: ${tool.paramHint}` : ''}`;
       })
       .join('\n');
+
+    this.descriptionCache.set(cacheKey, result);
+    return result;
   }
 
   static from(registrations: ToolRegistration[]): ToolRegistry {

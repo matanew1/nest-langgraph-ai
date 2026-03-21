@@ -65,6 +65,11 @@ PLANNING GUIDANCE:
 - If vector/Qdrant results are poor or unavailable, continue with repo-grounded work instead of guessing.
 - When calling `glob_files`, always include the leading dot in extensions: `[".ts"]` not `["ts"]`.
 
+PARALLEL EXECUTION:
+- Add `"parallel_group": N` (same integer) to steps that can run at the same time.
+- Rules: (1) steps in the same group must be contiguous, (2) no step in a group may use `__PREVIOUS_RESULT__`, (3) each group may have at most 5 steps.
+- Example: searching two directories simultaneously. Never use for steps that depend on each other's output.
+
 FILE EDITING RULES:
 - For `file_patch.find`, copy exact text from earlier `read_file` or `grep_search` output. Never invent placeholders.
 - Before `file_patch`, first read the target file and confirm the anchor with `grep_search`.
@@ -72,7 +77,7 @@ FILE EDITING RULES:
 - Prefer `write_file` only when replacing the full file is clearly safer than patching.
 
 Output JSON:
-{"objective":"<task>","steps":[{"step_id":1,"description":"<what this step produces>","tool":"<tool_name>","input":{...}}],"expected_result":"<what success looks like>"}
+{"objective":"<task>","steps":[{"step_id":1,"description":"<what this step produces>","tool":"<tool_name>","input":{...},"parallel_group":<optional int>}],"expected_result":"<what success looks like>"}
 
 EXAMPLE — save project tree to file:
 {"objective":"Save the project tree to tree.txt","steps":[{"step_id":1,"description":"Generate the repository file tree to know the project layout","tool":"tree_dir","input":{"path":"."}},{"step_id":2,"description":"Write the captured tree output to disk as tree.txt","tool":"write_file","input":{"path":"tree.txt","content":"__PREVIOUS_RESULT__"}}],"expected_result":"tree.txt contains the repository tree"}

@@ -1,7 +1,10 @@
 import {
+  IsArray,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -12,12 +15,12 @@ export class RunAgentDto {
     description: 'The prompt to send to the AI agent',
     example: 'Search for NestJS best practices',
     minLength: 1,
-    maxLength: 4000,
+    maxLength: 100_000,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(100_000)
   prompt: string;
 
   @ApiProperty({
@@ -49,12 +52,12 @@ export class StreamAgentDto {
     description: 'The prompt to send to the AI agent for streaming',
     example: 'Search for NestJS best practices',
     minLength: 1,
-    maxLength: 4000,
+    maxLength: 100_000,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(4000)
+  @MaxLength(100_000)
   prompt: string;
 
   @ApiProperty({
@@ -65,6 +68,68 @@ export class StreamAgentDto {
   @IsString()
   @IsOptional()
   sessionId?: string;
+
+  @ApiProperty({
+    description:
+      'Phases in which LLM tokens are streamed to the client. If omitted, streaming is active in all phases.',
+    example: ['chat', 'generate'],
+    required: false,
+    isArray: true,
+    type: String,
+  })
+  @IsIn(['chat', 'generate'], { each: true })
+  @IsString({ each: true })
+  @IsArray()
+  @IsOptional()
+  streamPhases?: string[];
+}
+
+export class AddMemoryEntryDto {
+  @ApiProperty({
+    description: 'Memory entry text to add to the session',
+    example: 'User prefers TypeScript over JavaScript',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/\S/, {
+    message: 'entry must contain at least one non-whitespace character',
+  })
+  @MaxLength(2000)
+  entry: string;
+}
+
+export class SessionMemoryResponseDto {
+  @ApiProperty({ description: 'Session ID' })
+  sessionId: string;
+
+  @ApiProperty({ description: 'Memory entries (max 3)', type: [String] })
+  entries: string[];
+
+  @ApiProperty({ description: 'Raw memory string' })
+  raw: string;
+}
+
+export class SubmitFeedbackDto {
+  @ApiProperty({
+    description: 'Feedback rating',
+    enum: ['positive', 'negative'],
+  })
+  @IsIn(['positive', 'negative'])
+  @IsString()
+  rating: 'positive' | 'negative';
+
+  @ApiProperty({ description: 'Optional comment', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  comment?: string;
+}
+
+export class FeedbackStatsResponseDto {
+  @ApiProperty() sessionId: string;
+  @ApiProperty() rating: 'positive' | 'negative' | null;
+  @ApiProperty() submittedAt: string | null;
+  @ApiProperty() pointsUpdated: number;
 }
 
 export interface StreamEventDto {
@@ -74,6 +139,7 @@ export interface StreamEventDto {
     | 'tool_call_started'
     | 'tool_call_finished'
     | 'llm_token'
+    | 'llm_stream_reset'
     | 'review_required'
     | 'final'
     | 'error';

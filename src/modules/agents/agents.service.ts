@@ -21,9 +21,17 @@ import {
   failAgentRun,
   transitionToPhase,
 } from './state/agent-transition.util';
-import { upsertVectorMemory } from '../vector-db/vector-memory.util';
+import {
+  upsertVectorMemory,
+  updatePointSalience,
+} from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
+import {
+  SessionMemoryResponseDto,
+  SubmitFeedbackDto,
+  FeedbackStatsResponseDto,
+} from './agents.dto';
 import * as crypto from 'crypto';
 import { invokeLlm } from '@llm/llm.provider';
 
@@ -135,6 +143,13 @@ export class AgentsService {
 
       await this._persistSessionMemory(threadId, prompt, result, sessionMemory);
 
+      if (result.vectorMemoryIds?.length) {
+        await this.checkpointer.setVectorMemoryIds(
+          threadId,
+          result.vectorMemoryIds,
+        );
+      }
+
       if (result.phase === AGENT_PHASES.COMPLETE) {
         void this._autoUpsertVectorMemory(
           prompt,
@@ -163,6 +178,7 @@ export class AgentsService {
   async *streamRun(
     prompt: string,
     sessionId?: string,
+    streamPhases?: string[],
   ): AsyncGenerator<StreamEvent> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
@@ -182,9 +198,15 @@ export class AgentsService {
 
     try {
       const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const tokenQueue: string[] = [];
+      const onToken = (token: string): void => {
+        tokenQueue.push(token);
+      };
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
         sessionId: threadId,
+        onToken,
+        streamPhases,
       });
 
       yield {
@@ -245,6 +267,44 @@ export class AgentsService {
             };
           }
         }
+
+        // Drain any tokens collected during this node's LLM call.
+        if (tokenQueue.length > 0) {
+          yield {
+            type: 'llm_stream_reset',
+            data: '',
+            sessionId: threadId,
+            done: false,
+          };
+          for (const token of tokenQueue.splice(0)) {
+            yield {
+              type: 'llm_token',
+              data: token,
+              sessionId: threadId,
+              done: false,
+            };
+          }
+        }
+      }
+
+      // Drain any tokens produced by the final node — the for-await loop has already exited by now.
+      if (tokenQueue.length > 0) {
+        yield {
+          type: 'llm_stream_reset',
+          data: '',
+          sessionId: threadId,
+          done: false,
+        };
+        // splice(0) atomically removes and returns all elements — correct since JS is single-threaded
+        // and no tokens can be pushed during a yield suspension.
+        for (const token of tokenQueue.splice(0)) {
+          yield {
+            type: 'llm_token',
+            data: token,
+            sessionId: threadId,
+            done: false,
+          };
+        }
       }
 
       // Single final yield only if properly completed
@@ -296,6 +356,13 @@ export class AgentsService {
         sessionMemory,
       );
 
+      if (finalValues.vectorMemoryIds?.length) {
+        await this.checkpointer.setVectorMemoryIds(
+          threadId,
+          finalValues.vectorMemoryIds,
+        );
+      }
+
       if (finalValues.phase === AGENT_PHASES.COMPLETE) {
         void this._autoUpsertVectorMemory(
           prompt,
@@ -307,11 +374,31 @@ export class AgentsService {
       const totalTime = elapsed();
       this.logger.log(`🏁 AGENT STREAM COMPLETE | ${totalTime}ms`);
     } catch (err: any) {
-      const message = err.message || String(err);
-      this.logger.error(`Agent stream failed: ${message}`);
+      const message = err?.message || String(err);
+      let errorDetail: string;
+
+      if (err instanceof HttpException) {
+        errorDetail = `Stream failed (HTTP ${err.getStatus()}): ${message}`;
+      } else if (
+        message.includes('timed out') ||
+        message.includes('timeout') ||
+        err?.name === 'AbortError'
+      ) {
+        errorDetail = `Stream failed (timeout): ${message}`;
+      } else if (
+        message.includes('ECONNREFUSED') ||
+        message.includes('ECONNRESET') ||
+        message.includes('Redis')
+      ) {
+        errorDetail = `Stream failed (infrastructure): ${message}`;
+      } else {
+        errorDetail = `Stream failed: ${message}`;
+      }
+
+      this.logger.error(errorDetail);
       yield {
         type: 'error',
-        data: `Stream failed: ${message}`,
+        data: errorDetail,
         sessionId: threadId,
         done: true,
       };
@@ -341,10 +428,16 @@ export class AgentsService {
     }
 
     const previousMemory = await this._tryLoadSessionMemory(sessionId);
-    await this.app.updateState(
-      config,
-      beginExecutionStep(first, 0, { reviewRequest: undefined }),
-    );
+    // If the first step belongs to a parallel group, resume to EXECUTE_PARALLEL
+    // rather than serial EXECUTE to avoid incorrect routing.
+    const firstStepUpdate =
+      first.parallel_group !== undefined
+        ? transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+            currentStep: 0,
+            reviewRequest: undefined,
+          })
+        : beginExecutionStep(first, 0, { reviewRequest: undefined });
+    await this.app.updateState(config, firstStepUpdate);
     const result: any = await this.app.invoke(null, config);
 
     await this._persistSessionMemory(
@@ -353,6 +446,13 @@ export class AgentsService {
       result,
       previousMemory,
     );
+
+    if (result.vectorMemoryIds?.length) {
+      await this.checkpointer.setVectorMemoryIds(
+        sessionId,
+        result.vectorMemoryIds as string[],
+      );
+    }
 
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
@@ -408,7 +508,43 @@ export class AgentsService {
       previousMemory,
     );
 
+    if (result.vectorMemoryIds?.length) {
+      await this.checkpointer.setVectorMemoryIds(
+        sessionId,
+        result.vectorMemoryIds as string[],
+      );
+    }
+
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
+  }
+
+  async getSessionMemory(sessionId: string): Promise<SessionMemoryResponseDto> {
+    const raw = await this._tryLoadSessionMemory(sessionId);
+    const entries = raw
+      ? raw
+          .split('\n---\n')
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+    return { sessionId, entries, raw: raw ?? '' };
+  }
+
+  async addSessionMemoryEntry(
+    sessionId: string,
+    entry: string,
+  ): Promise<SessionMemoryResponseDto> {
+    const existing = await this._tryLoadSessionMemory(sessionId);
+    const merged = this._mergeSessionMemory(existing, entry.trim());
+    await this.checkpointer.setThreadMemory(sessionId, merged);
+    const entries = merged
+      .split('\n---\n')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    return { sessionId, entries, raw: merged };
+  }
+
+  async clearSessionMemory(sessionId: string): Promise<void> {
+    await this.checkpointer.setThreadMemory(sessionId, '');
   }
 
   async getReviewPageData(sessionId: string): Promise<ReviewPageData> {
@@ -428,6 +564,65 @@ export class AgentsService {
       objective: values.reviewRequest.objective ?? '(no objective set)',
       plan: values.reviewRequest.plan,
     };
+  }
+
+  async submitFeedback(
+    sessionId: string,
+    dto: SubmitFeedbackDto,
+  ): Promise<FeedbackStatsResponseDto> {
+    const idempotencyKey = `agent:feedback:${sessionId}`;
+
+    const existing = await this.redisClient.get(`${idempotencyKey}:stats`);
+    if (existing) {
+      return JSON.parse(existing) as FeedbackStatsResponseDto;
+    }
+
+    const vectorIds = await this.checkpointer.getVectorMemoryIds(sessionId);
+    const targetSalience = dto.rating === 'positive' ? 0.9 : 0.2;
+    let pointsUpdated = 0;
+
+    for (const id of vectorIds) {
+      try {
+        await updatePointSalience(id, targetSalience);
+        pointsUpdated++;
+      } catch (err) {
+        this.logger.warn(`Failed to update salience for point ${id}: ${err}`);
+      }
+    }
+
+    const stats: FeedbackStatsResponseDto = {
+      sessionId,
+      rating: dto.rating,
+      submittedAt: new Date().toISOString(),
+      pointsUpdated,
+    };
+
+    const ttl = env.sessionTtlSeconds;
+    if (ttl > 0) {
+      await this.redisClient.set(
+        `${idempotencyKey}:stats`,
+        JSON.stringify(stats),
+        'EX',
+        ttl,
+      );
+    } else {
+      await this.redisClient.set(
+        `${idempotencyKey}:stats`,
+        JSON.stringify(stats),
+      );
+    }
+
+    return stats;
+  }
+
+  async getFeedbackStats(sessionId: string): Promise<FeedbackStatsResponseDto> {
+    const stats = await this.redisClient.get(
+      `agent:feedback:${sessionId}:stats`,
+    );
+    if (!stats) {
+      return { sessionId, rating: null, submittedAt: null, pointsUpdated: 0 };
+    }
+    return JSON.parse(stats) as FeedbackStatsResponseDto;
   }
 
   private _repoFingerprintCache?: string;
@@ -513,8 +708,11 @@ export class AgentsService {
 
     const timestamp = new Date().toISOString();
 
+    // Skip LLM fact extraction for short answers — plain format is sufficient.
+    const SHORT_ANSWER_THRESHOLD = 300;
+
     // Attempt LLM-based fact extraction for richer cross-turn context.
-    if (result.finalAnswer) {
+    if (result.finalAnswer && answer.length >= SHORT_ANSWER_THRESHOLD) {
       try {
         const extractionPrompt = [
           `Extract 2-4 key facts or learnings from this completed AI agent run.`,
@@ -545,7 +743,9 @@ export class AgentsService {
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(`Session memory fact extraction failed: ${message} — using plain format`);
+        this.logger.warn(
+          `Session memory fact extraction failed: ${message} — using plain format`,
+        );
       }
     }
 

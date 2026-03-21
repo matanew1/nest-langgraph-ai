@@ -31,10 +31,14 @@ jest.mock('../tools/index', () => ({
 
 // Mock agent.prompts so buildChatPrompt returns a controllable string
 jest.mock('../prompts/agent.prompts', () => ({
-  buildChatPrompt: jest.fn((state: { input: string; sessionMemory?: string }) => {
-    const memory = state.sessionMemory ? `\n\nConversation history:\n${state.sessionMemory}` : '';
-    return `You are a helpful AI assistant.${memory}\nUser: ${state.input}\nAssistant:`;
-  }),
+  buildChatPrompt: jest.fn(
+    (state: { input: string; sessionMemory?: string }) => {
+      const memory = state.sessionMemory
+        ? `\n\nConversation history:\n${state.sessionMemory}`
+        : '';
+      return `You are a helpful AI assistant.${memory}\nUser: ${state.input}\nAssistant:`;
+    },
+  ),
 }));
 
 const mockedInvokeLlm = jest.mocked(invokeLlm);

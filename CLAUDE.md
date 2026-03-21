@@ -2,12 +2,13 @@
 
 ## Context & Architecture
 NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine.
-- **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`).
-- **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB).
+- **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`) with circuit breaker, retry, and AbortController timeout.
+- **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB for semantic memory).
 - **Core Loop:**
   - Conversational fast-path: `Supervisor → Chat → Complete`
   - Full agent pipeline: `Supervisor → Researcher → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → Complete`
   - Error paths: `json_repair` (malformed LLM JSON), `terminal_response` (fatal/clarification)
+- **Error boundaries:** All nodes wrapped in `safeNodeHandler()` (catches unhandled exceptions → `failAgentRun()`).
 
 ## Graph Nodes (13 total)
 
@@ -27,16 +28,23 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 | `json_repair` | `nodes/json-repair.node.ts` |
 | — (routing) | `nodes/decision-router.node.ts` |
 
+## Key Constants (`graph/agent.config.ts`)
+- `AGENT_CONSTANTS`: `chatMemoryMaxChars`, `researcherTreeMaxLines`, `rawResultMaxBytes`, `attemptsHistoryCap`, `errorsHistoryCap`, `checkpointHistoryLimit`
+- `AGENT_PLAN_LIMITS`: `maxSteps: 20`
+- `getAgentLimits()`: derives `turns`, `toolCalls`, `replans`, `stepRetries`, `supervisorFallbacks` from env vars
+
 ## Development Checklist
 - **Setup:** `npm install --legacy-peer-deps`, `npm run docker:up`
 - **Run:** `npm run start:dev` | **Test:** `npm run test`
 - **Lint:** `npm run lint` (Conventional Commits required).
+- **21 tools** registered in `tools/tool.catalog.ts`
 
 ## Critical Guidelines
 - **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`.
 - **File Safety:** ALWAYS wrap paths in `sandboxPath()` from `@utils/path.util.ts`.
 - **State:** Mutate ONLY via annotated reducers in `@state/agent.state.ts`. Use helpers in `agent-transition.util.ts` and `agent-run-state.util.ts`.
 - **Phase transitions:** Use `transitionToPhase()` — never set `phase` directly.
+- **Error boundaries:** Use `safeNodeHandler()` in `agent-topology.ts` for all new nodes.
 - **Aliases:** Use `@agents/*`, `@nodes/*`, `@tools/*`, `@state/*`, `@graph/*`, etc. (See `tsconfig.json`).
 
 ## Extended Reference (Read only if needed)

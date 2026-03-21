@@ -7,11 +7,13 @@ import {
   preview,
 } from '@utils/pretty-log.util';
 import { AGENT_PHASES } from '../state/agent-phase';
-import { transitionToPhase } from '../state/agent-transition.util';
+import {
+  requestJsonRepair,
+  transitionToPhase,
+} from '../state/agent-transition.util';
 import { AgentState } from '../state/agent.state';
 import { criticDecisionSchema } from '../state/agent.schemas';
 import {
-  buildJsonRepairState,
   getStructuredNodeRawResponse,
   parseStructuredNodeOutput,
 } from './structured-output.util';
@@ -67,7 +69,11 @@ export async function criticNode(
       reason: parsed.reason ?? 'Task completed.',
       finalAnswer: synthesized,
     };
-    logPhaseEnd('CRITIC', `DECISION: ${decision.decision} (synthesized answer)`, elapsed());
+    logPhaseEnd(
+      'CRITIC',
+      `DECISION: ${decision.decision} (synthesized answer)`,
+      elapsed(),
+    );
     return transitionToPhase(AGENT_PHASES.ROUTE, {
       criticDecision: decision,
       jsonRepairResult: undefined,
@@ -85,7 +91,7 @@ export async function criticNode(
   } catch (e) {
     logPhaseEnd('CRITIC', 'PARSE FAILED → json_repair', elapsed());
     logger.error(`Raw response: ${preview(raw)}`);
-    return buildJsonRepairState({
+    return requestJsonRepair({
       fromPhase: AGENT_PHASES.JUDGE,
       raw,
       schema:

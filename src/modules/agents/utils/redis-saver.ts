@@ -10,6 +10,7 @@ import {
 import { RunnableConfig } from '@langchain/core/runnables';
 import { Redis } from 'ioredis';
 import { env } from '@config/env';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 import { Logger, NotFoundException } from '@nestjs/common';
 import { Buffer } from 'buffer';
 
@@ -40,13 +41,44 @@ export class RedisSaver extends BaseCheckpointSaver {
   private readonly client: Redis;
   private readonly logger = new Logger(RedisSaver.name);
   private readonly ttlSeconds: number;
-  private readonly historyLimit = 25;
+  private readonly historyLimit = AGENT_CONSTANTS.checkpointHistoryLimit;
   private readonly defaultNamespaceToken = 'default';
 
   constructor(redisClient: Redis) {
     super(new DefaultSerializer());
     this.client = redisClient;
     this.ttlSeconds = env.sessionTtlSeconds;
+  }
+
+  /**
+   * Retry a Redis pipeline execution with exponential backoff.
+   * Only retries on transient errors (connection refused, reset, timeout).
+   */
+  private async execWithRetry(
+    pipeline: ReturnType<Redis['pipeline']>,
+    retries = 3,
+  ): Promise<[error: Error | null, result: unknown][] | null> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await pipeline.exec();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isTransient =
+          message.includes('ECONNREFUSED') ||
+          message.includes('ECONNRESET') ||
+          message.includes('ETIMEDOUT') ||
+          message.includes('Connection is closed');
+
+        if (!isTransient || attempt >= retries) throw err;
+
+        const backoffMs = 100 * Math.pow(2, attempt);
+        this.logger.warn(
+          `Redis pipeline failed (attempt ${attempt + 1}/${retries + 1}): ${message} — retrying in ${backoffMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+    }
+    return null;
   }
 
   private getCheckpointNamespace(config: RunnableConfig): string {
@@ -103,6 +135,10 @@ export class RedisSaver extends BaseCheckpointSaver {
 
   private getThreadMemoryKey(threadId: string): string {
     return `agent:thread:${threadId}:memory`;
+  }
+
+  private getVectorIdsKey(threadId: string): string {
+    return `agent:thread:${threadId}:vector_ids`;
   }
 
   private async loadRecord(
@@ -368,7 +404,7 @@ export class RedisSaver extends BaseCheckpointSaver {
     }
 
     pipeline.zremrangebyrank(historyKey, 0, -(this.historyLimit + 1));
-    await pipeline.exec();
+    await this.execWithRetry(pipeline);
 
     return {
       configurable: {
@@ -423,7 +459,7 @@ export class RedisSaver extends BaseCheckpointSaver {
       pipeline.expire(writesKey, this.ttlSeconds);
     }
 
-    await pipeline.exec();
+    await this.execWithRetry(pipeline);
   }
 
   public async deleteThread(threadId: string): Promise<void> {
@@ -478,7 +514,8 @@ export class RedisSaver extends BaseCheckpointSaver {
     pipeline.del(this.getLegacyThreadKey(threadId));
     pipeline.del(this.getLegacyCheckpointSetKey(threadId));
     pipeline.del(this.getThreadMemoryKey(threadId));
-    await pipeline.exec();
+    pipeline.del(this.getVectorIdsKey(threadId));
+    await this.execWithRetry(pipeline);
 
     this.logger.log(
       `🗑️ Deleted session state and ${checkpointIds.size} checkpoint(s) for ID: ${threadId}`,
@@ -501,5 +538,28 @@ export class RedisSaver extends BaseCheckpointSaver {
     }
 
     await this.client.set(key, memory);
+  }
+
+  public async getVectorMemoryIds(threadId: string): Promise<string[]> {
+    const value = await this.client.get(this.getVectorIdsKey(threadId));
+    if (!value) return [];
+    try {
+      return JSON.parse(value) as string[];
+    } catch {
+      return [];
+    }
+  }
+
+  public async setVectorMemoryIds(
+    threadId: string,
+    ids: string[],
+  ): Promise<void> {
+    const key = this.getVectorIdsKey(threadId);
+    const value = JSON.stringify(ids);
+    if (this.ttlSeconds > 0) {
+      await this.client.set(key, value, 'EX', this.ttlSeconds);
+    } else {
+      await this.client.set(key, value);
+    }
   }
 }

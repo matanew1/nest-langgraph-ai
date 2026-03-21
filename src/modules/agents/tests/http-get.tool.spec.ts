@@ -102,9 +102,7 @@ describe('httpGetTool – security and behavioural tests', () => {
       { address: '93.184.216.34', family: 4 },
     ] as any);
 
-    fetchSpy.mockResolvedValueOnce(
-      makeFetchResponse({ body: 'API response' }),
-    );
+    fetchSpy.mockResolvedValueOnce(makeFetchResponse({ body: 'API response' }));
 
     const result = await httpGetTool.invoke({
       url: 'https://api.example.com/data',
@@ -232,13 +230,9 @@ describe('httpGetTool – security and behavioural tests', () => {
   it('allows any host when HTTP_TOOL_ALLOWED_HOSTS is empty', async () => {
     (env as any).httpToolAllowedHosts = '';
 
-    mockedLookup.mockResolvedValue([
-      { address: '1.2.3.4', family: 4 },
-    ] as any);
+    mockedLookup.mockResolvedValue([{ address: '1.2.3.4', family: 4 }] as any);
 
-    fetchSpy.mockResolvedValueOnce(
-      makeFetchResponse({ body: 'open access' }),
-    );
+    fetchSpy.mockResolvedValueOnce(makeFetchResponse({ body: 'open access' }));
 
     const result = await httpGetTool.invoke({
       url: 'https://arbitrary-public-host.com/',
@@ -295,9 +289,7 @@ describe('httpGetTool – security and behavioural tests', () => {
     (env as any).httpToolAllowPrivateNetworks = false;
 
     // Simulate SSRF: "public" name that resolves to an internal address
-    mockedLookup.mockResolvedValue([
-      { address: '10.0.0.5', family: 4 },
-    ] as any);
+    mockedLookup.mockResolvedValue([{ address: '10.0.0.5', family: 4 }] as any);
 
     const result = await httpGetTool.invoke({ url: 'https://example.com/' });
 

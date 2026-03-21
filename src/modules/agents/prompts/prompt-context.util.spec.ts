@@ -1,4 +1,8 @@
-import { formatAttempts, getAvailableTools, formatPromptSection } from './prompt-context.util';
+import {
+  formatAttempts,
+  getAvailableTools,
+  formatPromptSection,
+} from './prompt-context.util';
 import { AgentState } from '../state/agent.state';
 import { ToolResult } from '../tools/tool-result';
 
@@ -76,7 +80,10 @@ describe('formatAttempts', () => {
   });
 
   it('returns empty string when attempts is undefined', () => {
-    const state = { ...emptyState, attempts: undefined } as unknown as AgentState;
+    const state = {
+      ...emptyState,
+      attempts: undefined,
+    } as unknown as AgentState;
     const result = formatAttempts(state);
     expect(result).toBe('');
   });

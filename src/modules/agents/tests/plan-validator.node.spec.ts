@@ -18,7 +18,17 @@ jest.mock('@config/env', () => ({
 jest.mock('../tools/index', () => ({
   toolRegistry: {
     get: jest.fn(),
-    getNames: jest.fn().mockReturnValue(['search', 'read_file', 'file_patch', 'stat_path', 'grep_search', 'file_write', 'run_command']),
+    getNames: jest
+      .fn()
+      .mockReturnValue([
+        'search',
+        'read_file',
+        'file_patch',
+        'stat_path',
+        'grep_search',
+        'write_file',
+        'run_command',
+      ]),
   },
 }));
 
@@ -161,8 +171,18 @@ describe('planValidatorNode', () => {
   describe('non-sequential step IDs', () => {
     it('transitions to fatal when step IDs are not sequential', async () => {
       const badSteps: PlanStep[] = [
-        { step_id: 1, description: 'Step 1', tool: 'search', input: { query: 'q' } },
-        { step_id: 3, description: 'Step 3', tool: 'read_file', input: { path: 'f.txt' } },
+        {
+          step_id: 1,
+          description: 'Step 1',
+          tool: 'search',
+          input: { query: 'q' },
+        },
+        {
+          step_id: 3,
+          description: 'Step 3',
+          tool: 'read_file',
+          input: { path: 'f.txt' },
+        },
       ];
 
       const result = await planValidatorNode({
@@ -244,9 +264,9 @@ describe('planValidatorNode', () => {
     ];
 
     it('passes file_patch validation when file exists and anchor is found', async () => {
-      const mockStatInvoke = jest.fn().mockResolvedValue(
-        JSON.stringify({ exists: true, type: 'file' }),
-      );
+      const mockStatInvoke = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify({ exists: true, type: 'file' }));
       const mockGrepInvoke = jest.fn().mockResolvedValue('Found 1 match');
 
       mockedToolRegistry.get.mockImplementation((name: string) => {
@@ -317,9 +337,9 @@ describe('planValidatorNode', () => {
     });
 
     it('transitions to fatal when file does not exist', async () => {
-      const mockStatInvoke = jest.fn().mockResolvedValue(
-        JSON.stringify({ exists: false, type: null }),
-      );
+      const mockStatInvoke = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify({ exists: false, type: null }));
 
       mockedToolRegistry.get.mockImplementation((name: string) => {
         if (name === 'stat_path') return { invoke: mockStatInvoke };
@@ -337,9 +357,9 @@ describe('planValidatorNode', () => {
     });
 
     it('transitions to fatal when anchor text is not found in file', async () => {
-      const mockStatInvoke = jest.fn().mockResolvedValue(
-        JSON.stringify({ exists: true, type: 'file' }),
-      );
+      const mockStatInvoke = jest
+        .fn()
+        .mockResolvedValue(JSON.stringify({ exists: true, type: 'file' }));
       const mockGrepInvoke = jest.fn().mockResolvedValue('Found 0 matches');
 
       mockedToolRegistry.get.mockImplementation((name: string) => {
@@ -372,7 +392,7 @@ describe('planValidatorNode', () => {
         {
           step_id: 1,
           description: 'Write a file',
-          tool: 'file_write',
+          tool: 'write_file',
           input: { path: '/tmp/out.txt', content: 'hello' },
         },
       ];
@@ -411,7 +431,7 @@ describe('planValidatorNode', () => {
         {
           step_id: 1,
           description: 'Write a file',
-          tool: 'file_write',
+          tool: 'write_file',
           input: { path: '/tmp/out.txt', content: 'hello' },
         },
       ];

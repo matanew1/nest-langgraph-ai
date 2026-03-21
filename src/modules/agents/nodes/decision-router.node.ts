@@ -46,7 +46,11 @@ export async function decisionRouterNode(
     state.phase === AGENT_PHASES.COMPLETE ||
     state.phase === AGENT_PHASES.FATAL
   ) {
-    logPhaseEnd('DECISION_ROUTER', `TERMINAL (${state.phase}) → skip`, elapsed());
+    logPhaseEnd(
+      'DECISION_ROUTER',
+      `TERMINAL (${state.phase}) → skip`,
+      elapsed(),
+    );
     return {};
   }
 
@@ -135,6 +139,12 @@ export async function decisionRouterNode(
         `PREMATURE COMPLETE → ADVANCE → step ${nextStepIndex + 1}`,
         elapsed(),
       );
+      if (nextStep.parallel_group !== undefined) {
+        return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+          currentStep: nextStepIndex,
+          criticDecision: undefined,
+        });
+      }
       return beginExecutionStep(nextStep, nextStepIndex, {
         criticDecision: undefined,
       });
@@ -161,13 +171,15 @@ export async function decisionRouterNode(
   if (decision.decision === 'replan') {
     logPhaseEnd('DECISION_ROUTER', 'REPLAN → research', elapsed());
     return transitionToPhase(AGENT_PHASES.RESEARCH, {
-      projectContext: undefined,
       memoryContext: undefined,
       counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
       criticDecision: undefined,
     });
   }
 
+  // retry_step always falls back to serial EXECUTE even for parallel-group steps.
+  // This is intentional: a failed parallel group should retry the single failing step
+  // rather than re-running the entire group.
   if (decision.decision === 'retry_step') {
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
     return transitionToPhase(AGENT_PHASES.EXECUTE, {
@@ -198,6 +210,12 @@ export async function decisionRouterNode(
     `ADVANCE → step ${nextStepIndex + 1}`,
     elapsed(),
   );
+  if (nextStep.parallel_group !== undefined) {
+    return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+      currentStep: nextStepIndex,
+      criticDecision: undefined,
+    });
+  }
   return beginExecutionStep(nextStep, nextStepIndex, {
     criticDecision: undefined,
   });

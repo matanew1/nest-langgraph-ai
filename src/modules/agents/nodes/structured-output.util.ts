@@ -3,8 +3,7 @@ import { Logger } from '@nestjs/common';
 import { extractJson } from '@utils/json.util';
 import { preview } from '@utils/pretty-log.util';
 import type { ZodType } from 'zod';
-import type { AgentPhase, AgentState } from '../state/agent.state';
-import { requestJsonRepair } from '../state/agent-transition.util';
+import type { AgentState } from '../state/agent.state';
 
 export async function getStructuredNodeRawResponse(
   state: AgentState,
@@ -29,13 +28,4 @@ export function parseStructuredNodeOutput<T>(
 ): T {
   const parsed = extractJson<unknown>(raw);
   return schema.parse(parsed);
-}
-
-export function buildJsonRepairState(args: {
-  fromPhase: AgentPhase;
-  raw: string;
-  schema: string;
-  message: string;
-}): Partial<AgentState> {
-  return requestJsonRepair(args);
 }

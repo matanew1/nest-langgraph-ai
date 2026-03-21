@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
 import { REDIS_CLIENT } from '@redis/redis.constants';
 import { agentWorkflow } from '../graph/agent.graph';
+import { RedisSaver } from '../utils/redis-saver';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -47,14 +48,15 @@ const mockRedisClient = {
 describe('AgentsService', () => {
   let service: AgentsService;
   const invoke = jest.fn();
+  const mockStream = jest.fn();
+  const mockGetState = jest.fn();
+  let mockApp: { invoke: jest.Mock; stream: jest.Mock; getState: jest.Mock };
 
   beforeEach(async () => {
+    mockApp = { invoke, stream: mockStream, getState: mockGetState };
+
     const compileMock = agentWorkflow['compile'] as jest.Mock;
-    compileMock.mockReturnValue({
-      invoke,
-      stream: jest.fn(),
-      getState: jest.fn(),
-    } as any);
+    compileMock.mockReturnValue(mockApp as any);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -100,6 +102,108 @@ describe('AgentsService', () => {
       await expect(service.run('prompt')).rejects.toThrow(
         'Agent execution failed: LLM timeout',
       );
+    });
+  });
+
+  describe('streamRun — token-drain logic', () => {
+    /** Helper: collect all events from the streamRun async generator. */
+    async function collectEvents(
+      gen: AsyncGenerator<any>,
+    ): Promise<Array<{ type: string; data: string }>> {
+      const events: Array<{ type: string; data: string }> = [];
+      for await (const event of gen) {
+        events.push(event);
+      }
+      return events;
+    }
+
+    it('yields llm_stream_reset and llm_token events after a node that triggers onToken', async () => {
+      // Mock stream: capture onToken from the state and call it with two tokens,
+      // then yield a fake node event so the for-await loop has something to iterate.
+      mockStream.mockImplementation(async function* (state: any) {
+        state.onToken?.('Hello');
+        state.onToken?.(' world');
+        yield { chatNode: { phase: 'chat' } };
+      });
+
+      mockGetState.mockResolvedValue({
+        values: { phase: 'complete', finalAnswer: 'done' },
+      });
+
+      const events = await collectEvents(service.streamRun('test prompt'));
+
+      const types = events.map((e) => e.type);
+      expect(types).toContain('llm_stream_reset');
+      expect(types.filter((t) => t === 'llm_token')).toHaveLength(2);
+
+      const tokenEvents = events.filter((e) => e.type === 'llm_token');
+      expect(tokenEvents[0].data).toBe('Hello');
+      expect(tokenEvents[1].data).toBe(' world');
+    });
+
+    it('yields no llm_stream_reset or llm_token events when no onToken is called', async () => {
+      // Mock stream: yield a node event without touching onToken.
+      mockStream.mockImplementation(async function* (_state: any) {
+        yield { chatNode: { phase: 'chat' } };
+      });
+
+      mockGetState.mockResolvedValue({
+        values: { phase: 'complete', finalAnswer: 'done' },
+      });
+
+      const events = await collectEvents(service.streamRun('test prompt'));
+
+      const types = events.map((e) => e.type);
+      expect(types).not.toContain('llm_stream_reset');
+      expect(types).not.toContain('llm_token');
+    });
+  });
+
+  describe('session memory', () => {
+    let getThreadMemorySpy: jest.SpyInstance;
+    let setThreadMemorySpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      getThreadMemorySpy = jest
+        .spyOn(RedisSaver.prototype, 'getThreadMemory')
+        .mockResolvedValue(undefined);
+      setThreadMemorySpy = jest
+        .spyOn(RedisSaver.prototype, 'setThreadMemory')
+        .mockResolvedValue(undefined);
+    });
+
+    it('getSessionMemory returns empty entries for unknown session', async () => {
+      getThreadMemorySpy.mockResolvedValue(undefined);
+
+      const result = await service.getSessionMemory('session');
+
+      expect(result.entries).toEqual([]);
+      expect(result.raw).toBe('');
+    });
+
+    it('getSessionMemory splits existing memory into entries', async () => {
+      getThreadMemorySpy.mockResolvedValue('entry1\n---\nentry2');
+
+      const result = await service.getSessionMemory('session');
+
+      expect(result.entries.length).toBe(2);
+    });
+
+    it('addSessionMemoryEntry merges and persists new entry', async () => {
+      getThreadMemorySpy.mockResolvedValue(undefined);
+
+      await service.addSessionMemoryEntry('session', 'new fact');
+
+      expect(setThreadMemorySpy).toHaveBeenCalledWith(
+        'session',
+        expect.stringContaining('new fact'),
+      );
+    });
+
+    it('clearSessionMemory writes empty string', async () => {
+      await service.clearSessionMemory('session');
+
+      expect(setThreadMemorySpy).toHaveBeenCalledWith('session', '');
     });
   });
 });

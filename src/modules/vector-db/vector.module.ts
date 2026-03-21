@@ -1,6 +1,6 @@
 import { Inject, Logger, Module, OnModuleInit } from '@nestjs/common';
 import type { QdrantClient } from '@qdrant/js-client-rest';
-import { EmbeddingService } from './embedding.service';
+import { EmbeddingService, warmUpEmbeddings } from './embedding.service';
 import { qdrantClient, connectQdrant } from './qdrant.provider';
 import { QDRANT_CLIENT } from './vector.constants';
 
@@ -27,5 +27,11 @@ export class VectorModule implements OnModuleInit {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Qdrant connection failed: ${message}`);
     }
+
+    // Pre-warm embedding model (non-blocking) to avoid cold-start on first vector op.
+    warmUpEmbeddings().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Embedding model warm-up failed: ${message}`);
+    });
   }
 }
