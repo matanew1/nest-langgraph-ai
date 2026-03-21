@@ -1,3 +1,12 @@
+/**
+ * Parallel Execution Node
+ *
+ * Executes a contiguous group of plan steps that share the same `parallel_group` id
+ * concurrently using `Promise.allSettled`. Each tool invocation is guarded by an
+ * AbortController timeout and a `timedOut` flag to handle race conditions at the
+ * timeout boundary. Results are serialised as JSON and forwarded to the
+ * `normalize_tool_result` phase.
+ */
 import { Logger } from '@nestjs/common';
 import type { AgentState, AgentError, PlanStep } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
@@ -30,7 +39,7 @@ export async function parallelExecutionNode(
     logPhaseEnd('PARALLEL_EXECUTOR', 'No step at currentStep index', elapsed());
     return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
       toolResultRaw: JSON.stringify([]),
-      parallelResult: true,
+      parallelResult: false,
       counters: incrementAgentCounters(state.counters, { toolCalls: 0 }),
     });
   }
@@ -62,13 +71,15 @@ export async function parallelExecutionNode(
       for (const [key, value] of Object.entries(step.input)) {
         if (
           typeof value === 'string' &&
-          value.includes('__PREVIOUS_RESULT__') &&
-          state.toolResultRaw
+          value.includes('__PREVIOUS_RESULT__')
         ) {
-          toolParams[key] = value.replaceAll(
-            '__PREVIOUS_RESULT__',
-            state.toolResultRaw,
+          logger.warn(
+            `Step ${step.step_id} in parallel group ${groupId} uses __PREVIOUS_RESULT__ — this is unsupported in parallel execution`,
           );
+          // still substitute from state.toolResultRaw if available
+          toolParams[key] = state.toolResultRaw
+            ? value.replaceAll('__PREVIOUS_RESULT__', state.toolResultRaw)
+            : value;
         } else {
           toolParams[key] = value;
         }
@@ -86,19 +97,20 @@ export async function parallelExecutionNode(
         };
       }
 
+      let timedOut = false;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), env.toolTimeoutMs);
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, env.toolTimeoutMs);
+
+      let rawResult: string;
       try {
-        const result = (await tool.invoke(toolParams, {
+        rawResult = (await tool.invoke(toolParams, {
           signal: controller.signal,
         })) as string;
-        return {
-          step_id: step.step_id,
-          tool: step.tool,
-          result,
-          success: true,
-        };
       } catch (err) {
+        clearTimeout(timer);
         const message = err instanceof Error ? err.message : String(err);
         const errorMsg = `Tool "${step.tool}" failed: ${message}`;
         logger.error(errorMsg);
@@ -111,6 +123,21 @@ export async function parallelExecutionNode(
       } finally {
         clearTimeout(timer);
       }
+
+      if (timedOut) {
+        return {
+          step_id: step.step_id,
+          tool: step.tool,
+          result: `ERROR: Tool "${step.tool}" timed out after ${env.toolTimeoutMs}ms`,
+          success: false,
+        };
+      }
+      return {
+        step_id: step.step_id,
+        tool: step.tool,
+        result: rawResult,
+        success: true,
+      };
     }),
   );
 
@@ -155,6 +182,6 @@ export async function parallelExecutionNode(
     counters: incrementAgentCounters(state.counters, {
       toolCalls: group.length,
     }),
-    ...(errors.length > 0 ? { errors } : {}),
+    errors,
   });
 }
