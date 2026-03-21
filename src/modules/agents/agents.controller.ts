@@ -26,6 +26,8 @@ import {
   StreamAgentDto,
   AddMemoryEntryDto,
   SessionMemoryResponseDto,
+  SubmitFeedbackDto,
+  FeedbackStatsResponseDto,
 } from './agents.dto';
 import { ApiBody, ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
@@ -206,6 +208,28 @@ export class AgentsController {
     @Param('sessionId') sessionId: string,
   ): Promise<void> {
     return this.agentsService.clearSessionMemory(sessionId);
+  }
+
+  @Post('session/:sessionId/feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Submit feedback to update vector memory salience' })
+  @ApiSessionIdParam()
+  @ApiBody({ type: SubmitFeedbackDto })
+  async submitFeedback(
+    @Param('sessionId') sessionId: string,
+    @Body() body: SubmitFeedbackDto,
+  ): Promise<FeedbackStatsResponseDto> {
+    return this.agentsService.submitFeedback(sessionId, body);
+  }
+
+  @Get('session/:sessionId/feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get feedback submission stats for a session' })
+  @ApiSessionIdParam()
+  async getFeedbackStats(
+    @Param('sessionId') sessionId: string,
+  ): Promise<FeedbackStatsResponseDto> {
+    return this.agentsService.getFeedbackStats(sessionId);
   }
 
   // ─── HTML helpers ───────────────────────────────────────────────────────────

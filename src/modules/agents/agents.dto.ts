@@ -109,6 +109,29 @@ export class SessionMemoryResponseDto {
   raw: string;
 }
 
+export class SubmitFeedbackDto {
+  @ApiProperty({
+    description: 'Feedback rating',
+    enum: ['positive', 'negative'],
+  })
+  @IsIn(['positive', 'negative'])
+  @IsString()
+  rating: 'positive' | 'negative';
+
+  @ApiProperty({ description: 'Optional comment', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  comment?: string;
+}
+
+export class FeedbackStatsResponseDto {
+  @ApiProperty() sessionId: string;
+  @ApiProperty() rating: 'positive' | 'negative' | null;
+  @ApiProperty() submittedAt: string | null;
+  @ApiProperty() pointsUpdated: number;
+}
+
 export interface StreamEventDto {
   type:
     | 'status'

@@ -21,10 +21,17 @@ import {
   failAgentRun,
   transitionToPhase,
 } from './state/agent-transition.util';
-import { upsertVectorMemory } from '../vector-db/vector-memory.util';
+import {
+  upsertVectorMemory,
+  updatePointSalience,
+} from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
-import { SessionMemoryResponseDto } from './agents.dto';
+import {
+  SessionMemoryResponseDto,
+  SubmitFeedbackDto,
+  FeedbackStatsResponseDto,
+} from './agents.dto';
 import * as crypto from 'crypto';
 import { invokeLlm } from '@llm/llm.provider';
 
@@ -557,6 +564,65 @@ export class AgentsService {
       objective: values.reviewRequest.objective ?? '(no objective set)',
       plan: values.reviewRequest.plan,
     };
+  }
+
+  async submitFeedback(
+    sessionId: string,
+    dto: SubmitFeedbackDto,
+  ): Promise<FeedbackStatsResponseDto> {
+    const idempotencyKey = `agent:feedback:${sessionId}`;
+
+    const existing = await this.redisClient.get(`${idempotencyKey}:stats`);
+    if (existing) {
+      return JSON.parse(existing) as FeedbackStatsResponseDto;
+    }
+
+    const vectorIds = await this.checkpointer.getVectorMemoryIds(sessionId);
+    const targetSalience = dto.rating === 'positive' ? 0.9 : 0.2;
+    let pointsUpdated = 0;
+
+    for (const id of vectorIds) {
+      try {
+        await updatePointSalience(id, targetSalience);
+        pointsUpdated++;
+      } catch (err) {
+        this.logger.warn(`Failed to update salience for point ${id}: ${err}`);
+      }
+    }
+
+    const stats: FeedbackStatsResponseDto = {
+      sessionId,
+      rating: dto.rating,
+      submittedAt: new Date().toISOString(),
+      pointsUpdated,
+    };
+
+    const ttl = env.sessionTtlSeconds;
+    if (ttl > 0) {
+      await this.redisClient.set(
+        `${idempotencyKey}:stats`,
+        JSON.stringify(stats),
+        'EX',
+        ttl,
+      );
+    } else {
+      await this.redisClient.set(
+        `${idempotencyKey}:stats`,
+        JSON.stringify(stats),
+      );
+    }
+
+    return stats;
+  }
+
+  async getFeedbackStats(sessionId: string): Promise<FeedbackStatsResponseDto> {
+    const stats = await this.redisClient.get(
+      `agent:feedback:${sessionId}:stats`,
+    );
+    if (!stats) {
+      return { sessionId, rating: null, submittedAt: null, pointsUpdated: 0 };
+    }
+    return JSON.parse(stats) as FeedbackStatsResponseDto;
   }
 
   private _repoFingerprintCache?: string;
