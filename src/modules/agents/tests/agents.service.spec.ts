@@ -47,14 +47,15 @@ const mockRedisClient = {
 describe('AgentsService', () => {
   let service: AgentsService;
   const invoke = jest.fn();
+  const mockStream = jest.fn();
+  const mockGetState = jest.fn();
+  let mockApp: { invoke: jest.Mock; stream: jest.Mock; getState: jest.Mock };
 
   beforeEach(async () => {
+    mockApp = { invoke, stream: mockStream, getState: mockGetState };
+
     const compileMock = agentWorkflow['compile'] as jest.Mock;
-    compileMock.mockReturnValue({
-      invoke,
-      stream: jest.fn(),
-      getState: jest.fn(),
-    } as any);
+    compileMock.mockReturnValue(mockApp as any);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -100,6 +101,60 @@ describe('AgentsService', () => {
       await expect(service.run('prompt')).rejects.toThrow(
         'Agent execution failed: LLM timeout',
       );
+    });
+  });
+
+  describe('streamRun — token-drain logic', () => {
+    /** Helper: collect all events from the streamRun async generator. */
+    async function collectEvents(
+      gen: AsyncGenerator<any>,
+    ): Promise<Array<{ type: string; data: string }>> {
+      const events: Array<{ type: string; data: string }> = [];
+      for await (const event of gen) {
+        events.push(event);
+      }
+      return events;
+    }
+
+    it('yields llm_stream_reset and llm_token events after a node that triggers onToken', async () => {
+      // Mock stream: capture onToken from the state and call it with two tokens,
+      // then yield a fake node event so the for-await loop has something to iterate.
+      mockStream.mockImplementation(async function* (state: any) {
+        state.onToken?.('Hello');
+        state.onToken?.(' world');
+        yield { chatNode: { phase: 'chat' } };
+      });
+
+      mockGetState.mockResolvedValue({
+        values: { phase: 'complete', finalAnswer: 'done' },
+      });
+
+      const events = await collectEvents(service.streamRun('test prompt'));
+
+      const types = events.map((e) => e.type);
+      expect(types).toContain('llm_stream_reset');
+      expect(types.filter((t) => t === 'llm_token')).toHaveLength(2);
+
+      const tokenEvents = events.filter((e) => e.type === 'llm_token');
+      expect(tokenEvents[0].data).toBe('Hello');
+      expect(tokenEvents[1].data).toBe(' world');
+    });
+
+    it('yields no llm_stream_reset or llm_token events when no onToken is called', async () => {
+      // Mock stream: yield a node event without touching onToken.
+      mockStream.mockImplementation(async function* (_state: any) {
+        yield { chatNode: { phase: 'chat' } };
+      });
+
+      mockGetState.mockResolvedValue({
+        values: { phase: 'complete', finalAnswer: 'done' },
+      });
+
+      const events = await collectEvents(service.streamRun('test prompt'));
+
+      const types = events.map((e) => e.type);
+      expect(types).not.toContain('llm_stream_reset');
+      expect(types).not.toContain('llm_token');
     });
   });
 });

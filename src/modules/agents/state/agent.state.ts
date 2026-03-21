@@ -86,10 +86,6 @@ export interface AgentStateShape {
   attempts: Attempt[];
   /** True when toolResultRaw contains parallel execution results (JSON array) */
   parallelResult?: boolean;
-  /** Transient token callback for streaming — never checkpointed */
-  onToken?: (token: string) => void;
-  /** Which phases should stream tokens (set at graph invocation time) */
-  streamPhases?: string[];
   /** Transient: vector memory IDs retrieved during research (for feedback loop) */
   vectorMemoryIds?: string[];
 }
@@ -178,6 +174,21 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Boolean flag to indicate if toolResultRaw contains multiple parallel results */
   parallelResult: Annotation<boolean | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
+  /**
+   * Transient token callback for streaming — never checkpointed.
+   * Functions cannot be serialised to JSON so this will always deserialise as
+   * `undefined`; that is intentional: the callback is only meaningful during a
+   * live `streamRun()` call and must be re-supplied on each invocation.
+   */
+  onToken: Annotation<((token: string) => void) | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
+  /** Which phases should stream tokens (set at graph invocation time) */
+  streamPhases: Annotation<string[] | undefined>({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),

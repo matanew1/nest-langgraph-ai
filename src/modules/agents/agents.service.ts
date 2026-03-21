@@ -272,7 +272,7 @@ export class AgentsService {
         }
       }
 
-      // Drain any remaining tokens if the last node produced some.
+      // Drain any tokens produced by the final node — the for-await loop has already exited by now.
       if (tokenQueue.length > 0) {
         yield {
           type: 'llm_stream_reset',
@@ -280,6 +280,8 @@ export class AgentsService {
           sessionId: threadId,
           done: false,
         };
+        // splice(0) atomically removes and returns all elements — correct since JS is single-threaded
+        // and no tokens can be pushed during a yield suspension.
         for (const token of tokenQueue.splice(0)) {
           yield {
             type: 'llm_token',

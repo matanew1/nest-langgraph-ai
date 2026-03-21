@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -75,6 +76,7 @@ export class StreamAgentDto {
     isArray: true,
     type: String,
   })
+  @IsIn(['chat', 'generate'], { each: true })
   @IsString({ each: true })
   @IsArray()
   @IsOptional()
