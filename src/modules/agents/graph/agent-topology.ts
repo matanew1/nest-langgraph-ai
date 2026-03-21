@@ -12,6 +12,7 @@ import { terminalResponseNode } from '../nodes/terminal-response.node';
 import { chatNode } from '../nodes/chat.node';
 import { generatorNode } from '../nodes/generator.node';
 import { awaitPlanReviewNode } from '../nodes/await-plan-review.node';
+import { parallelExecutionNode } from '../nodes/parallel-execution.node';
 import {
   AGENT_PHASES,
   ROUTABLE_AGENT_PHASES,
@@ -31,6 +32,7 @@ export const AGENT_GRAPH_NODES = {
   PLAN_VALIDATOR: 'plan_validator',
   AWAIT_PLAN_REVIEW: 'await_plan_review',
   EXECUTE: 'execute',
+  EXECUTE_PARALLEL: 'execute_parallel',
   TOOL_RESULT_NORMALIZER: 'tool_result_normalizer',
   CRITIC: 'critic',
   GENERATOR: 'generator',
@@ -96,6 +98,10 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
     awaitPlanReviewNode,
   ),
   [AGENT_GRAPH_NODES.EXECUTE]: safeNodeHandler('execute', executionNode),
+  [AGENT_GRAPH_NODES.EXECUTE_PARALLEL]: safeNodeHandler(
+    'execute_parallel',
+    parallelExecutionNode,
+  ),
   [AGENT_GRAPH_NODES.TOOL_RESULT_NORMALIZER]: safeNodeHandler(
     'tool_result_normalizer',
     toolResultNormalizerNode,
@@ -127,7 +133,7 @@ const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
     [AGENT_PHASES.CHAT]: AGENT_GRAPH_NODES.CHAT,
     [AGENT_PHASES.FATAL_RECOVERY]: AGENT_GRAPH_NODES.TERMINAL_RESPONSE,
     [AGENT_PHASES.CLARIFICATION]: AGENT_GRAPH_NODES.TERMINAL_RESPONSE,
-    execute_parallel: 'supervisor',
+    [AGENT_PHASES.EXECUTE_PARALLEL]: AGENT_GRAPH_NODES.EXECUTE_PARALLEL,
   };
 
 export const ROUTER_RETURN_NODES = (

@@ -4,6 +4,7 @@ import {
   beginExecutionStep,
   failAgentRun,
   requestPlanReview,
+  transitionToPhase,
 } from '../state/agent-transition.util';
 import { env } from '@config/env';
 import { toolRegistry } from '../tools';
@@ -46,6 +47,54 @@ export async function planValidatorNode(
       `Plan is too long (${steps.length} steps).`,
       'Plan too long',
     );
+  }
+
+  // Rule A: Reject parallel-group steps that use __PREVIOUS_RESULT__
+  for (const step of steps) {
+    if (step.parallel_group !== undefined) {
+      for (const value of Object.values(step.input)) {
+        if (
+          typeof value === 'string' &&
+          value.includes('__PREVIOUS_RESULT__')
+        ) {
+          logPhaseEnd(
+            'PLAN_VALIDATOR',
+            `FAILED: parallel step ${step.step_id} uses __PREVIOUS_RESULT__`,
+            elapsed(),
+          );
+          return failValidation(
+            `Parallel group step ${step.step_id} cannot use __PREVIOUS_RESULT__ (steps run concurrently).`,
+            `Parallel group step ${step.step_id} uses __PREVIOUS_RESULT__`,
+          );
+        }
+      }
+    }
+  }
+
+  // Rule B: Validate parallel groups are contiguous
+  const groupIndices = new Map<number, number[]>();
+  for (let i = 0; i < steps.length; i++) {
+    const g = steps[i].parallel_group;
+    if (g !== undefined) {
+      const list = groupIndices.get(g) ?? [];
+      list.push(i);
+      groupIndices.set(g, list);
+    }
+  }
+  for (const [groupId, indices] of groupIndices) {
+    for (let i = 1; i < indices.length; i++) {
+      if (indices[i] !== indices[i - 1] + 1) {
+        logPhaseEnd(
+          'PLAN_VALIDATOR',
+          `FAILED: non-contiguous parallel group ${groupId}`,
+          elapsed(),
+        );
+        return failValidation(
+          `Parallel group ${groupId} has non-contiguous steps — all steps in a group must be adjacent.`,
+          `Non-contiguous parallel group ${groupId}`,
+        );
+      }
+    }
   }
 
   // Verify file_patch steps before execution
@@ -208,5 +257,8 @@ export async function planValidatorNode(
     return requestPlanReview(state.sessionId, state);
   }
 
+  if (first.parallel_group !== undefined) {
+    return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, { currentStep: 0 });
+  }
   return beginExecutionStep(first, 0);
 }

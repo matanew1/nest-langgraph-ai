@@ -18,6 +18,54 @@ export async function toolResultNormalizerNode(
   const tool = state.selectedTool ?? 'unknown';
   logPhaseStart('TOOL_RESULT_NORMALIZER', `tool="${tool}"`);
 
+  // Handle parallel execution results
+  if (state.parallelResult && state.toolResultRaw) {
+    try {
+      const results: Array<{
+        step_id: number;
+        tool: string;
+        result: string;
+        success: boolean;
+      }> = JSON.parse(state.toolResultRaw);
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.length - succeeded;
+      const summaryLines = results.map(
+        (r) =>
+          `[Step ${r.step_id} – ${r.tool}] ${r.success ? 'OK' : 'FAILED'}: ${r.result.slice(0, 300)}`,
+      );
+      const summaryText = [
+        `Parallel execution: ${results.length} steps, ${succeeded} succeeded, ${failed} failed.`,
+        ...summaryLines,
+      ].join('\n');
+
+      const result = toToolResult({
+        tool: 'parallel_execution',
+        raw: summaryText,
+        previewMaxChars: env.criticResultMaxChars,
+        rawMaxChars: 200_000,
+      });
+
+      logPhaseEnd(
+        'TOOL_RESULT_NORMALIZER',
+        `PARALLEL (${succeeded}/${results.length})`,
+        elapsed(),
+      );
+      return transitionToPhase(AGENT_PHASES.JUDGE, {
+        toolResult: result,
+        attempts: [
+          {
+            tool: 'parallel_execution',
+            step: state.currentStep ?? 0,
+            params: {},
+            result,
+          },
+        ],
+      });
+    } catch {
+      // fallthrough to normal path if JSON parse fails
+    }
+  }
+
   const raw = state.toolResultRaw ?? '';
   const result = toToolResult({
     tool,

@@ -178,6 +178,7 @@ export async function parallelExecutionNode(
   return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
     toolResultRaw,
     parallelResult: true,
+    currentStep: startIndex + group.length - 1,
     counters: incrementAgentCounters(state.counters, {
       toolCalls: group.length,
     }),

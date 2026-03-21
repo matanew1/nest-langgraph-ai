@@ -139,6 +139,12 @@ export async function decisionRouterNode(
         `PREMATURE COMPLETE → ADVANCE → step ${nextStepIndex + 1}`,
         elapsed(),
       );
+      if (nextStep.parallel_group !== undefined) {
+        return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+          currentStep: nextStepIndex,
+          criticDecision: undefined,
+        });
+      }
       return beginExecutionStep(nextStep, nextStepIndex, {
         criticDecision: undefined,
       });
@@ -201,6 +207,12 @@ export async function decisionRouterNode(
     `ADVANCE → step ${nextStepIndex + 1}`,
     elapsed(),
   );
+  if (nextStep.parallel_group !== undefined) {
+    return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+      currentStep: nextStepIndex,
+      criticDecision: undefined,
+    });
+  }
   return beginExecutionStep(nextStep, nextStepIndex, {
     criticDecision: undefined,
   });
