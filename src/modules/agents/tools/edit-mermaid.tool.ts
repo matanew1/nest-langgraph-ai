@@ -23,8 +23,13 @@ Rules:
 - Output must be valid Mermaid syntax.
 - Do not output anything except the diagram text.
 - IMPORTANT: Node IDs must be simple (letters/numbers/underscores). Do NOT use reserved words like "graph", "end", or "subgraph" as node IDs.
+- For parallel flows or convergence (multiple nodes to one), use separate lines: F --> I
+G --> I
+H --> I
+NEVER use '&' between nodes like "F & G & H --> I".
 - Prefer conceptual architecture nodes (e.g. SUPERVISOR/ROUTER), not "code listing" nodes like ".addNode(...)" unless explicitly requested.
-- Use quoted labels like A["label text"] for any label that contains spaces, punctuation, or parentheses.
+- Node labels: Use A["text with spaces, (), @, punctuation"] for any special chars.
+- Link labels: Use -->|"safe label"| or -->|"@Global() & @Module() quoted"| for decorators/special chars (quote if (, ), @, | ).
 
 House style reference (keep formatting consistent with this style unless asked otherwise):
 ${REFERENCE_STYLE}
