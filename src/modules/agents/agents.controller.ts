@@ -20,7 +20,13 @@ import {
   StreamEvent,
 } from './agents.service';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { RunAgentDto, RunAgentResponseDto, StreamAgentDto } from './agents.dto';
+import {
+  RunAgentDto,
+  RunAgentResponseDto,
+  StreamAgentDto,
+  AddMemoryEntryDto,
+  SessionMemoryResponseDto,
+} from './agents.dto';
 import { ApiBody, ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
@@ -168,6 +174,38 @@ export class AgentsController {
     @Param('sessionId') sessionId: string,
   ): Promise<AgentRunResult> {
     return this.agentsService.replanSession(sessionId);
+  }
+
+  @Get('session/:sessionId/memory')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get the session memory entries' })
+  @ApiSessionIdParam()
+  async getSessionMemory(
+    @Param('sessionId') sessionId: string,
+  ): Promise<SessionMemoryResponseDto> {
+    return this.agentsService.getSessionMemory(sessionId);
+  }
+
+  @Post('session/:sessionId/memory')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Add an entry to the session memory' })
+  @ApiSessionIdParam()
+  @ApiBody({ type: AddMemoryEntryDto })
+  async addSessionMemoryEntry(
+    @Param('sessionId') sessionId: string,
+    @Body() body: AddMemoryEntryDto,
+  ): Promise<SessionMemoryResponseDto> {
+    return this.agentsService.addSessionMemoryEntry(sessionId, body.entry);
+  }
+
+  @Delete('session/:sessionId/memory')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Clear the session memory' })
+  @ApiSessionIdParam()
+  async clearSessionMemory(
+    @Param('sessionId') sessionId: string,
+  ): Promise<void> {
+    return this.agentsService.clearSessionMemory(sessionId);
   }
 
   // ─── HTML helpers ───────────────────────────────────────────────────────────

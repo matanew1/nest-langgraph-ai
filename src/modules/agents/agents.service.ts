@@ -24,6 +24,7 @@ import {
 import { upsertVectorMemory } from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
+import { SessionMemoryResponseDto } from './agents.dto';
 import * as crypto from 'crypto';
 import { invokeLlm } from '@llm/llm.provider';
 
@@ -480,6 +481,35 @@ export class AgentsService {
     );
 
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
+  }
+
+  async getSessionMemory(sessionId: string): Promise<SessionMemoryResponseDto> {
+    const raw = await this._tryLoadSessionMemory(sessionId);
+    const entries = raw
+      ? raw
+          .split('\n---\n')
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+    return { sessionId, entries, raw: raw ?? '' };
+  }
+
+  async addSessionMemoryEntry(
+    sessionId: string,
+    entry: string,
+  ): Promise<SessionMemoryResponseDto> {
+    const existing = await this._tryLoadSessionMemory(sessionId);
+    const merged = this._mergeSessionMemory(existing, entry.trim());
+    await this.checkpointer.setThreadMemory(sessionId, merged);
+    const entries = merged
+      .split('\n---\n')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    return { sessionId, entries, raw: merged };
+  }
+
+  async clearSessionMemory(sessionId: string): Promise<void> {
+    await this.checkpointer.setThreadMemory(sessionId, '');
   }
 
   async getReviewPageData(sessionId: string): Promise<ReviewPageData> {

@@ -83,6 +83,28 @@ export class StreamAgentDto {
   streamPhases?: string[];
 }
 
+export class AddMemoryEntryDto {
+  @ApiProperty({
+    description: 'Memory entry text to add to the session',
+    example: 'User prefers TypeScript over JavaScript',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  entry: string;
+}
+
+export class SessionMemoryResponseDto {
+  @ApiProperty({ description: 'Session ID' })
+  sessionId: string;
+
+  @ApiProperty({ description: 'Memory entries (max 3)', type: [String] })
+  entries: string[];
+
+  @ApiProperty({ description: 'Raw memory string' })
+  raw: string;
+}
+
 export interface StreamEventDto {
   type:
     | 'status'
