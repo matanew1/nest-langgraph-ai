@@ -1,6 +1,4 @@
 flowchart LR
-  %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
-
   START((START))
   END((END))
 
@@ -15,7 +13,6 @@ flowchart LR
 
   ROUTER{ROUTER\nnodes/decision-router.node.ts\nroutes by state.phase + flags}
 
-  %% Fixed edges (every node returns to ROUTER)
   START --> SUPERVISOR
   SUPERVISOR --> ROUTER
   RESEARCHER --> ROUTER
@@ -26,7 +23,6 @@ flowchart LR
   CRITIC --> ROUTER
   JSON_REPAIR --> ROUTER
 
-  %% Conditional edges from ROUTER
   ROUTER -->|phase = complete OR fatal| END
   ROUTER -->|jsonRepair flag set| JSON_REPAIR
 
@@ -38,5 +34,4 @@ flowchart LR
   ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
   ROUTER -->|phase = judge| CRITIC
 
-  %% Fallback (when phase is route/unknown and no other condition matched)
   ROUTER -->|phase = route / default fallback| SUPERVISOR
