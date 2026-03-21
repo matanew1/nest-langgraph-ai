@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
 import { REDIS_CLIENT } from '@redis/redis.constants';
 import { agentWorkflow } from '../graph/agent.graph';
+import { RedisSaver } from '../utils/redis-saver';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -155,6 +156,54 @@ describe('AgentsService', () => {
       const types = events.map((e) => e.type);
       expect(types).not.toContain('llm_stream_reset');
       expect(types).not.toContain('llm_token');
+    });
+  });
+
+  describe('session memory', () => {
+    let getThreadMemorySpy: jest.SpyInstance;
+    let setThreadMemorySpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      getThreadMemorySpy = jest
+        .spyOn(RedisSaver.prototype, 'getThreadMemory')
+        .mockResolvedValue(undefined);
+      setThreadMemorySpy = jest
+        .spyOn(RedisSaver.prototype, 'setThreadMemory')
+        .mockResolvedValue(undefined);
+    });
+
+    it('getSessionMemory returns empty entries for unknown session', async () => {
+      getThreadMemorySpy.mockResolvedValue(undefined);
+
+      const result = await service.getSessionMemory('session');
+
+      expect(result.entries).toEqual([]);
+      expect(result.raw).toBe('');
+    });
+
+    it('getSessionMemory splits existing memory into entries', async () => {
+      getThreadMemorySpy.mockResolvedValue('entry1\n---\nentry2');
+
+      const result = await service.getSessionMemory('session');
+
+      expect(result.entries.length).toBe(2);
+    });
+
+    it('addSessionMemoryEntry merges and persists new entry', async () => {
+      getThreadMemorySpy.mockResolvedValue(undefined);
+
+      await service.addSessionMemoryEntry('session', 'new fact');
+
+      expect(setThreadMemorySpy).toHaveBeenCalledWith(
+        'session',
+        expect.stringContaining('new fact'),
+      );
+    });
+
+    it('clearSessionMemory writes empty string', async () => {
+      await service.clearSessionMemory('session');
+
+      expect(setThreadMemorySpy).toHaveBeenCalledWith('session', '');
     });
   });
 });

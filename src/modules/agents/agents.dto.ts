@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -90,6 +91,9 @@ export class AddMemoryEntryDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Matches(/\S/, {
+    message: 'entry must contain at least one non-whitespace character',
+  })
   @MaxLength(2000)
   entry: string;
 }

@@ -187,7 +187,7 @@ export class AgentsController {
   }
 
   @Post('session/:sessionId/memory')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add an entry to the session memory' })
   @ApiSessionIdParam()
   @ApiBody({ type: AddMemoryEntryDto })
