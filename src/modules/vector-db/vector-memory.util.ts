@@ -17,13 +17,10 @@ const DEFAULT_TEXT_PREVIEW_CHARS = 240;
 
 type VectorClient = Pick<
   QdrantClient,
-  | 'getCollections'
-  | 'createCollection'
-  | 'getCollection'
-  | 'search'
-  | 'upsert'
-  | 'setPayload'
+  'getCollections' | 'createCollection' | 'getCollection' | 'search' | 'upsert'
 >;
+
+type SalienceClient = Pick<QdrantClient, 'setPayload'>;
 
 export interface VectorCollectionSnapshot {
   name: string;
@@ -241,11 +238,12 @@ export async function buildVectorResearchContext(
 export async function updatePointSalience(
   id: string,
   salience: number,
-  client: Pick<QdrantClient, 'setPayload'> = qdrantClient,
+  client: SalienceClient = qdrantClient,
 ): Promise<void> {
+  const clamped = Math.max(0, Math.min(1, salience));
   await ensureQdrantReady();
   await client.setPayload(env.qdrantCollection, {
-    payload: { salience },
+    payload: { salience: clamped },
     points: [id],
     wait: true,
   });

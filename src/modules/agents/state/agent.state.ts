@@ -86,8 +86,6 @@ export interface AgentStateShape {
   attempts: Attempt[];
   /** True when toolResultRaw contains parallel execution results (JSON array) */
   parallelResult?: boolean;
-  /** Transient: vector memory IDs retrieved during research (for feedback loop) */
-  vectorMemoryIds?: string[];
 }
 
 export const AgentStateAnnotation = Annotation.Root({
@@ -174,6 +172,11 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Boolean flag to indicate if toolResultRaw contains multiple parallel results */
   parallelResult: Annotation<boolean | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
+  /** Transient: vector memory IDs retrieved during research (for feedback loop) */
+  vectorMemoryIds: Annotation<string[] | undefined>({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),

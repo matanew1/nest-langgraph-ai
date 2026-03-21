@@ -440,6 +440,13 @@ export class AgentsService {
       previousMemory,
     );
 
+    if (result.vectorMemoryIds?.length) {
+      await this.checkpointer.setVectorMemoryIds(
+        sessionId,
+        result.vectorMemoryIds as string[],
+      );
+    }
+
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
 
@@ -493,6 +500,13 @@ export class AgentsService {
       result,
       previousMemory,
     );
+
+    if (result.vectorMemoryIds?.length) {
+      await this.checkpointer.setVectorMemoryIds(
+        sessionId,
+        result.vectorMemoryIds as string[],
+      );
+    }
 
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
