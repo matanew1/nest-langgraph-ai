@@ -86,6 +86,7 @@ export interface AgentStateShape {
   attempts: Attempt[];
   /** True when toolResultRaw contains parallel execution results (JSON array) */
   parallelResult?: boolean;
+  vectorMemoryIds?: string[];
 }
 
 export const AgentStateAnnotation = Annotation.Root({
