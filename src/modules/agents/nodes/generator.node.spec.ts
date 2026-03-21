@@ -120,4 +120,19 @@ describe('generatorNode', () => {
     expect(onToken).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ output: 'Done!' });
   });
+
+  it('returns empty answer when streamLlm yields no non-empty tokens', async () => {
+    streamLlm.mockReturnValue(
+      (function* () {
+        yield '';
+        yield '';
+      })(),
+    );
+
+    const onToken = jest.fn();
+    const state = makeState({ onToken });
+    const result = await generatorNode(state);
+
+    expect(result).toEqual({ output: '' });
+  });
 });

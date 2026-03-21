@@ -70,6 +70,7 @@ export class AgentsController {
                 'tool_call_started',
                 'tool_call_finished',
                 'llm_token',
+                'llm_stream_reset',
                 'review_required',
                 'final',
                 'error',

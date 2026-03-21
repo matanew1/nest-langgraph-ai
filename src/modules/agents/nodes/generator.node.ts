@@ -25,12 +25,16 @@ export async function generatorNode(
 
   let answer: string;
   if (shouldStream) {
+    const emit = state.onToken!;
     let accumulated = '';
     for await (const token of streamLlm(prompt)) {
       if (token) {
-        state.onToken!(token);
+        emit(token);
         accumulated += token;
       }
+    }
+    if (!accumulated) {
+      logger.warn('streamLlm yielded no content');
     }
     answer = accumulated;
   } else {
