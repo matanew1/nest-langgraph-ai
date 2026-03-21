@@ -5,6 +5,8 @@ import type { AgentState } from './agent.state';
 interface InitialAgentRunStateOptions {
   sessionMemory?: string;
   sessionId?: string;
+  onToken?: (token: string) => void;
+  streamPhases?: string[];
 }
 
 export function createInitialAgentRunState(
@@ -31,6 +33,8 @@ export function createInitialAgentRunState(
     projectContext: undefined,
     memoryContext: undefined,
     sessionMemory: options.sessionMemory,
+    onToken: options.onToken,
+    streamPhases: options.streamPhases,
     attempts: [],
     counters: { ...DEFAULT_AGENT_COUNTERS },
     errors: [],

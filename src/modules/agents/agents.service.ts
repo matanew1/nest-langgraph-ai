@@ -163,6 +163,7 @@ export class AgentsService {
   async *streamRun(
     prompt: string,
     sessionId?: string,
+    streamPhases?: string[],
   ): AsyncGenerator<StreamEvent> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
@@ -182,9 +183,15 @@ export class AgentsService {
 
     try {
       const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const tokenQueue: string[] = [];
+      const onToken = (token: string): void => {
+        tokenQueue.push(token);
+      };
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
         sessionId: threadId,
+        onToken,
+        streamPhases,
       });
 
       yield {
@@ -244,6 +251,42 @@ export class AgentsService {
               done: false,
             };
           }
+        }
+
+        // Drain any tokens collected during this node's LLM call.
+        if (tokenQueue.length > 0) {
+          yield {
+            type: 'llm_stream_reset',
+            data: '',
+            sessionId: threadId,
+            done: false,
+          };
+          for (const token of tokenQueue.splice(0)) {
+            yield {
+              type: 'llm_token',
+              data: token,
+              sessionId: threadId,
+              done: false,
+            };
+          }
+        }
+      }
+
+      // Drain any remaining tokens if the last node produced some.
+      if (tokenQueue.length > 0) {
+        yield {
+          type: 'llm_stream_reset',
+          data: '',
+          sessionId: threadId,
+          done: false,
+        };
+        for (const token of tokenQueue.splice(0)) {
+          yield {
+            type: 'llm_token',
+            data: token,
+            sessionId: threadId,
+            done: false,
+          };
         }
       }
 

@@ -83,7 +83,13 @@ export class AgentsController {
     },
   })
   stream(@Body() body: StreamAgentDto): Observable<MessageEvent> {
-    return from(this.agentsService.streamRun(body.prompt, body.sessionId)).pipe(
+    return from(
+      this.agentsService.streamRun(
+        body.prompt,
+        body.sessionId,
+        body.streamPhases,
+      ),
+    ).pipe(
       map((event: StreamEvent) => {
         return {
           data: JSON.stringify(event),
