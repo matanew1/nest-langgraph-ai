@@ -406,10 +406,16 @@ export class AgentsService {
     }
 
     const previousMemory = await this._tryLoadSessionMemory(sessionId);
-    await this.app.updateState(
-      config,
-      beginExecutionStep(first, 0, { reviewRequest: undefined }),
-    );
+    // If the first step belongs to a parallel group, resume to EXECUTE_PARALLEL
+    // rather than serial EXECUTE to avoid incorrect routing.
+    const firstStepUpdate =
+      first.parallel_group !== undefined
+        ? transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+            currentStep: 0,
+            reviewRequest: undefined,
+          })
+        : beginExecutionStep(first, 0, { reviewRequest: undefined });
+    await this.app.updateState(config, firstStepUpdate);
     const result: any = await this.app.invoke(null, config);
 
     await this._persistSessionMemory(

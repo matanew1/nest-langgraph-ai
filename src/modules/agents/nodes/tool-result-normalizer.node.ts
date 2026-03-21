@@ -52,6 +52,7 @@ export async function toolResultNormalizerNode(
       );
       return transitionToPhase(AGENT_PHASES.JUDGE, {
         toolResult: result,
+        parallelResult: false,
         attempts: [
           {
             tool: 'parallel_execution',
@@ -82,6 +83,7 @@ export async function toolResultNormalizerNode(
 
   return transitionToPhase(AGENT_PHASES.JUDGE, {
     toolResult: result,
+    parallelResult: false,
     attempts: state.selectedTool
       ? [
           {

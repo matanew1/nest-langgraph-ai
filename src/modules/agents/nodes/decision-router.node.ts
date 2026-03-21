@@ -177,6 +177,9 @@ export async function decisionRouterNode(
     });
   }
 
+  // retry_step always falls back to serial EXECUTE even for parallel-group steps.
+  // This is intentional: a failed parallel group should retry the single failing step
+  // rather than re-running the entire group.
   if (decision.decision === 'retry_step') {
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
     return transitionToPhase(AGENT_PHASES.EXECUTE, {

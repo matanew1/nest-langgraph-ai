@@ -26,7 +26,7 @@ jest.mock('../tools/index', () => ({
         'file_patch',
         'stat_path',
         'grep_search',
-        'file_write',
+        'write_file',
         'run_command',
       ]),
   },
@@ -392,7 +392,7 @@ describe('planValidatorNode', () => {
         {
           step_id: 1,
           description: 'Write a file',
-          tool: 'file_write',
+          tool: 'write_file',
           input: { path: '/tmp/out.txt', content: 'hello' },
         },
       ];
@@ -431,7 +431,7 @@ describe('planValidatorNode', () => {
         {
           step_id: 1,
           description: 'Write a file',
-          tool: 'file_write',
+          tool: 'write_file',
           input: { path: '/tmp/out.txt', content: 'hello' },
         },
       ];
