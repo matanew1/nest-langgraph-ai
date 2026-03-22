@@ -50,19 +50,29 @@ export function looksLikeCodeListingDiagram(text: string): boolean {
 export const REFERENCE_STYLE = `flowchart LR
   %% Mirrors src/modules/agents/graph/agent.graph.ts (router-centric, phase-driven)
 
-  START((START))
-  END((END))
+  START["START"]
+  END["END"]
 
-  SUPERVISOR[SUPERVISOR\\nnodes/supervisor.node.ts]
-  RESEARCHER[RESEARCHER\\nnodes/researcher.node.ts]
-  PLANNER[PLANNER\\nnodes/planner.node.ts]
-  PLAN_VALIDATOR[PLAN_VALIDATOR\\nnodes/plan-validator.node.ts]
-  EXECUTE[EXECUTE\\nnodes/execution.node.ts]
-  TOOL_RESULT_NORMALIZER[TOOL_RESULT_NORMALIZER\\nnodes/tool-result-normalizer.node.ts]
-  CRITIC[CRITIC\\nnodes/critic.node.ts]
-  JSON_REPAIR[JSON_REPAIR\\nnodes/json-repair.node.ts]
+  SUPERVISOR["SUPERVISOR
+nodes/supervisor.node.ts"]
+  RESEARCHER["RESEARCHER
+nodes/researcher.node.ts"]
+  PLANNER["PLANNER
+nodes/planner.node.ts"]
+  PLAN_VALIDATOR["PLAN VALIDATOR
+nodes/plan-validator.node.ts"]
+  EXECUTE["EXECUTE
+nodes/execution.node.ts"]
+  TOOL_RESULT_NORMALIZER["TOOL RESULT NORMALIZER
+nodes/tool-result-normalizer.node.ts"]
+  CRITIC["CRITIC
+nodes/critic.node.ts"]
+  JSON_REPAIR["JSON REPAIR
+nodes/json-repair.node.ts"]
 
-  ROUTER{ROUTER\\nnodes/decision-router.node.ts\\nroutes by state.phase + flags}
+  ROUTER["ROUTER
+nodes/decision-router.node.ts
+routes by state.phase + flags"]
 
   %% Fixed edges (every node returns to ROUTER)
   START --> SUPERVISOR
@@ -84,8 +94,9 @@ export const REFERENCE_STYLE = `flowchart LR
   ROUTER -->|phase = plan| PLANNER
   ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
   ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
+  ROUTER -->|phase = normalize_tool_result| TOOL RESULT NORMALIZER
   ROUTER -->|phase = judge| CRITIC
 
   %% Fallback (when phase is route/unknown and no other condition matched)
   ROUTER -->|phase = route / default fallback| SUPERVISOR`;
+

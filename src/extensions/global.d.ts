@@ -1,6 +1,50 @@
-export {}; // Ensure this file is treated as a module
+export { }; // Ensure this file is treated as a module
 
 declare global {
+  interface SortedArray<T> {
+    /**
+     * Adds an item to the array while maintaining sorted order.
+     * @param item The item to add.
+     */
+    add(item: T): void;
+
+    /**
+     * Removes an item from the array.
+     * @param item The item to remove.
+     * @returns `true` if the item was found and removed, `false` otherwise.
+     */
+    remove(item: T): boolean;
+
+    /**
+     * Checks if the array contains an item.
+     * @param item The item to search for.
+     * @returns `true` if the item is found, `false` otherwise.
+     */
+    contains(item: T): boolean;
+
+    /**
+     * Returns the index of an item in the array.
+     * @param item The item to find.
+     * @returns The index of the item, or `-1` if not found.
+     */
+    indexOf(item: T): number;
+
+    /**
+     * Clears all items from the array.
+     */
+    clear(): void;
+
+    /**
+     * Gets the number of items in the array.
+     */
+    readonly length: number;
+  }
+  const SortedArray: {
+    new <T>(initialItems?: T[]): SortedArray<T>;
+    prototype: SortedArray<any>;
+  }
+
+
   /**
    * String Prototype Extensions
    */

@@ -23,8 +23,10 @@ Rules:
 - Do not invent nodes/edges if a SOURCE is provided; SOURCE is authoritative.
 - Prefer "flowchart LR" for architecture/workflow unless the user requests otherwise.
 - IMPORTANT: Node IDs must be simple (letters/numbers/underscores). Do NOT use reserved words like "graph", "end", or "subgraph" as node IDs.
+- Do NOT use parentheses ANYWHERE: no (( )), no [()], no (label), no () in labels.
+- Prefer simple quoted rectangles like A["label text"] for labels with spaces, punctuation, or multiple lines.
 - Prefer conceptual architecture nodes (e.g. SUPERVISOR/ROUTER), not "code listing" nodes like ".addNode(...)" unless explicitly requested.
-- Use quoted labels like A["label text"] for any label that contains spaces, punctuation, or parentheses.
+- Use actual newlines in multi-line labels (not \\n).
 
 House style reference (follow this structure and labeling conventions for architecture/workflow diagrams):
 ${REFERENCE_STYLE}
@@ -99,3 +101,4 @@ export const generateMermaidTool = tool(
     }),
   },
 );
+

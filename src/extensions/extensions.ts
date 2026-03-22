@@ -183,4 +183,67 @@ class TaskBuilder<T> implements SafeExecutionBuilder<T> {
 
 (globalThis as any).task = <T>(work: any) => new TaskBuilder<T>(work);
 
+class SortedArray<T> {
+    private _array: T[];
+
+    constructor(initialItems: T[] = []) {
+        this._array = [...initialItems].sort((a, b) => this.compare(a, b));
+    }
+
+    get array(): ReadonlyArray<T> {
+        return this._array;
+    }
+
+    add(item: T): void {
+        if (this.contains(item)) return;
+
+        const index = this.findInsertIndex(item);
+        this._array.splice(index, 0, item);
+    }
+
+    remove(item: T): boolean {
+        const index = this.indexOf(item);
+        if (index === -1) return false;
+
+        this._array.splice(index, 1);
+        return true;
+    }
+
+    contains(item: T): boolean {
+        return this.indexOf(item) !== -1;
+    }
+
+    indexOf(item: T): number {
+        const index = this.binarySearch(item);
+        return index >= 0 ? index : -1;
+    }
+
+    private binarySearch(item: T): number {
+        let left = 0;
+        let right = this._array.length - 1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const cmp = this.compare(item, this._array[mid]);
+
+            if (cmp === 0) return mid;
+            if (cmp < 0) right = mid - 1;
+            else left = mid + 1;
+        }
+
+        return ~left; // Returns the insertion point
+    }
+
+    private findInsertIndex(item: T): number {
+        const index = this.binarySearch(item);
+        return index >= 0 ? index : ~index;
+    }
+
+    private compare(a: T, b: T): number {
+        return a < b ? -1 : a > b ? 1 : 0;
+    }
+}
+
+(globalThis as any).SortedArray = SortedArray;
+
 export {}; // Ensure this file is treated as a module
