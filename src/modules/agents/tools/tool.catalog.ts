@@ -8,6 +8,7 @@ import { llmSummarizeTool } from './llm-summarize.tool';
 import { gitInfoTool } from './git-info.tool';
 import { grepSearchTool } from './grep-search.tool';
 import { filePatchTool } from './file-patch.tool';
+import { fileAppendTool } from './file-append.tool';
 import { astParseTool } from './ast-parse.tool';
 import { systemInfoTool } from './system-info.tool';
 import { httpGetTool } from './http-get.tool';
@@ -58,6 +59,10 @@ export const toolRegistrations: ToolRegistration[] = [
     tool: filePatchTool,
     paramHint:
       '{"path":"<file path>","find":"<exact text to find>","replace":"<replacement text>"}',
+  },
+  {
+    tool: fileAppendTool,
+    paramHint: '{"path":"<file path>","content":"<content to append>"}',
   },
   {
     tool: generateMermaidTool,

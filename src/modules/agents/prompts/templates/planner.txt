@@ -71,6 +71,7 @@ PARALLEL EXECUTION:
 - Example: searching two directories simultaneously. Never use for steps that depend on each other's output.
 
 FILE EDITING RULES:
+- Use `file_append` to add new classes, functions, or other blocks of code to a file, especially when a good anchor for `file_patch` is not obvious. It appends content safely before the final `export {}`.
 - For `file_patch.find`, copy exact text from earlier `read_file` or `grep_search` output. Never invent placeholders.
 - Before `file_patch`, first read the target file and confirm the anchor with `grep_search`.
 - If `grep_search` finds zero matches, replan instead of retrying the same patch.

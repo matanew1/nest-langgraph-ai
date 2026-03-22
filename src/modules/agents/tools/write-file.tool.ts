@@ -15,13 +15,21 @@ export const writeFileTool = tool(
       return `ERROR: content is too large (${content.length} chars). Maximum allowed is ${MAX_CONTENT_SIZE} chars.`;
     }
 
+    // If the LLM includes a markdown block, extract just the code.
+    let finalContent = content;
+    const codeBlockMatch = content.match(/```(?:\w*\n)?([\s\S]*?)```/);
+    if (codeBlockMatch?.[1]) {
+      logger.log('Code block found, extracting content for write operation.');
+      finalContent = codeBlockMatch[1].trim();
+    }
+
     const resolved = sandboxPath(path);
     logger.log(`Writing file: ${resolved}`);
 
     await mkdir(dirname(resolved), { recursive: true });
-    await writeFile(resolved, content, 'utf-8');
+    await writeFile(resolved, finalContent, 'utf-8');
 
-    return `File written successfully: ${resolved} (${content.length} bytes)`;
+    return `File written successfully: ${resolved} (${finalContent.length} bytes)`;
   },
   {
     name: 'write_file',
