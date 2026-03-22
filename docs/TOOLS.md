@@ -48,14 +48,11 @@ All tools are registered in `src/modules/agents/tools/tool.catalog.ts` and disco
 
 ---
 
-## Git & HTTP (3 tools)
+## Git
 
 | Tool | Input hint | Description |
 |------|-----------|-------------|
 | `git_info` | `{"action":"status\|log\|diff\|branch\|show","args":"<optional>"}` | Whitelisted git commands (read-only) |
-| `http_get` | `{"url":"<url>"}` | HTTP GET; subject to `HTTP_TOOL_ALLOWED_HOSTS` allowlist and SSRF protection |
-| `http_post` | `{"url":"<url>","body":"<json>","headers?":"<json>"}` | HTTP POST; subject to allowlist and SSRF protection |
-
 ---
 
 ## System (1 tool)

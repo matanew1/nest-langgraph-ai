@@ -99,4 +99,3 @@ routes by state.phase + flags"]
 
   %% Fallback (when phase is route/unknown and no other condition matched)
   ROUTER -->|phase = route / default fallback| SUPERVISOR`;
-

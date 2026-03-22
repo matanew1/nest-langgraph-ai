@@ -1,4 +1,4 @@
-export { }; // Ensure this file is treated as a module
+export {}; // Ensure this file is treated as a module
 
 declare global {
   interface SortedArray<T> {
@@ -42,8 +42,7 @@ declare global {
   const SortedArray: {
     new <T>(initialItems?: T[]): SortedArray<T>;
     prototype: SortedArray<any>;
-  }
-
+  };
 
   /**
    * String Prototype Extensions

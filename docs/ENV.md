@@ -44,7 +44,7 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 | `TOOL_TIMEOUT_MS` | `15000` | Per-tool invocation timeout (ms) |
 | `HTTP_TOOL_ALLOWED_HOSTS` | `""` | Comma-separated hostname allowlist for `http_get`/`http_post`. Accepts exact hosts (`api.github.com`) and suffix rules (`*.openai.com`). Empty = allow all non-private hosts |
 | `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | `false` | Allow localhost / private / link-local HTTP targets |
-| `HTTP_TOOL_MAX_REDIRECTS` | `3` | Max validated redirects (0–10) |
+| `HTTP_TOOL_MAX_REDIRECTS` | `3` | Max validated redirects (0–10) |\n\n**HTTP Tool Notes:**\n- Direct requests to sites like LinkedIn often fail (status 999/403 due to bot detection). Use `search` or Tavily (via `grep-search`/`search`) for web content.\n- To allow specific hosts: `HTTP_TOOL_ALLOWED_HOSTS=api.github.com,*.openai.com`\n- Private networks localhost blocked by default for security.
 
 ## Prompt Tuning
 

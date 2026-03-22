@@ -152,13 +152,11 @@ flowchart LR
 | `read_mermaid` | Read an existing `.mmd` file |
 | `edit_mermaid` | Edit an existing `.mmd` file with an instruction |
 
-### Git & HTTP
+### Git
 
 | Tool | Description |
 |------|-------------|
 | `git_info` | Whitelisted git commands: status, log, diff, branch, show |
-| `http_get` | HTTP GET request (allowlist-controlled) |
-| `http_post` | HTTP POST request (allowlist-controlled) |
 
 ### System
 
@@ -258,9 +256,6 @@ curl http://localhost:3000/health/dependencies # Dependency diagnostics
 | `AGENT_MAX_RETRIES` | No | `3` | Max step retry attempts before replan |
 | `AGENT_MAX_RETBACKS` | No | `3` | Max replan cycles before fatal |
 | `TOOL_TIMEOUT_MS` | No | `15000` | Per-tool invocation timeout (ms) |
-| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Comma-separated hostname allowlist for `http_get`/`http_post` |
-| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private targets |
-| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects |
 | `CACHE_TTL_SECONDS` | No | `60` | Redis cache TTL for agent responses |
 | `SESSION_TTL_SECONDS` | No | `86400` | Redis session TTL (24 h) |
 | `CRITIC_RESULT_MAX_CHARS` | No | `8000` | Max chars passed to critic from tool output |

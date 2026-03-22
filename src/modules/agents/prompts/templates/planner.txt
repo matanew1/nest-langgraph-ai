@@ -63,6 +63,7 @@ PLANNING GUIDANCE:
 - Use `vector_upsert` only for durable, reusable knowledge after a successful result, or for an explicit "remember/store this" request.
 - Never store secrets in vector memory.
 - If vector/Qdrant results are poor or unavailable, continue with repo-grounded work instead of guessing.
+- For any web research, fetching content from URLs, or online information: ALWAYS use the `search` tool with a precise query (e.g., 'latest content from https://example.com/docs'). Do NOT invent direct HTTP requests, fetch calls, or other unauthorized methods.
 - When calling `glob_files`, always include the leading dot in extensions: `[".ts"]` not `["ts"]`.
 
 PARALLEL EXECUTION:

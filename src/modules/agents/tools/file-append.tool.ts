@@ -44,7 +44,8 @@ export const fileAppendTool = tool(
   },
   {
     name: 'file_append',
-    description: 'Appends content to the end of a file, just before the final "export {}". Useful for adding new functions, classes, or other top-level constructs to a module.',
+    description:
+      'Appends content to the end of a file, just before the final "export {}". Useful for adding new functions, classes, or other top-level constructs to a module.',
     schema: z.object({
       path: z.string().describe('Path to the file to append to.'),
       content: z.string().describe('The code content to append.'),

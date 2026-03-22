@@ -11,8 +11,6 @@ import { filePatchTool } from './file-patch.tool';
 import { fileAppendTool } from './file-append.tool';
 import { astParseTool } from './ast-parse.tool';
 import { systemInfoTool } from './system-info.tool';
-import { httpGetTool } from './http-get.tool';
-import { httpPostTool } from './http-post.tool';
 import { globFilesTool } from './glob-files.tool';
 import { readFilesBatchTool } from './read-files-batch.tool';
 import { statPathTool } from './stat-path.tool';
@@ -80,12 +78,7 @@ export const toolRegistrations: ToolRegistration[] = [
     paramHint: '{"path":"<JS/TS file path>","maxChunks":10}',
   },
   { tool: systemInfoTool, paramHint: '{}' },
-  { tool: httpGetTool, paramHint: '{"url":"<valid http url>"}' },
-  {
-    tool: httpPostTool,
-    paramHint:
-      '{"url":"<url>","body":"<json string>","headers?":"<optional json string>"}',
-  },
+
   {
     tool: globFilesTool,
     paramHint:

@@ -63,6 +63,7 @@ LOOP PREVENTION RULES:
 - If `vector_search` returned weak/irrelevant results → prefer `replan` with a more specific query, not blind retry.
 - If `vector_upsert` fails due to Qdrant connectivity → `replan` suggesting a fallback; avoid upsert retry loops.
 - Repeated identical failures MUST escalate: retry_step → replan → fatal. Never loop at the same level.
+- If any step hallucinates direct HTTP requests (fetch, axios, curl), direct URL access, or unauthorized web calls → `replan` to use the `search` tool instead.
 
 IMPORTANT:
 - The `decision` field MUST be one of: `advance`, `retry_step`, `replan`, `complete`, `fatal`. Classifications from Step 1 (`partial_success`, `success`, `failure`, `wrong_tool`) are internal thinking labels ONLY — they must NEVER appear as the `decision` value.

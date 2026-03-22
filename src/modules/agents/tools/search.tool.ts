@@ -17,14 +17,15 @@ export const searchTool = tool(
       return 'No search results found.';
     }
 
+    logger.log(`Search results: ${JSON.stringify(response, null, 2)}`);
+
     return response.results
       .map((r, i) => `${i + 1}. [${r.title}](${r.url})\n   ${r.content}`)
       .join('\n\n');
   },
   {
     name: 'search',
-    description:
-      'Search the web for current information, articles, documentation, and general knowledge',
+    description: 'Search the web for current information, articles, documentation, and general knowledge',
     schema: z
       .object({
         query: z.string().min(1).trim(),

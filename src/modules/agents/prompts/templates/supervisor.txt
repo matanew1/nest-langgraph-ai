@@ -11,7 +11,8 @@ ROUTING RULES (in priority order):
 - Greetings, chitchat, expressions like "hello", "hi", "thanks", "why", "interesting" → ALWAYS `chat`
 - General knowledge questions (math, science, history, definitions) → ALWAYS `chat`
 - Questions about what was previously discussed (e.g., "what was that?", "who invented it?", "why?") → resolve from session memory → `chat`
-- Requests that need file access, web search, terminal commands → `agent`
+- Requests that need file access, terminal commands → `agent`
+- Web research, fetching content from specific URLs, online information → `agent` (use `search` tool)
 - If in doubt between `chat` and `agent`, choose `chat`
 - Only use `reject` if the task is genuinely impossible with ANY of the available tools AND cannot be answered conversationally
 
