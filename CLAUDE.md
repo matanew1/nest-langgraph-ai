@@ -7,10 +7,10 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **Core Loop:**
   - Conversational fast-path: `Supervisor → Chat → Complete`
   - Full agent pipeline: `Supervisor → Researcher → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → Complete`
-  - Error paths: `json_repair` (malformed LLM JSON), `terminal_response` (fatal/clarification)
+  - Error paths: `terminal_response` (fatal/clarification); malformed LLM JSON is repaired inline via `parseWithRepair` within each LLM node (no dedicated node)
 - **Error boundaries:** All nodes wrapped in `safeNodeHandler()` (catches unhandled exceptions → `failAgentRun()`).
 
-## Graph Nodes (13 total)
+## Graph Nodes (12 total)
 
 | Phase | Node file |
 |-------|-----------|
@@ -25,8 +25,9 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 | `generate` | `nodes/generator.node.ts` |
 | `chat` | `nodes/chat.node.ts` |
 | `fatal_recovery / clarification` | `nodes/terminal-response.node.ts` |
-| `json_repair` | `nodes/json-repair.node.ts` |
 | — (routing) | `nodes/decision-router.node.ts` |
+
+> JSON repair is now inline: `parseWithRepair` in `nodes/parse-with-repair.util.ts` is called directly by each LLM node; there is no dedicated `json_repair` graph node.
 
 ## Key Constants (`graph/agent.config.ts`)
 - `AGENT_CONSTANTS`: `chatMemoryMaxChars`, `researcherTreeMaxLines`, `rawResultMaxBytes`, `attemptsHistoryCap`, `errorsHistoryCap`, `checkpointHistoryLimit`

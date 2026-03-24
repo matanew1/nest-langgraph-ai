@@ -37,7 +37,8 @@ export async function criticNode(
   );
 
   // Try lenient parse first: extract decision/reason even if finalAnswer is missing,
-  // then synthesize finalAnswer to avoid the infinite json_repair loop.
+  // then synthesize finalAnswer. This avoids a double-repair failure in parseWithRepair
+  // (which would ultimately escalate to a fatal terminal state).
   let parsed: ReturnType<typeof JSON.parse> | null = null;
   try {
     parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;

@@ -54,7 +54,7 @@ src/
     │   │   ├── agent-topology.ts        # Node registry, phase→node routing map, safeNodeHandler error boundary
     │   │   ├── agent-topology.spec.ts   # Topology tests
     │   │   └── agent.config.ts          # Graph config (getAgentLimits, AGENT_PLAN_LIMITS, AGENT_CONSTANTS)
-    │   ├── nodes/                       # 13 LangGraph nodes
+    │   ├── nodes/                       # 12 LangGraph nodes
     │   │   ├── supervisor.node.ts       # Intent classification → chat or agent
     │   │   ├── researcher.node.ts       # Project context gathering (file tree, git, vector memory)
     │   │   ├── planner.node.ts          # Multi-step plan generation (Zod JSON)
@@ -67,7 +67,7 @@ src/
     │   │   ├── chat.node.ts             # Conversational fast-path response
     │   │   ├── terminal-response.node.ts # Fatal / clarification terminal states
     │   │   ├── decision-router.node.ts  # Phase-driven routing (resolveRouterTarget) with deadlock protection
-    │   │   ├── json-repair.node.ts      # LLM JSON repair for malformed outputs
+    │   │   ├── parse-with-repair.util.ts # Inline JSON parse + LLM repair fallback (used by each LLM node)
     │   │   └── structured-output.util.ts # Shared: getStructuredNodeRawResponse, parseStructuredNodeOutput
     │   ├── state/
     │   │   ├── agent-phase.ts           # AGENT_PHASES enum + ROUTABLE_AGENT_PHASES
@@ -75,7 +75,7 @@ src/
     │   │   ├── agent.schemas.ts         # Zod schemas for LLM structured outputs (supervisor, planner, critic)
     │   │   ├── agent-state.helpers.ts   # State query helpers (incrementAgentCounters)
     │   │   ├── agent-state.helpers.spec.ts
-    │   │   ├── agent-transition.util.ts # transitionToPhase(), failAgentRun(), requestJsonRepair(), requestClarification()
+    │   │   ├── agent-transition.util.ts # transitionToPhase(), failAgentRun(), requestClarification()
     │   │   ├── agent-transition.util.spec.ts
     │   │   ├── agent-run-state.util.ts  # createInitialAgentRunState(), completeAgentRun()
     │   │   └── agent-run-state.util.spec.ts
@@ -129,7 +129,7 @@ src/
     │   │   ├── decision-router.node.spec.ts
     │   │   ├── execution.node.spec.ts
     │   │   ├── generator.node.spec.ts
-    │   │   ├── json-repair.node.spec.ts
+    │   │   ├── parse-with-repair.util.spec.ts
     │   │   ├── plan-validator.node.spec.ts
     │   │   ├── planner.node.spec.ts
     │   │   ├── researcher.node.spec.ts
