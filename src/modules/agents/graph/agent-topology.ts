@@ -93,7 +93,7 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   [AGENT_GRAPH_NODES.SUPERVISOR]: safeNodeHandler('supervisor', supervisorNode),
   [AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR]: safeNodeHandler(
     'researcher_coordinator',
-    researcherCoordinatorNode as AgentNodeHandler,
+    researcherCoordinatorNode as unknown as AgentNodeHandler,
   ),
   [AGENT_GRAPH_NODES.RESEARCH_FS]: safeNodeHandler(
     'research_fs',
@@ -159,7 +159,7 @@ const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
  * - RESEARCH_FS: has direct static edge → RESEARCH_JOIN
  * - RESEARCH_VECTOR: has direct static edge → RESEARCH_JOIN
  */
-const NODES_WITHOUT_ROUTER_EDGE = new Set([
+const NODES_WITHOUT_ROUTER_EDGE = new Set<AgentGraphNodeName>([
   AGENT_GRAPH_NODES.ROUTER,
   AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
   AGENT_GRAPH_NODES.RESEARCH_FS,

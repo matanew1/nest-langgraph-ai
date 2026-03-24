@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { toolRegistry } from '../tools/index';
+import { toolRegistry } from '@tools/index';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
 import { AGENT_CONSTANTS } from '../graph/agent.config';
 import { invokeLlm } from '@llm/llm.provider';
