@@ -1,4 +1,4 @@
-import { START, StateGraph } from '@langchain/langgraph';
+import { END, START, StateGraph } from '@langchain/langgraph';
 import { AgentStateAnnotation } from '../state/agent.state';
 import {
   AGENT_GRAPH_NODE_HANDLERS,
@@ -34,5 +34,8 @@ graph.addEdge(
 );
 
 graph.addConditionalEdges(AGENT_GRAPH_NODES.ROUTER, resolveRouterTarget);
+
+// memory_persist is a terminal side-effect node — it always goes to END.
+graph.addEdge(AGENT_GRAPH_NODES.MEMORY_PERSIST, END);
 
 export const agentWorkflow = graph;

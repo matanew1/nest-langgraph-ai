@@ -13,6 +13,7 @@ import { supervisorNode } from '../nodes/supervisor.node';
 import { terminalResponseNode } from '../nodes/terminal-response.node';
 import { chatNode } from '../nodes/chat.node';
 import { generatorNode } from '../nodes/generator.node';
+import { memoryPersistNode } from '../nodes/memory-persist.node';
 import { awaitPlanReviewNode } from '../nodes/await-plan-review.node';
 import { parallelExecutionNode } from '../nodes/parallel-execution.node';
 import {
@@ -41,6 +42,7 @@ export const AGENT_GRAPH_NODES = {
   TOOL_RESULT_NORMALIZER: 'tool_result_normalizer',
   CRITIC: 'critic',
   GENERATOR: 'generator',
+  MEMORY_PERSIST: 'memory_persist',
   CHAT: 'chat',
   TERMINAL_RESPONSE: 'terminal_response',
   ROUTER: 'router',
@@ -126,7 +128,15 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
     toolResultNormalizerNode,
   ),
   [AGENT_GRAPH_NODES.CRITIC]: safeNodeHandler('critic', criticNode),
-  [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler('generator', generatorNode),
+  // Generator uses Send() fan-out so its return type is [Send, Send], not Partial<AgentState>.
+  [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler(
+    'generator',
+    generatorNode as unknown as AgentNodeHandler,
+  ),
+  [AGENT_GRAPH_NODES.MEMORY_PERSIST]: safeNodeHandler(
+    'memory_persist',
+    memoryPersistNode,
+  ),
   [AGENT_GRAPH_NODES.CHAT]: safeNodeHandler('chat', chatNode),
   // Error recovery paths — NOT wrapped to avoid masking their own errors:
   [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: terminalResponseNode,
@@ -158,12 +168,16 @@ const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
  * - RESEARCHER_COORDINATOR: uses Send() fan-out — LangGraph dispatches directly
  * - RESEARCH_FS: has direct static edge → RESEARCH_JOIN
  * - RESEARCH_VECTOR: has direct static edge → RESEARCH_JOIN
+ * - GENERATOR: uses Send() fan-out to ROUTER + MEMORY_PERSIST in parallel
+ * - MEMORY_PERSIST: has a direct static edge → END
  */
 const NODES_WITHOUT_ROUTER_EDGE = new Set<AgentGraphNodeName>([
   AGENT_GRAPH_NODES.ROUTER,
   AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
   AGENT_GRAPH_NODES.RESEARCH_FS,
   AGENT_GRAPH_NODES.RESEARCH_VECTOR,
+  AGENT_GRAPH_NODES.GENERATOR,
+  AGENT_GRAPH_NODES.MEMORY_PERSIST,
 ]);
 
 export const ROUTER_RETURN_NODES = (
