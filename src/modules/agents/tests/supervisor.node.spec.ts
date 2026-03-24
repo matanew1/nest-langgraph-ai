@@ -50,12 +50,13 @@ describe('supervisorNode', () => {
     expect(result.errors?.[0]?.message).toBe('Cannot do this');
   });
 
-  it('routes to json repair on JSON parse failure', async () => {
-    mockedInvokeLlm.mockResolvedValue('not valid json at all');
+  it('transitions to fatal phase when both parse attempts fail (double-parse-failure)', async () => {
+    // First call: initial LLM response (invalid JSON)
+    // Second call: repair LLM call (also invalid JSON) → safeNodeHandler wraps → fatal
+    mockedInvokeLlm
+      .mockResolvedValueOnce('not valid json at all')
+      .mockResolvedValueOnce('still not valid json');
 
-    const result = await supervisorNode(baseState as AgentState);
-
-    expect(result.jsonRepair).toBeDefined();
-    expect(result.phase).toBe('route');
+    await expect(supervisorNode(baseState as AgentState)).rejects.toThrow();
   });
 });

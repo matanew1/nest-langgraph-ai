@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common';
 import { criticNode } from '../nodes/critic.node';
 import { decisionRouterNode } from '../nodes/decision-router.node';
 import { executionNode } from '../nodes/execution.node';
-import { jsonRepairNode } from '../nodes/json-repair.node';
 import { planValidatorNode } from '../nodes/plan-validator.node';
 import { plannerNode } from '../nodes/planner.node';
 import { researcherNode } from '../nodes/researcher.node';
@@ -37,7 +36,6 @@ export const AGENT_GRAPH_NODES = {
   CRITIC: 'critic',
   GENERATOR: 'generator',
   CHAT: 'chat',
-  JSON_REPAIR: 'json_repair',
   TERMINAL_RESPONSE: 'terminal_response',
   ROUTER: 'router',
 } as const;
@@ -109,10 +107,6 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   [AGENT_GRAPH_NODES.CRITIC]: safeNodeHandler('critic', criticNode),
   [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler('generator', generatorNode),
   [AGENT_GRAPH_NODES.CHAT]: safeNodeHandler('chat', chatNode),
-  [AGENT_GRAPH_NODES.JSON_REPAIR]: safeNodeHandler(
-    'json_repair',
-    jsonRepairNode,
-  ),
   // Error recovery paths — NOT wrapped to avoid masking their own errors:
   [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: terminalResponseNode,
   [AGENT_GRAPH_NODES.ROUTER]: decisionRouterNode,
@@ -141,10 +135,9 @@ export const ROUTER_RETURN_NODES = (
 ).filter((node) => node !== AGENT_GRAPH_NODES.ROUTER);
 
 export function resolveRouterTarget(
-  state: Pick<AgentState, 'phase' | 'jsonRepair'>,
+  state: Pick<AgentState, 'phase'>,
 ): AgentGraphNodeName | typeof END {
   if (state.phase === AGENT_PHASES.COMPLETE) return END;
-  if (state.jsonRepair) return AGENT_GRAPH_NODES.JSON_REPAIR;
   if (state.phase === AGENT_PHASES.FATAL) {
     return AGENT_GRAPH_NODES.TERMINAL_RESPONSE;
   }

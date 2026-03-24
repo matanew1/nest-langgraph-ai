@@ -140,14 +140,6 @@ describe('generatorNode', () => {
     expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String));
   });
 
-  it('does not set jsonRepair field (generator never routes to repair)', async () => {
-    mockedInvokeLlm.mockResolvedValue('Normal answer text.');
-
-    const result = await generatorNode(baseState as AgentState);
-
-    expect(result.jsonRepair).toBeUndefined();
-  });
-
   it('works correctly when objective is undefined', async () => {
     const stateWithoutObjective: Partial<AgentState> = {
       ...baseState,

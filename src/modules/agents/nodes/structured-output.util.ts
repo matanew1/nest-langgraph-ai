@@ -10,12 +10,6 @@ export async function getStructuredNodeRawResponse(
   logger: Logger,
   buildPrompt: () => string,
 ): Promise<string> {
-  if (state.jsonRepairResult !== undefined) {
-    const raw = state.jsonRepairResult;
-    logger.debug(`Using repaired JSON:\n${preview(raw)}`);
-    return raw;
-  }
-
   const prompt = buildPrompt();
   const raw = await invokeLlm(prompt);
   logger.debug(`LLM response:\n${preview(raw)}`);

@@ -9,7 +9,6 @@ import {
 import {
   beginExecutionStep,
   failAgentRun,
-  replayRepairedJson,
   transitionToPhase,
 } from '../state/agent-transition.util';
 
@@ -71,25 +70,6 @@ export async function decisionRouterNode(
         details: { counters, limits: AGENT_LIMITS },
       });
     }
-  }
-
-  // JSON repair path: originating node sets jsonRepair + phase=route.
-  if (state.jsonRepair) {
-    logPhaseEnd('DECISION_ROUTER', 'ROUTE → json_repair', elapsed());
-    return transitionToPhase(AGENT_PHASES.ROUTE);
-  }
-
-  // If we have a repaired JSON payload, route back to the originating phase so
-  // the originating node re-runs and picks up jsonRepairResult instead of
-  // calling the LLM again.
-  if (state.jsonRepairResult !== undefined) {
-    const fromPhase = state.jsonRepairFromPhase ?? AGENT_PHASES.SUPERVISOR;
-    logPhaseEnd(
-      'DECISION_ROUTER',
-      `ROUTE → replay repaired JSON at phase=${fromPhase}`,
-      elapsed(),
-    );
-    return replayRepairedJson(fromPhase, state.jsonRepairResult);
   }
 
   const decision = state.criticDecision;

@@ -3,8 +3,6 @@ import {
   beginExecutionStep,
   completeAgentRun,
   failAgentRun,
-  replayRepairedJson,
-  requestJsonRepair,
   transitionToPhase,
 } from './agent-transition.util';
 
@@ -61,42 +59,6 @@ describe('agent-transition.util', () => {
           atPhase: AGENT_PHASES.ROUTE,
         },
       ],
-    });
-  });
-
-  it('builds JSON repair and replay transitions', () => {
-    expect(
-      requestJsonRepair({
-        fromPhase: AGENT_PHASES.SUPERVISOR,
-        raw: 'oops',
-        schema: '{"status":"ok"}',
-        message: 'Invalid JSON',
-      }),
-    ).toEqual({
-      phase: AGENT_PHASES.ROUTE,
-      jsonRepair: {
-        fromPhase: AGENT_PHASES.SUPERVISOR,
-        raw: 'oops',
-        schema: '{"status":"ok"}',
-      },
-      errors: [
-        {
-          code: 'json_invalid',
-          message: 'Invalid JSON',
-          atPhase: AGENT_PHASES.SUPERVISOR,
-        },
-      ],
-    });
-
-    expect(
-      replayRepairedJson(AGENT_PHASES.PLAN, '{"objective":"x"}', {
-        jsonRepair: undefined,
-      }),
-    ).toEqual({
-      phase: AGENT_PHASES.PLAN,
-      jsonRepair: undefined,
-      jsonRepairResult: '{"objective":"x"}',
-      jsonRepairFromPhase: undefined,
     });
   });
 });

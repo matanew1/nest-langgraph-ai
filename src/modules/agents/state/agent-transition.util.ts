@@ -73,37 +73,3 @@ export function requestPlanReview(
   };
   return transitionToPhase(AGENT_PHASES.AWAIT_PLAN_REVIEW, { reviewRequest });
 }
-
-export function requestJsonRepair(args: {
-  fromPhase: AgentPhase;
-  raw: string;
-  schema: string;
-  message: string;
-}): Partial<AgentState> {
-  return transitionToPhase(AGENT_PHASES.ROUTE, {
-    jsonRepair: {
-      fromPhase: args.fromPhase,
-      raw: args.raw,
-      schema: args.schema,
-    },
-    errors: [
-      {
-        code: 'json_invalid',
-        message: args.message,
-        atPhase: args.fromPhase,
-      },
-    ],
-  });
-}
-
-export function replayRepairedJson(
-  phase: AgentPhase,
-  jsonRepairResult: string,
-  updates: AgentStateUpdates = {},
-): Partial<AgentState> {
-  return transitionToPhase(phase, {
-    ...updates,
-    jsonRepairResult,
-    jsonRepairFromPhase: undefined,
-  });
-}

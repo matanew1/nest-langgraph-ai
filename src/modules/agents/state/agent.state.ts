@@ -39,15 +39,6 @@ export interface Attempt {
   result: ToolResult;
 }
 
-export interface JsonRepairRequest {
-  /** Which phase produced the invalid JSON */
-  fromPhase: AgentPhase;
-  /** Raw LLM output to repair */
-  raw: string;
-  /** A compact schema string the repair node should enforce */
-  schema: string;
-}
-
 export interface CriticDecisionState {
   decision: 'advance' | 'retry_step' | 'replan' | 'complete' | 'fatal';
   reason: string;
@@ -79,9 +70,6 @@ export interface AgentStateShape {
   sessionMemory?: string;
   counters: AgentCounters;
   errors: AgentError[];
-  jsonRepair?: JsonRepairRequest;
-  jsonRepairResult?: string;
-  jsonRepairFromPhase?: AgentPhase;
   criticDecision?: CriticDecisionState;
   attempts: Attempt[];
   /** True when toolResultRaw contains parallel execution results (JSON array) */
@@ -144,21 +132,6 @@ export const AgentStateAnnotation = Annotation.Root({
     reducer: (prev, curr) =>
       [...prev, ...curr].slice(-AGENT_CONSTANTS.errorsHistoryCap),
     default: () => [],
-  }),
-  /** When set, the workflow routes to json repair */
-  jsonRepair: Annotation<JsonRepairRequest | undefined>({
-    reducer: (_, curr) => curr,
-    default: () => undefined,
-  }),
-  /** Repaired JSON string output (for the originating node to parse) */
-  jsonRepairResult: Annotation<string | undefined>({
-    reducer: (_, curr) => curr,
-    default: () => undefined,
-  }),
-  /** The phase that triggered the json repair (used to route back after repair) */
-  jsonRepairFromPhase: Annotation<AgentPhase | undefined>({
-    reducer: (_, b) => b,
-    default: () => undefined,
   }),
   /** Critic decision output passed to router */
   criticDecision: Annotation<CriticDecisionState | undefined>({

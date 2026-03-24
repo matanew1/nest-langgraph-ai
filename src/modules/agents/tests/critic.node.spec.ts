@@ -96,12 +96,11 @@ describe('criticNode', () => {
     expect(result.criticDecision?.decision).toBe('fatal');
   });
 
-  it('routes to json repair on JSON parse failure', async () => {
-    mockedInvokeLlm.mockResolvedValue('not json');
+  it('throws on double-parse-failure when JSON is invalid', async () => {
+    mockedInvokeLlm
+      .mockResolvedValueOnce('not json')
+      .mockResolvedValueOnce('still not json');
 
-    const result = await criticNode(baseState as AgentState);
-
-    expect(result.jsonRepair).toBeDefined();
-    expect(result.phase).toBe('route');
+    await expect(criticNode(baseState as AgentState)).rejects.toThrow();
   });
 });
