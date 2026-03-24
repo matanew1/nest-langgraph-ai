@@ -25,7 +25,8 @@ export const searchTool = tool(
   },
   {
     name: 'search',
-    description: 'Search the web for current information, articles, documentation, and general knowledge',
+    description:
+      'Search the web for current information, articles, documentation, and general knowledge',
     schema: z
       .object({
         query: z.string().min(1).trim(),

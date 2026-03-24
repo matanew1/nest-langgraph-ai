@@ -24,7 +24,7 @@ export async function memoryPersistNode(
       text,
       metadata: { sessionId: state.sessionId, type: 'agent_result' },
     });
-    logger.log('Memory persist: upsert complete');
+    logger.debug('Memory persist: upsert complete');
   } catch (err) {
     logger.warn(
       `Memory persist failed: ${err instanceof Error ? err.message : String(err)}`,
