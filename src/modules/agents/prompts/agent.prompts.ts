@@ -5,8 +5,6 @@ import {
   formatAttempts,
   formatPromptSection,
   getAvailableTools,
-  JSON_ONLY,
-  SELF_REFLECTION,
 } from './prompt-context.util';
 import {
   getPromptTemplate,
@@ -19,8 +17,6 @@ import {
 
 export const buildSupervisorPrompt = (state: AgentState): string =>
   renderPromptTemplate(getPromptTemplate('supervisor'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
@@ -34,8 +30,6 @@ export const buildSupervisorPrompt = (state: AgentState): string =>
 
 export const buildPlannerPrompt = (state: AgentState): string =>
   renderPromptTemplate(getPromptTemplate('planner'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
@@ -118,8 +112,6 @@ export const buildCriticPrompt = (state: AgentState): string => {
       : previewText || '(empty)';
 
   return renderPromptTemplate(getPromptTemplate('critic'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
     objective: state.objective ?? state.input,
     expectedResult: state.expectedResult ?? '(not specified)',
     currentStep: String(currentStep + 1),

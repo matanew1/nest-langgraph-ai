@@ -2,12 +2,6 @@ import { env } from '@config/env';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools';
 
-export const JSON_ONLY =
-  'CRITICAL: Your entire response must be a single JSON object. Start with { and end with }. No prose, no markdown, no code fences, no explanation outside the JSON.';
-
-export const SELF_REFLECTION =
-  'Silently verify before output: (1) starts with {  (2) ends with }  (3) no text outside the JSON  (4) no hallucinated tools.';
-
 export function formatPromptSection(
   value: string | undefined,
   fallback: string,
