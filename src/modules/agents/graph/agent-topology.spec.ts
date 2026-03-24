@@ -15,7 +15,16 @@ jest.mock('@llm/llm.provider', () => ({
 }));
 
 jest.mock('../nodes/supervisor.node', () => ({ supervisorNode: jest.fn() }));
-jest.mock('../nodes/researcher.node', () => ({ researcherNode: jest.fn() }));
+jest.mock('../nodes/researcher-coordinator.node', () => ({
+  researcherCoordinatorNode: jest.fn(),
+}));
+jest.mock('../nodes/research-fs.node', () => ({ researchFsNode: jest.fn() }));
+jest.mock('../nodes/research-vector.node', () => ({
+  researchVectorNode: jest.fn(),
+}));
+jest.mock('../nodes/research-join.node', () => ({
+  researchJoinNode: jest.fn(),
+}));
 jest.mock('../nodes/planner.node', () => ({ plannerNode: jest.fn() }));
 jest.mock('../nodes/plan-validator.node', () => ({
   planValidatorNode: jest.fn(),
@@ -67,5 +76,33 @@ describe('agent-topology', () => {
   it('returns every non-router node back to the router', () => {
     expect(ROUTER_RETURN_NODES).toContain(AGENT_GRAPH_NODES.TERMINAL_RESPONSE);
     expect(ROUTER_RETURN_NODES).not.toContain(AGENT_GRAPH_NODES.ROUTER);
+  });
+
+  it('excludes fan-out and fan-in source nodes from ROUTER_RETURN_NODES', () => {
+    // Coordinator uses Send() — no static edge to router
+    expect(ROUTER_RETURN_NODES).not.toContain(
+      AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
+    );
+    // Sub-nodes have static edges → research_join, not router
+    expect(ROUTER_RETURN_NODES).not.toContain(AGENT_GRAPH_NODES.RESEARCH_FS);
+    expect(ROUTER_RETURN_NODES).not.toContain(
+      AGENT_GRAPH_NODES.RESEARCH_VECTOR,
+    );
+  });
+
+  it('includes research_join in ROUTER_RETURN_NODES', () => {
+    expect(ROUTER_RETURN_NODES).toContain(AGENT_GRAPH_NODES.RESEARCH_JOIN);
+  });
+
+  it('routes research phase to researcher_coordinator', () => {
+    expect(resolveRouterTarget({ phase: 'research' })).toBe(
+      AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
+    );
+  });
+
+  it('routes research_join phase to research_join node', () => {
+    expect(resolveRouterTarget({ phase: 'research_join' })).toBe(
+      AGENT_GRAPH_NODES.RESEARCH_JOIN,
+    );
   });
 });
