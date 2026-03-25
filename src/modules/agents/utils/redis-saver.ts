@@ -522,6 +522,30 @@ export class RedisSaver extends BaseCheckpointSaver {
     );
   }
 
+  public async listSessionIds(limit = 500): Promise<string[]> {
+    const pattern = 'agent:thread:*:memory';
+    const results: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
+      for (const key of keys) {
+        const match = key.match(/^agent:thread:(.+):memory$/);
+        if (match) {
+          results.push(match[1]);
+          if (results.length >= limit) return results;
+        }
+      }
+    } while (cursor !== '0');
+    return results;
+  }
+
   public async getThreadMemory(threadId: string): Promise<string | undefined> {
     const value = await this.client.get(this.getThreadMemoryKey(threadId));
     return value ?? undefined;

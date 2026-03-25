@@ -436,6 +436,50 @@
       .sidebar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease); }
       .main-grid.sidebar-open .sidebar-overlay { display: block; opacity: 1; pointer-events: auto; }
     }
+
+    /* ── Session History Sidebar ── */
+    .sidebar-section-row { display: flex; align-items: center; padding: 20px 16px 8px; }
+    .sidebar-section-row .sidebar-section-label { padding: 0; flex: 1; }
+    .sidebar-refresh-btn { width: 22px; height: 22px; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s var(--ease); }
+    .sidebar-refresh-btn:hover { background: var(--surface-hover); color: var(--text); }
+    .sidebar-refresh-btn svg { width: 13px; height: 13px; }
+    .sidebar-refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+
+    .history-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+    .history-item-top { display: flex; align-items: center; gap: 6px; }
+    .history-item-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .history-item-badge { font-size: 10px; font-weight: 600; background: var(--accent-subtle); color: var(--accent); padding: 1px 6px; border-radius: var(--radius-full); flex-shrink: 0; }
+    .history-item-meta { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-item-del { opacity: 0; flex-shrink: 0; width: 20px; height: 20px; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s var(--ease); padding: 0; }
+    .history-item:hover .history-item-del { opacity: 1; }
+    .history-item-del:hover { background: var(--error-subtle); color: var(--error); }
+    .history-item-del svg { width: 12px; height: 12px; }
+
+    .history-loading { padding: 24px 16px; text-align: center; color: var(--text-tertiary); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .history-loading svg { width: 16px; height: 16px; animation: spin 0.8s linear infinite; color: var(--accent); }
+    .history-empty { padding: 24px 16px; text-align: center; color: var(--text-tertiary); font-size: 12px; }
+
+    .history-detail-view { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .history-detail-header { display: flex; align-items: center; gap: 8px; }
+    .history-detail-back { width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-hover); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s var(--ease); flex-shrink: 0; }
+    .history-detail-back:hover { background: var(--surface-elevated); color: var(--text); }
+    .history-detail-back svg { width: 14px; height: 14px; }
+    .history-detail-title { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-detail-sid { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-tertiary); background: var(--surface-hover); padding: 2px 8px; border-radius: var(--radius-sm); }
+
+    .history-entry-card { background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; }
+    .history-entry-ts { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-tertiary); margin-bottom: 6px; }
+    .history-entry-body { font-size: 12px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .history-entry-body strong { color: var(--text); }
+
+    .history-detail-actions { display: flex; gap: 6px; padding-top: 4px; }
+    .history-action-btn { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-hover); color: var(--text-secondary); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.2s var(--ease); }
+    .history-action-btn:hover { background: var(--surface-elevated); color: var(--text); border-color: var(--border-strong); }
+    .history-action-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .history-action-btn.primary:hover { background: var(--accent-hover); }
+    .history-action-btn.danger { color: var(--error); }
+    .history-action-btn.danger:hover { background: var(--error-subtle); border-color: var(--error); }
+    .history-action-btn svg { width: 12px; height: 12px; }
   </style>
 </head>
 <body>
@@ -485,10 +529,15 @@
           New Chat
         </button>
       </div>
-      <div class="sidebar-section-label">History</div>
+      <div class="sidebar-section-row">
+        <div class="sidebar-section-label" id="sidebar-history-label">History</div>
+        <button class="sidebar-refresh-btn" id="history-refresh-btn" onclick="renderHistory()" title="Refresh sessions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
+      </div>
       <div class="sidebar-history" id="history-list"></div>
       <div class="sidebar-footer">
-        <button class="sidebar-footer-btn" onclick="deleteSession()">
+        <button class="sidebar-footer-btn" id="delete-session-btn" onclick="deleteSession()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           Clear
         </button>
@@ -629,13 +678,16 @@
     newChatBtn.appendChild(ncSvg);
     newChatBtn.append(' ' + t('newChat'));
 
-    document.querySelector('.sidebar-section-label').textContent = t('history');
+    const histLabel = document.getElementById('sidebar-history-label');
+    if (histLabel) histLabel.textContent = t('history');
 
-    const clearBtn = document.querySelector('.sidebar-footer-btn');
-    const clSvg = clearBtn.querySelector('svg');
-    clearBtn.textContent = '';
-    clearBtn.appendChild(clSvg);
-    clearBtn.append(' ' + t('clear'));
+    const clearBtn = document.getElementById('delete-session-btn');
+    if (clearBtn) {
+      const clSvg = clearBtn.querySelector('svg');
+      clearBtn.textContent = '';
+      clearBtn.appendChild(clSvg);
+      clearBtn.append(' ' + t('clear'));
+    }
 
     // Chat header
     if (!streaming) {
@@ -939,11 +991,13 @@
     }
   }
 
-  async function deleteSession() {
+  async function deleteSession(sid) {
+    const target = sid || sessionId;
     if (!confirm(t('deleteConfirm'))) return;
-    await fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}`, {method:'DELETE'});
+    await fetch(`${base()}/api/agents/session/${encodeURIComponent(target)}`, {method:'DELETE'});
     showToast(t('sessionCleared'));
-    newSession();
+    if (target === sessionId) newSession();
+    else renderHistory();
   }
 
   async function sendPrompt() {
@@ -1061,6 +1115,132 @@
     renderHistory();
   }
 
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    if (h < 24) return `${h}h ago`;
+    return `${d}d ago`;
+  }
+
+  async function renderHistory() {
+    const container = document.getElementById('history-list');
+    const refreshBtn = document.getElementById('history-refresh-btn');
+    refreshBtn.classList.add('spinning');
+    container.innerHTML = `<div class="history-loading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Loading...</div>`;
+
+    try {
+      const res = await fetch(`${base()}/api/agents/sessions`);
+      const data = res.ok ? await res.json() : { sessions: [] };
+      const sessions = data.sessions || [];
+      container.innerHTML = '';
+
+      // Current (possibly unsaved) session pinned at top
+      const curItem = document.createElement('div');
+      curItem.className = 'history-item active';
+      curItem.id = 'history-cur';
+      curItem.onclick = () => switchToSession(sessionId, null, true);
+      curItem.innerHTML = `<span class="icon">${ICONS.chat}</span><div class="history-item-info"><div class="history-item-top"><span class="history-item-label">${t('currentSession')}</span></div><div class="history-item-meta">${sessionId.slice(0,12)}…</div></div><span class="time">${t('now')}</span>`;
+      container.appendChild(curItem);
+
+      if (sessions.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'history-empty';
+        empty.textContent = 'No past sessions found.';
+        container.appendChild(empty);
+      } else {
+        for (const s of sessions) {
+          if (s.sessionId === sessionId) continue; // already shown as current
+          const item = document.createElement('div');
+          item.className = 'history-item';
+          item.dataset.sid = s.sessionId;
+          item.onclick = () => switchToSession(s.sessionId, s.lastObjective);
+          const label = s.lastObjective ? s.lastObjective.slice(0, 28) + (s.lastObjective.length > 28 ? '…' : '') : s.sessionId.slice(0, 14) + '…';
+          const time = relativeTime(s.lastActivity);
+          const badge = s.messageCount > 0 ? `<span class="history-item-badge">${s.messageCount}</span>` : '';
+          item.innerHTML = `
+            <span class="icon">${ICONS.chat}</span>
+            <div class="history-item-info">
+              <div class="history-item-top">
+                <span class="history-item-label">${esc(label)}</span>${badge}
+              </div>
+              <div class="history-item-meta">${esc(s.sessionId.slice(0,12))}… · ${time}</div>
+            </div>
+            <button class="history-item-del" onclick="event.stopPropagation();deleteSession('${esc(s.sessionId)}')" title="Delete session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>`;
+          container.appendChild(item);
+        }
+      }
+    } catch {
+      container.innerHTML = '<div class="history-empty">Could not load sessions.</div>';
+    } finally {
+      refreshBtn.classList.remove('spinning');
+    }
+  }
+
+  async function switchToSession(sid, objective, isCurrent = false) {
+    // Update active highlight
+    document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+    const el = isCurrent
+      ? document.getElementById('history-cur')
+      : document.querySelector(`[data-sid="${sid}"]`);
+    if (el) el.classList.add('active');
+
+    if (isCurrent && sid === sessionId) return; // already on current, do nothing
+
+    // Switch session
+    sessionId = sid;
+    if (abortController) abortController.abort();
+    streaming = false;
+    currentActivityGroup = null;
+    hadToolCalls = false;
+    stopBtn.classList.remove('visible');
+    clearProgress();
+
+    // Clear feed
+    const inner = feed.querySelector('.feed-inner');
+    if (inner) inner.remove();
+    emptyWrap.style.display = '';
+
+    const title = objective ? objective.slice(0, 40) + (objective.length > 40 ? '…' : '') : sid.slice(0, 16) + '…';
+    document.getElementById('chat-session-title').textContent = title;
+
+    // Load detail and show memory entries in feed
+    try {
+      const res = await fetch(`${base()}/api/agents/session/${encodeURIComponent(sid)}/detail`);
+      if (!res.ok) return;
+      const detail = await res.json();
+      if (!detail.entries || detail.entries.length === 0) return;
+
+      hideEmpty();
+      const feedInner = getFeedInner();
+      const note = document.createElement('div');
+      note.style.cssText = 'text-align:center;font-size:11px;color:var(--text-tertiary);padding:8px 0 16px;';
+      note.textContent = `Session history · ${detail.entries.length} turn${detail.entries.length > 1 ? 's' : ''}`;
+      feedInner.appendChild(note);
+
+      // Render each memory entry as a card
+      for (const entry of [...detail.entries].reverse()) {
+        const tsMatch = entry.match(/^\[(.+?)\]/);
+        const bodyText = entry.replace(/^\[.+?\]\n?/, '').trim();
+        const card = document.createElement('div');
+        card.className = 'msg-row';
+        card.style.marginBottom = '16px';
+        const tsLabel = tsMatch ? new Date(tsMatch[1]).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        card.innerHTML = `<div class="avatar avatar-agent">${ICONS.agent}</div><div class="bubble-wrap"><div class="bubble bubble-agent">${renderMd(bodyText)}<button class="bubble-copy" onclick="copyBubble(this)">${ICONS.copy}</button></div>${tsLabel ? `<span class="bubble-time">${tsLabel}</span>` : ''}</div>`;
+        feedInner.appendChild(card);
+      }
+      scrollFeed();
+    } catch { /* show empty state */ }
+
+    promptInput.focus();
+  }
+
   function attachFile() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1113,26 +1293,23 @@
     document.getElementById('theme-icon-dark').style.display = isDark ? 'none' : 'block';
   }
 
-  function renderHistory() {
-    const container = document.getElementById('history-list');
-    container.innerHTML = '';
-    const item = document.createElement('div');
-    item.className = 'history-item active';
-    item.innerHTML = `<span class="icon">${ICONS.chat}</span><span class="label">${t('currentSession')}</span><span class="time">${t('now')}</span>`;
-    container.appendChild(item);
-  }
+  // renderHistory is defined above with full API integration
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && streaming) stopStreaming();
   });
 
   window.onload = () => {
-    renderHistory();
+    renderHistory(); // async — fetches sessions from API
     document.getElementById('chat-session-title').textContent = t('newConversation');
     promptInput.focus();
     if (typeof mermaid !== 'undefined') {
       mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
     }
+    // Refresh history list when returning focus to the page
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) renderHistory();
+    });
   };
 </script>
 </body>

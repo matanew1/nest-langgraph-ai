@@ -132,6 +132,37 @@ export class FeedbackStatsResponseDto {
   @ApiProperty() pointsUpdated: number;
 }
 
+export class SessionSummaryDto {
+  @ApiProperty({ description: 'Session ID' })
+  sessionId: string;
+
+  @ApiProperty({ description: 'ISO timestamp of last activity', nullable: true })
+  lastActivity: string | null;
+
+  @ApiProperty({ description: 'Last objective or prompt', nullable: true })
+  lastObjective: string | null;
+
+  @ApiProperty({ description: 'Number of conversation turns in memory' })
+  messageCount: number;
+}
+
+export class ListSessionsResponseDto {
+  @ApiProperty({ type: [SessionSummaryDto] })
+  sessions: SessionSummaryDto[];
+
+  @ApiProperty()
+  total: number;
+}
+
+export class SessionDetailDto {
+  @ApiProperty() sessionId: string;
+  @ApiProperty({ type: [String] }) entries: string[];
+  @ApiProperty() raw: string;
+  @ApiProperty({ nullable: true }) lastInput: string | null;
+  @ApiProperty({ nullable: true }) lastObjective: string | null;
+  @ApiProperty({ nullable: true }) phase: string | null;
+}
+
 export interface StreamEventDto {
   type:
     | 'status'

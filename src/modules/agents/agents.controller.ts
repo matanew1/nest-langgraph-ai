@@ -19,6 +19,10 @@ import {
   ReviewPageData,
   StreamEvent,
 } from './agents.service';
+import {
+  ListSessionsResponseDto,
+  SessionDetailDto,
+} from './agents.dto';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import {
   RunAgentDto,
@@ -106,6 +110,31 @@ export class AgentsController {
         } as unknown as MessageEvent;
       }),
     );
+  }
+
+  @Get('sessions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List all active sessions with metadata' })
+  @ApiStandardResponse({
+    type: ListSessionsResponseDto,
+    description: 'All active sessions sorted by most recent activity',
+  })
+  async listSessions(): Promise<ListSessionsResponseDto> {
+    return this.agentsService.listSessions();
+  }
+
+  @Get('session/:sessionId/detail')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get full detail for a session including conversation history' })
+  @ApiSessionIdParam()
+  @ApiStandardResponse({
+    type: SessionDetailDto,
+    description: 'Session detail with memory entries and last state',
+  })
+  async getSessionDetail(
+    @Param('sessionId') sessionId: string,
+  ): Promise<SessionDetailDto> {
+    return this.agentsService.getSessionDetail(sessionId);
   }
 
   @Delete('session/:sessionId')
