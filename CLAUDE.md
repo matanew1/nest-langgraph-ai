@@ -5,8 +5,8 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`) with circuit breaker, retry, and AbortController timeout.
 - **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB for semantic memory).
 - **Core Loop:**
-  - Conversational fast-path: `Supervisor → Chat → MemoryPersist → Complete`
-  - Full agent pipeline: `Supervisor → ResearcherCoordinator → [ResearchFS ‖ ResearchVector] → ResearchJoin → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → [Router ‖ MemoryPersist] → Complete`
+  - Conversational fast-path: `Supervisor → Chat → Router → Complete`
+  - Full agent pipeline: `Supervisor → ResearcherCoordinator → [ResearchFS ‖ ResearchVector] → ResearchJoin → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → [fan-out: Router → Complete ‖ MemoryPersist]`
   - Parallel execution variant: `Execute → ExecuteParallel → Normalize`
   - Error paths: `terminal_response` (fatal/clarification); malformed LLM JSON is repaired inline via `parseWithRepair` within each LLM node (no dedicated node)
 - **Error boundaries:** All nodes wrapped in `safeNodeHandler()` (catches unhandled exceptions → `failAgentRun()`).
