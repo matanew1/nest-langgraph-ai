@@ -5,8 +5,6 @@ import {
   formatAttempts,
   formatPromptSection,
   getAvailableTools,
-  JSON_ONLY,
-  SELF_REFLECTION,
 } from './prompt-context.util';
 import {
   getPromptTemplate,
@@ -19,8 +17,6 @@ import {
 
 export const buildSupervisorPrompt = (state: AgentState): string =>
   renderPromptTemplate(getPromptTemplate('supervisor'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
@@ -32,14 +28,25 @@ export const buildSupervisorPrompt = (state: AgentState): string =>
     input: state.input,
   });
 
-export const buildPlannerPrompt = (state: AgentState): string =>
-  renderPromptTemplate(getPromptTemplate('planner'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
+export const buildPlannerPrompt = (state: AgentState): string => {
+  const objective = state.objective ?? state.input;
+  // When the supervisor extracted a short objective from a longer user input
+  // (e.g. input contains inline [Attached: ...] or [File: ...] blocks), pass
+  // the full original input so the planner can see the inline file content.
+  const rawUserRequest =
+    state.input && state.input !== objective
+      ? formatPromptSection(state.input, '', env.promptMaxSummaryChars * 2)
+      : '';
+  const userRequest = rawUserRequest
+    ? `\nOriginal user request (may contain inline file attachments):\n${rawUserRequest}`
+    : '';
+
+  return renderPromptTemplate(getPromptTemplate('planner'), {
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
     attempts: formatAttempts(state),
-    objective: state.objective ?? state.input,
+    objective,
+    userRequest,
     projectContext: formatPromptSection(
       state.projectContext,
       '(not available)',
@@ -51,6 +58,7 @@ export const buildPlannerPrompt = (state: AgentState): string =>
       env.promptMaxSummaryChars,
     ),
   });
+};
 
 export const buildChatPrompt = (state: AgentState): string => {
   const memory = state.sessionMemory
@@ -118,8 +126,6 @@ export const buildCriticPrompt = (state: AgentState): string => {
       : previewText || '(empty)';
 
   return renderPromptTemplate(getPromptTemplate('critic'), {
-    JSON_ONLY,
-    SELF_REFLECTION,
     objective: state.objective ?? state.input,
     expectedResult: state.expectedResult ?? '(not specified)',
     currentStep: String(currentStep + 1),

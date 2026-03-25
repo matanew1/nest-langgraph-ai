@@ -27,8 +27,6 @@ export function createInitialAgentRunState(
     toolResultRaw: undefined,
     toolResult: undefined,
     criticDecision: undefined,
-    jsonRepair: undefined,
-    jsonRepairResult: undefined,
     finalAnswer: undefined,
     projectContext: undefined,
     memoryContext: undefined,

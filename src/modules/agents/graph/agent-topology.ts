@@ -3,14 +3,17 @@ import { Logger } from '@nestjs/common';
 import { criticNode } from '../nodes/critic.node';
 import { decisionRouterNode } from '../nodes/decision-router.node';
 import { executionNode } from '../nodes/execution.node';
-import { jsonRepairNode } from '../nodes/json-repair.node';
 import { planValidatorNode } from '../nodes/plan-validator.node';
 import { plannerNode } from '../nodes/planner.node';
-import { researcherNode } from '../nodes/researcher.node';
+import { researcherCoordinatorNode } from '../nodes/researcher-coordinator.node';
+import { researchFsNode } from '../nodes/research-fs.node';
+import { researchVectorNode } from '../nodes/research-vector.node';
+import { researchJoinNode } from '../nodes/research-join.node';
 import { supervisorNode } from '../nodes/supervisor.node';
 import { terminalResponseNode } from '../nodes/terminal-response.node';
 import { chatNode } from '../nodes/chat.node';
 import { generatorNode } from '../nodes/generator.node';
+import { memoryPersistNode } from '../nodes/memory-persist.node';
 import { awaitPlanReviewNode } from '../nodes/await-plan-review.node';
 import { parallelExecutionNode } from '../nodes/parallel-execution.node';
 import {
@@ -22,28 +25,12 @@ import {
 import { failAgentRun } from '../state/agent-transition.util';
 import { toolResultNormalizerNode } from '../nodes/tool-result-normalizer.node';
 import type { AgentState } from '../state/agent.state';
+import { AGENT_GRAPH_NODES, type AgentGraphNodeName } from './agent-node-names';
+
+// Re-export for backwards compatibility
+export { AGENT_GRAPH_NODES, type AgentGraphNodeName } from './agent-node-names';
 
 const topologyLogger = new Logger('AgentTopology');
-
-export const AGENT_GRAPH_NODES = {
-  SUPERVISOR: 'supervisor',
-  RESEARCHER: 'researcher',
-  PLANNER: 'planner',
-  PLAN_VALIDATOR: 'plan_validator',
-  AWAIT_PLAN_REVIEW: 'await_plan_review',
-  EXECUTE: 'execute',
-  EXECUTE_PARALLEL: 'execute_parallel',
-  TOOL_RESULT_NORMALIZER: 'tool_result_normalizer',
-  CRITIC: 'critic',
-  GENERATOR: 'generator',
-  CHAT: 'chat',
-  JSON_REPAIR: 'json_repair',
-  TERMINAL_RESPONSE: 'terminal_response',
-  ROUTER: 'router',
-} as const;
-
-export type AgentGraphNodeName =
-  (typeof AGENT_GRAPH_NODES)[keyof typeof AGENT_GRAPH_NODES];
 
 type AgentNodeHandler = (state: AgentState) => Promise<Partial<AgentState>>;
 
@@ -87,7 +74,22 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   AgentNodeHandler
 > = {
   [AGENT_GRAPH_NODES.SUPERVISOR]: safeNodeHandler('supervisor', supervisorNode),
-  [AGENT_GRAPH_NODES.RESEARCHER]: safeNodeHandler('researcher', researcherNode),
+  [AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR]: safeNodeHandler(
+    'researcher_coordinator',
+    researcherCoordinatorNode,
+  ),
+  [AGENT_GRAPH_NODES.RESEARCH_FS]: safeNodeHandler(
+    'research_fs',
+    researchFsNode,
+  ),
+  [AGENT_GRAPH_NODES.RESEARCH_VECTOR]: safeNodeHandler(
+    'research_vector',
+    researchVectorNode,
+  ),
+  [AGENT_GRAPH_NODES.RESEARCH_JOIN]: safeNodeHandler(
+    'research_join',
+    researchJoinNode,
+  ),
   [AGENT_GRAPH_NODES.PLANNER]: safeNodeHandler('planner', plannerNode),
   [AGENT_GRAPH_NODES.PLAN_VALIDATOR]: safeNodeHandler(
     'plan_validator',
@@ -108,11 +110,11 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   ),
   [AGENT_GRAPH_NODES.CRITIC]: safeNodeHandler('critic', criticNode),
   [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler('generator', generatorNode),
-  [AGENT_GRAPH_NODES.CHAT]: safeNodeHandler('chat', chatNode),
-  [AGENT_GRAPH_NODES.JSON_REPAIR]: safeNodeHandler(
-    'json_repair',
-    jsonRepairNode,
+  [AGENT_GRAPH_NODES.MEMORY_PERSIST]: safeNodeHandler(
+    'memory_persist',
+    memoryPersistNode,
   ),
+  [AGENT_GRAPH_NODES.CHAT]: safeNodeHandler('chat', chatNode),
   // Error recovery paths — NOT wrapped to avoid masking their own errors:
   [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: terminalResponseNode,
   [AGENT_GRAPH_NODES.ROUTER]: decisionRouterNode,
@@ -121,7 +123,8 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
 const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
   {
     [AGENT_PHASES.SUPERVISOR]: AGENT_GRAPH_NODES.SUPERVISOR,
-    [AGENT_PHASES.RESEARCH]: AGENT_GRAPH_NODES.RESEARCHER,
+    [AGENT_PHASES.RESEARCH]: AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
+    [AGENT_PHASES.RESEARCH_JOIN]: AGENT_GRAPH_NODES.RESEARCH_JOIN,
     [AGENT_PHASES.PLAN]: AGENT_GRAPH_NODES.PLANNER,
     [AGENT_PHASES.VALIDATE_PLAN]: AGENT_GRAPH_NODES.PLAN_VALIDATOR,
     [AGENT_PHASES.AWAIT_PLAN_REVIEW]: AGENT_GRAPH_NODES.AWAIT_PLAN_REVIEW,
@@ -136,15 +139,32 @@ const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
     [AGENT_PHASES.EXECUTE_PARALLEL]: AGENT_GRAPH_NODES.EXECUTE_PARALLEL,
   };
 
+/**
+ * Nodes that do NOT get a static edge back to ROUTER:
+ * - ROUTER itself (no self-loop)
+ * - RESEARCHER_COORDINATOR: uses Send() fan-out — LangGraph dispatches directly
+ * - RESEARCH_FS: has direct static edge → RESEARCH_JOIN
+ * - RESEARCH_VECTOR: has direct static edge → RESEARCH_JOIN
+ * - MEMORY_PERSIST: has a direct static edge → END
+ * - GENERATOR: has direct static edges → ROUTER and MEMORY_PERSIST
+ */
+const NODES_WITHOUT_ROUTER_EDGE = new Set<AgentGraphNodeName>([
+  AGENT_GRAPH_NODES.ROUTER,
+  AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR,
+  AGENT_GRAPH_NODES.RESEARCH_FS,
+  AGENT_GRAPH_NODES.RESEARCH_VECTOR,
+  AGENT_GRAPH_NODES.GENERATOR,
+  AGENT_GRAPH_NODES.MEMORY_PERSIST,
+]);
+
 export const ROUTER_RETURN_NODES = (
   Object.values(AGENT_GRAPH_NODES) as AgentGraphNodeName[]
-).filter((node) => node !== AGENT_GRAPH_NODES.ROUTER);
+).filter((node) => !NODES_WITHOUT_ROUTER_EDGE.has(node));
 
 export function resolveRouterTarget(
-  state: Pick<AgentState, 'phase' | 'jsonRepair'>,
+  state: Pick<AgentState, 'phase'>,
 ): AgentGraphNodeName | typeof END {
   if (state.phase === AGENT_PHASES.COMPLETE) return END;
-  if (state.jsonRepair) return AGENT_GRAPH_NODES.JSON_REPAIR;
   if (state.phase === AGENT_PHASES.FATAL) {
     return AGENT_GRAPH_NODES.TERMINAL_RESPONSE;
   }

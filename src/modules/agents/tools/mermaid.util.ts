@@ -67,12 +67,10 @@ nodes/execution.node.ts"]
 nodes/tool-result-normalizer.node.ts"]
   CRITIC["CRITIC
 nodes/critic.node.ts"]
-  JSON_REPAIR["JSON REPAIR
-nodes/json-repair.node.ts"]
 
   ROUTER["ROUTER
 nodes/decision-router.node.ts
-routes by state.phase + flags"]
+routes by state.phase"]
 
   %% Fixed edges (every node returns to ROUTER)
   START --> SUPERVISOR
@@ -83,11 +81,9 @@ routes by state.phase + flags"]
   EXECUTE --> ROUTER
   TOOL_RESULT_NORMALIZER --> ROUTER
   CRITIC --> ROUTER
-  JSON_REPAIR --> ROUTER
 
   %% Conditional edges from ROUTER
   ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
 
   ROUTER -->|phase = supervisor| SUPERVISOR
   ROUTER -->|phase = research| RESEARCHER

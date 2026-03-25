@@ -9,7 +9,6 @@ import {
 import {
   beginExecutionStep,
   failAgentRun,
-  replayRepairedJson,
   transitionToPhase,
 } from '../state/agent-transition.util';
 
@@ -71,25 +70,6 @@ export async function decisionRouterNode(
         details: { counters, limits: AGENT_LIMITS },
       });
     }
-  }
-
-  // JSON repair path: originating node sets jsonRepair + phase=route.
-  if (state.jsonRepair) {
-    logPhaseEnd('DECISION_ROUTER', 'ROUTE → json_repair', elapsed());
-    return transitionToPhase(AGENT_PHASES.ROUTE);
-  }
-
-  // If we have a repaired JSON payload, route back to the originating phase so
-  // the originating node re-runs and picks up jsonRepairResult instead of
-  // calling the LLM again.
-  if (state.jsonRepairResult !== undefined) {
-    const fromPhase = state.jsonRepairFromPhase ?? AGENT_PHASES.SUPERVISOR;
-    logPhaseEnd(
-      'DECISION_ROUTER',
-      `ROUTE → replay repaired JSON at phase=${fromPhase}`,
-      elapsed(),
-    );
-    return replayRepairedJson(fromPhase, state.jsonRepairResult);
   }
 
   const decision = state.criticDecision;
@@ -181,6 +161,27 @@ export async function decisionRouterNode(
   // This is intentional: a failed parallel group should retry the single failing step
   // rather than re-running the entire group.
   if (decision.decision === 'retry_step') {
+    // Deterministic loop prevention: if this step+tool combination has already been
+    // attempted ≥2 times the params will never change (executor uses state.toolParams
+    // unchanged). Escalate to replan so the planner can choose a different approach.
+    const currentTool = state.selectedTool ?? '';
+    const currentStepIdx = state.currentStep ?? 0;
+    const priorAttemptsForStep = (state.attempts ?? []).filter(
+      (a) => a.step === currentStepIdx && a.tool === currentTool,
+    );
+    if (priorAttemptsForStep.length >= 2) {
+      logPhaseEnd(
+        'DECISION_ROUTER',
+        `RETRY_STEP → REPLAN (${currentTool} tried ${priorAttemptsForStep.length}x for step ${currentStepIdx + 1})`,
+        elapsed(),
+      );
+      return transitionToPhase(AGENT_PHASES.RESEARCH, {
+        memoryContext: undefined,
+        counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
+        criticDecision: undefined,
+      });
+    }
+
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
     return transitionToPhase(AGENT_PHASES.EXECUTE, {
       counters: incrementAgentCounters(counters, {

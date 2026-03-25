@@ -5,28 +5,36 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`) with circuit breaker, retry, and AbortController timeout.
 - **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB for semantic memory).
 - **Core Loop:**
-  - Conversational fast-path: `Supervisor → Chat → Complete`
-  - Full agent pipeline: `Supervisor → Researcher → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → Complete`
-  - Error paths: `json_repair` (malformed LLM JSON), `terminal_response` (fatal/clarification)
+  - Conversational fast-path: `Supervisor → Chat → Router → Complete`
+  - Full agent pipeline: `Supervisor → ResearcherCoordinator → [ResearchFS ‖ ResearchVector] → ResearchJoin → Planner → Validator → [AwaitPlanReview] → Execute → Normalize → Critic → Router → Generator → [fan-out: Router → Complete ‖ MemoryPersist]`
+  - Parallel execution variant: `Execute → ExecuteParallel → Normalize`
+  - Error paths: `terminal_response` (fatal/clarification); malformed LLM JSON is repaired inline via `parseWithRepair` within each LLM node (no dedicated node)
 - **Error boundaries:** All nodes wrapped in `safeNodeHandler()` (catches unhandled exceptions → `failAgentRun()`).
 
-## Graph Nodes (13 total)
+## Graph Nodes (17 total)
 
-| Phase | Node file |
-|-------|-----------|
+| Phase / Role | Node file |
+|---|---|
 | `supervisor` | `nodes/supervisor.node.ts` |
-| `research` | `nodes/researcher.node.ts` |
-| `plan` | `nodes/planner.node.ts` |
-| `validate_plan` | `nodes/plan-validator.node.ts` |
+| `researcher_coordinator` | `nodes/researcher-coordinator.node.ts` |
+| `research_fs` | `nodes/research-fs.node.ts` |
+| `research_vector` | `nodes/research-vector.node.ts` |
+| `research_join` | `nodes/research-join.node.ts` |
+| `planner` | `nodes/planner.node.ts` |
+| `plan_validator` | `nodes/plan-validator.node.ts` |
 | `await_plan_review` | `nodes/await-plan-review.node.ts` |
 | `execute` | `nodes/execution.node.ts` |
-| `normalize_tool_result` | `nodes/tool-result-normalizer.node.ts` |
-| `judge` | `nodes/critic.node.ts` |
-| `generate` | `nodes/generator.node.ts` |
+| `execute_parallel` | `nodes/parallel-execution.node.ts` |
+| `tool_result_normalizer` | `nodes/tool-result-normalizer.node.ts` |
+| `critic` | `nodes/critic.node.ts` |
+| `generator` | `nodes/generator.node.ts` |
+| `memory_persist` | `nodes/memory-persist.node.ts` |
 | `chat` | `nodes/chat.node.ts` |
 | `fatal_recovery / clarification` | `nodes/terminal-response.node.ts` |
-| `json_repair` | `nodes/json-repair.node.ts` |
 | — (routing) | `nodes/decision-router.node.ts` |
+
+> JSON repair is now inline: `parseWithRepair` in `nodes/parse-with-repair.util.ts` is called directly by each LLM node; there is no dedicated `json_repair` graph node.
+> Node name string constants live in `graph/agent-node-names.ts` (leaf module, no node/topology imports) and are re-exported from `agent-topology.ts` for backwards compatibility.
 
 ## Key Constants (`graph/agent.config.ts`)
 - `AGENT_CONSTANTS`: `chatMemoryMaxChars`, `researcherTreeMaxLines`, `rawResultMaxBytes`, `attemptsHistoryCap`, `errorsHistoryCap`, `checkpointHistoryLimit`

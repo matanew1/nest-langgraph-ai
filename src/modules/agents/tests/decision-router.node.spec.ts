@@ -117,15 +117,4 @@ describe('decisionRouterNode', () => {
     expect(result.phase).toBe('fatal');
     expect(result.finalAnswer).toContain('max recovery turns');
   });
-
-  it('routes to originating phase when jsonRepairResult is set', async () => {
-    const state: Partial<AgentState> = {
-      ...baseState,
-      jsonRepairResult: '{\"status\":\"ok\",\"objective\":\"test\"}',
-      jsonRepairFromPhase: 'supervisor',
-    };
-    const result = await decisionRouterNode(state as AgentState);
-    expect(result.phase).toBe('supervisor');
-    expect(result.jsonRepairFromPhase).toBeUndefined();
-  });
 });

@@ -11,9 +11,10 @@ jest.mock('../prompts/agent.prompts', () => ({
 }));
 
 jest.mock('../state/agent-transition.util', () => ({
-  completeAgentRun: jest
-    .fn()
-    .mockImplementation((answer) => ({ output: answer })),
+  completeAgentRun: jest.fn().mockImplementation((answer) => ({
+    finalAnswer: answer,
+    phase: 'complete',
+  })),
 }));
 
 jest.mock('@utils/pretty-log.util', () => ({
@@ -85,6 +86,13 @@ describe('generatorNode', () => {
     expect(streamLlm).not.toHaveBeenCalled();
   });
 
+  it('returns a Partial<AgentState> with phase=complete and finalAnswer', async () => {
+    const state = makeState();
+    const result = await generatorNode(state);
+
+    expect(result).toMatchObject({ phase: 'complete', finalAnswer: 'invoked answer' });
+  });
+
   it('calls onToken for each yielded token and assembles the full answer', async () => {
     const tokens = ['Final', ' ', 'answer'];
     streamLlm.mockReturnValue(
@@ -101,7 +109,7 @@ describe('generatorNode', () => {
     expect(onToken).toHaveBeenNthCalledWith(1, 'Final');
     expect(onToken).toHaveBeenNthCalledWith(2, ' ');
     expect(onToken).toHaveBeenNthCalledWith(3, 'answer');
-    expect(result).toEqual({ output: 'Final answer' });
+    expect((result as any).finalAnswer).toBe('Final answer');
   });
 
   it('skips empty tokens when streaming', async () => {
@@ -118,10 +126,10 @@ describe('generatorNode', () => {
     const result = await generatorNode(state);
 
     expect(onToken).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ output: 'Done!' });
+    expect((result as any).finalAnswer).toBe('Done!');
   });
 
-  it('returns empty answer when streamLlm yields no non-empty tokens', async () => {
+  it('returns complete phase even when streamLlm yields no non-empty tokens', async () => {
     streamLlm.mockReturnValue(
       (function* () {
         yield '';
@@ -133,6 +141,6 @@ describe('generatorNode', () => {
     const state = makeState({ onToken });
     const result = await generatorNode(state);
 
-    expect(result).toEqual({ output: '' });
+    expect(result).toMatchObject({ phase: 'complete' });
   });
 });

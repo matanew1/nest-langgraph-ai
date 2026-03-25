@@ -8,7 +8,7 @@ import {
 jest.mock('node:fs', () => ({
   readFileSync: jest.fn((filePath: string) => {
     if (filePath.includes('supervisor.txt'))
-      return 'Supervisor: {{JSON_ONLY}} input={{input}}';
+      return '<context>Project root: {{workingDir}}\n{{sessionMemory}}</context>\n<requirements>rules</requirements>\n<output_format>Return ONLY a single valid JSON object.</output_format>\nUser message: {{input}}';
     if (filePath.includes('planner.txt'))
       return 'Planner: {{objective}} tools={{availableTools}}';
     if (filePath.includes('critic.txt'))
@@ -91,7 +91,7 @@ describe('getPromptTemplate', () => {
 
   it('supervisor template contains expected placeholders', () => {
     const template = getPromptTemplate('supervisor');
-    expect(template).toContain('{{JSON_ONLY}}');
+    expect(template).toContain('<output_format>');
     expect(template).toContain('{{input}}');
   });
 

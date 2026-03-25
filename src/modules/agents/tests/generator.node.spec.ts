@@ -12,10 +12,17 @@ jest.mock('@config/env', () => ({
 
 jest.mock('@llm/llm.provider', () => ({
   invokeLlm: jest.fn(),
+  streamLlm: jest.fn(),
 }));
 
 jest.mock('../prompts/agent.prompts', () => ({
   buildGeneratorPrompt: jest.fn().mockReturnValue('mock generator prompt'),
+}));
+
+jest.mock('@utils/pretty-log.util', () => ({
+  logPhaseStart: jest.fn(),
+  logPhaseEnd: jest.fn(),
+  startTimer: jest.fn().mockReturnValue(() => 0),
 }));
 
 const mockedInvokeLlm = jest.mocked(invokeLlm);
@@ -58,6 +65,17 @@ const baseState: Partial<AgentState> = {
 
 describe('generatorNode', () => {
   afterEach(() => jest.clearAllMocks());
+
+  it('returns a Partial<AgentState> with phase=complete and finalAnswer', async () => {
+    mockedInvokeLlm.mockResolvedValue('Here is the final answer.');
+
+    const result = await generatorNode(baseState as AgentState);
+
+    expect(result).toMatchObject({
+      phase: 'complete',
+      finalAnswer: 'Here is the final answer.',
+    });
+  });
 
   it('transitions to complete phase with a final answer', async () => {
     mockedInvokeLlm.mockResolvedValue(
@@ -138,14 +156,6 @@ describe('generatorNode', () => {
     await generatorNode(baseState as AgentState);
 
     expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String));
-  });
-
-  it('does not set jsonRepair field (generator never routes to repair)', async () => {
-    mockedInvokeLlm.mockResolvedValue('Normal answer text.');
-
-    const result = await generatorNode(baseState as AgentState);
-
-    expect(result.jsonRepair).toBeUndefined();
   });
 
   it('works correctly when objective is undefined', async () => {

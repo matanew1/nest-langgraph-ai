@@ -1,0 +1,56 @@
+flowchart LR
+  %% LangGraph workflow based on provided analysis
+
+  START["START"]
+  END["END"]
+
+  SUPERVISOR["SUPERVISOR"]
+  RESEARCHER["RESEARCHER"]
+  PLANNER["PLANNER"]
+  PLAN_VALIDATOR["PLAN VALIDATOR"]
+  AWAIT_PLAN_REVIEW["AWAIT PLAN REVIEW"]
+  EXECUTE["EXECUTE"]
+  EXECUTE_PARALLEL["EXECUTE PARALLEL"]
+  TOOL_RESULT_NORMALIZER["TOOL RESULT NORMALIZER"]
+  CRITIC["CRITIC"]
+  GENERATOR["GENERATOR"]
+  CHAT["CHAT"]
+  JSON_REPAIR["JSON REPAIR"]
+  TERMINAL_RESPONSE["TERMINAL RESPONSE"]
+  ROUTER["ROUTER"]
+
+  %% Fixed edges (every node returns to ROUTER)
+  START --> SUPERVISOR
+  SUPERVISOR --> ROUTER
+  RESEARCHER --> ROUTER
+  PLANNER --> ROUTER
+  PLAN_VALIDATOR --> ROUTER
+  AWAIT_PLAN_REVIEW --> ROUTER
+  EXECUTE --> ROUTER
+  EXECUTE_PARALLEL --> ROUTER
+  TOOL_RESULT_NORMALIZER --> ROUTER
+  CRITIC --> ROUTER
+  GENERATOR --> ROUTER
+  CHAT --> ROUTER
+  JSON_REPAIR --> ROUTER
+  TERMINAL_RESPONSE --> ROUTER
+
+  %% Conditional edges from ROUTER
+  ROUTER -->|phase = complete OR fatal| END
+  ROUTER -->|jsonRepair flag set| JSON_REPAIR
+
+  ROUTER -->|phase = supervisor| SUPERVISOR
+  ROUTER -->|phase = research| RESEARCHER
+  ROUTER -->|phase = plan| PLANNER
+  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
+  ROUTER -->|phase = await_plan_review| AWAIT_PLAN_REVIEW
+  ROUTER -->|phase = execute| EXECUTE
+  ROUTER -->|phase = execute_parallel| EXECUTE_PARALLEL
+  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
+  ROUTER -->|phase = judge| CRITIC
+  ROUTER -->|phase = generate| GENERATOR
+  ROUTER -->|phase = chat| CHAT
+  ROUTER -->|phase = terminal_response| TERMINAL_RESPONSE
+
+  %% Fallback (when phase is route/unknown and no other condition matched)
+  ROUTER -->|phase = route / default fallback| SUPERVISOR

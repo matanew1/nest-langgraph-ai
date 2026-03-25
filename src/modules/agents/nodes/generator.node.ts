@@ -11,9 +11,7 @@ const logger = new Logger('Generator');
  * Synthesises a user-facing final answer from the completed plan steps.
  * Separates answer generation from the critic's routing judgment.
  */
-export async function generatorNode(
-  state: AgentState,
-): Promise<Partial<AgentState>> {
+export async function generatorNode(state: AgentState): Promise<Partial<AgentState>> {
   const elapsed = startTimer();
   logPhaseStart('GENERATOR', `steps=${state.attempts?.length ?? 0}`);
 
@@ -44,5 +42,6 @@ export async function generatorNode(
   logger.debug(`Generator answer length: ${answer.length}`);
 
   logPhaseEnd('GENERATOR', 'COMPLETE', elapsed());
+
   return completeAgentRun(answer.trim());
 }

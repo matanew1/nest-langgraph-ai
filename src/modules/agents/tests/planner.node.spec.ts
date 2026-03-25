@@ -103,65 +103,53 @@ describe('plannerNode', () => {
     expect(result.objective).toBe('Find and summarize data');
   });
 
-  it('routes to fatal when LLM returns empty steps array', async () => {
-    mockedInvokeLlm.mockResolvedValue(
-      JSON.stringify({
-        objective: 'Do something',
-        steps: [],
-        expected_result: 'Result',
-      }),
-    );
+  it('routes to fatal when LLM returns empty steps array (schema min(1) fails, repair also fails)', async () => {
+    // First call: invalid (empty steps fails min(1)), second call: repair also returns empty steps
+    mockedInvokeLlm
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          objective: 'Do something',
+          steps: [],
+          expected_result: 'Result',
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          objective: 'Do something',
+          steps: [],
+          expected_result: 'Result',
+        }),
+      );
+
+    await expect(plannerNode(baseState as AgentState)).rejects.toThrow();
+  });
+
+  it('throws on double-parse-failure for malformed (non-JSON) LLM output', async () => {
+    mockedInvokeLlm
+      .mockResolvedValueOnce('This is not JSON at all')
+      .mockResolvedValueOnce('still not JSON');
+
+    await expect(plannerNode(baseState as AgentState)).rejects.toThrow();
+  });
+
+  it('throws on double-parse-failure when JSON is missing required fields', async () => {
+    mockedInvokeLlm
+      .mockResolvedValueOnce(JSON.stringify({ objective: 'Do something' }))
+      .mockResolvedValueOnce(JSON.stringify({ objective: 'Do something' }));
+
+    await expect(plannerNode(baseState as AgentState)).rejects.toThrow();
+  });
+
+  it('repairs JSON inline when first parse fails but repair call succeeds', async () => {
+    mockedInvokeLlm
+      .mockResolvedValueOnce('This is not JSON at all')
+      .mockResolvedValueOnce(validPlanOutput);
 
     const result = await plannerNode(baseState as AgentState);
 
-    // Empty steps fails Zod schema (min(1)) → json_repair route
-    expect(result.phase).toBe('route');
-    expect(result.jsonRepair).toBeDefined();
-  });
-
-  it('routes to json_repair on malformed (non-JSON) LLM output', async () => {
-    mockedInvokeLlm.mockResolvedValue('This is not JSON at all');
-
-    const result = await plannerNode(baseState as AgentState);
-
-    expect(result.phase).toBe('route');
-    expect(result.jsonRepair).toBeDefined();
-    expect(result.jsonRepair!.fromPhase).toBe('plan');
-  });
-
-  it('routes to json_repair when JSON is missing required fields', async () => {
-    mockedInvokeLlm.mockResolvedValue(
-      JSON.stringify({ objective: 'Do something' }),
-    );
-
-    const result = await plannerNode(baseState as AgentState);
-
-    expect(result.phase).toBe('route');
-    expect(result.jsonRepair).toBeDefined();
-  });
-
-  it('uses jsonRepairResult instead of calling LLM when available', async () => {
-    const stateWithRepair: Partial<AgentState> = {
-      ...baseState,
-      jsonRepairResult: validPlanOutput,
-    };
-
-    const result = await plannerNode(stateWithRepair as AgentState);
-
-    expect(mockedInvokeLlm).not.toHaveBeenCalled();
+    expect(mockedInvokeLlm).toHaveBeenCalledTimes(2);
     expect(result.phase).toBe('validate_plan');
     expect(result.plan!.length).toBe(2);
-  });
-
-  it('clears jsonRepairResult in output after successful parse', async () => {
-    const stateWithRepair: Partial<AgentState> = {
-      ...baseState,
-      jsonRepairResult: validPlanOutput,
-    };
-
-    const result = await plannerNode(stateWithRepair as AgentState);
-
-    expect(result.jsonRepairResult).toBeUndefined();
   });
 
   it('does not set phase directly — uses transitionToPhase helper', async () => {
@@ -196,18 +184,22 @@ describe('plannerNode', () => {
     expect(result.plan!.length).toBe(20);
   });
 
-  it('routes to fatal when steps is missing from LLM output', async () => {
-    mockedInvokeLlm.mockResolvedValue(
-      JSON.stringify({
-        objective: 'Do something',
-        expected_result: 'Done',
-      }),
-    );
+  it('throws on double-parse-failure when steps is missing from LLM output', async () => {
+    mockedInvokeLlm
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          objective: 'Do something',
+          expected_result: 'Done',
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          objective: 'Do something',
+          expected_result: 'Done',
+        }),
+      );
 
-    const result = await plannerNode(baseState as AgentState);
-
-    expect(result.phase).toBe('route');
-    expect(result.jsonRepair).toBeDefined();
+    await expect(plannerNode(baseState as AgentState)).rejects.toThrow();
   });
 
   it('propagates an unhandled error when invokeLlm throws (LLM call is outside try/catch)', async () => {
