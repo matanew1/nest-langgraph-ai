@@ -1,6 +1,6 @@
 import { Send } from '@langchain/langgraph';
 import { Logger } from '@nestjs/common';
-import { AGENT_GRAPH_NODES } from '@graph/agent-topology';
+import { AGENT_GRAPH_NODES } from '@graph/agent-node-names';
 import type { AgentState } from '@state/agent.state';
 
 const logger = new Logger('ResearcherCoordinator');

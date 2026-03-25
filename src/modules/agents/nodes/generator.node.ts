@@ -5,7 +5,7 @@ import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { completeAgentRun } from '../state/agent-transition.util';
 import type { AgentState } from '../state/agent.state';
 import { buildGeneratorPrompt } from '../prompts/agent.prompts';
-import { AGENT_GRAPH_NODES } from '../graph/agent-topology';
+import { AGENT_GRAPH_NODES } from '@graph/agent-node-names';
 
 const logger = new Logger('Generator');
 

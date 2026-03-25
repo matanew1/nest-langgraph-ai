@@ -41,12 +41,12 @@ describe('memoryPersistNode', () => {
       expect.objectContaining({
         text: expect.stringContaining('Objective: test objective'),
         metadata: { sessionId: 'test-session', type: 'agent_result' },
-      })
+      }),
     );
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Result: test result'),
-      })
+      }),
     );
   });
 
@@ -57,7 +57,7 @@ describe('memoryPersistNode', () => {
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Objective: test input'),
-      })
+      }),
     );
   });
 
@@ -68,7 +68,7 @@ describe('memoryPersistNode', () => {
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Result: (none)'),
-      })
+      }),
     );
   });
 
