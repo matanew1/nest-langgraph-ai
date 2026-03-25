@@ -23,13 +23,6 @@ jest.mock('@utils/pretty-log.util', () => ({
   startTimer: jest.fn().mockReturnValue(() => 0),
 }));
 
-jest.mock('../graph/agent-topology', () => ({
-  AGENT_GRAPH_NODES: {
-    ROUTER: 'router',
-    MEMORY_PERSIST: 'memory_persist',
-  },
-}));
-
 const { invokeLlm, streamLlm } = require('@llm/llm.provider') as {
   invokeLlm: jest.Mock;
   streamLlm: jest.Mock;
@@ -93,14 +86,11 @@ describe('generatorNode', () => {
     expect(streamLlm).not.toHaveBeenCalled();
   });
 
-  it('returns fan-out Send array targeting router and memory_persist', async () => {
+  it('returns a Partial<AgentState> with phase=complete and finalAnswer', async () => {
     const state = makeState();
     const result = await generatorNode(state);
 
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(2);
-    expect(result[0].node).toBe('router');
-    expect(result[1].node).toBe('memory_persist');
+    expect(result).toMatchObject({ phase: 'complete', finalAnswer: 'invoked answer' });
   });
 
   it('calls onToken for each yielded token and assembles the full answer', async () => {
@@ -119,10 +109,7 @@ describe('generatorNode', () => {
     expect(onToken).toHaveBeenNthCalledWith(1, 'Final');
     expect(onToken).toHaveBeenNthCalledWith(2, ' ');
     expect(onToken).toHaveBeenNthCalledWith(3, 'answer');
-    // result is [Send(router, ...), Send(memory_persist, ...)]
-    expect(Array.isArray(result)).toBe(true);
-    expect(result[0].args.finalAnswer).toBe('Final answer');
-    expect(result[1].args.finalAnswer).toBe('Final answer');
+    expect((result as any).finalAnswer).toBe('Final answer');
   });
 
   it('skips empty tokens when streaming', async () => {
@@ -139,11 +126,10 @@ describe('generatorNode', () => {
     const result = await generatorNode(state);
 
     expect(onToken).toHaveBeenCalledTimes(2);
-    expect(Array.isArray(result)).toBe(true);
-    expect(result[0].args.finalAnswer).toBe('Done!');
+    expect((result as any).finalAnswer).toBe('Done!');
   });
 
-  it('returns Send array even when streamLlm yields no non-empty tokens', async () => {
+  it('returns complete phase even when streamLlm yields no non-empty tokens', async () => {
     streamLlm.mockReturnValue(
       (function* () {
         yield '';
@@ -155,9 +141,6 @@ describe('generatorNode', () => {
     const state = makeState({ onToken });
     const result = await generatorNode(state);
 
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(2);
-    expect(result[0].node).toBe('router');
-    expect(result[1].node).toBe('memory_persist');
+    expect(result).toMatchObject({ phase: 'complete' });
   });
 });

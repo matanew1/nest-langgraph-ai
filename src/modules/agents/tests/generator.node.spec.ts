@@ -25,13 +25,6 @@ jest.mock('@utils/pretty-log.util', () => ({
   startTimer: jest.fn().mockReturnValue(() => 0),
 }));
 
-jest.mock('../graph/agent-topology', () => ({
-  AGENT_GRAPH_NODES: {
-    ROUTER: 'router',
-    MEMORY_PERSIST: 'memory_persist',
-  },
-}));
-
 const mockedInvokeLlm = jest.mocked(invokeLlm);
 
 const makeAttempt = (step: number, result: string): Attempt => ({
@@ -73,26 +66,26 @@ const baseState: Partial<AgentState> = {
 describe('generatorNode', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('returns fan-out Send array targeting router and memory_persist', async () => {
+  it('returns a Partial<AgentState> with phase=complete and finalAnswer', async () => {
     mockedInvokeLlm.mockResolvedValue('Here is the final answer.');
 
     const result = await generatorNode(baseState as AgentState);
 
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(2);
-    expect(result[0].node).toBe('router');
-    expect(result[1].node).toBe('memory_persist');
+    expect(result).toMatchObject({
+      phase: 'complete',
+      finalAnswer: 'Here is the final answer.',
+    });
   });
 
-  it('transitions to complete phase with a final answer (via Send args)', async () => {
+  it('transitions to complete phase with a final answer', async () => {
     mockedInvokeLlm.mockResolvedValue(
       'Here is the final answer based on the research.',
     );
 
     const result = await generatorNode(baseState as AgentState);
 
-    expect(result[0].args.phase).toBe('complete');
-    expect(result[0].args.finalAnswer).toBe(
+    expect(result.phase).toBe('complete');
+    expect(result.finalAnswer).toBe(
       'Here is the final answer based on the research.',
     );
   });
@@ -102,8 +95,8 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(baseState as AgentState);
 
-    expect(result[0].args.finalAnswer).toBe('Answer with whitespace');
-    expect(result[0].args.phase).toBe('complete');
+    expect(result.finalAnswer).toBe('Answer with whitespace');
+    expect(result.phase).toBe('complete');
   });
 
   it('produces a non-empty string as finalAnswer', async () => {
@@ -111,8 +104,8 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(baseState as AgentState);
 
-    expect(typeof result[0].args.finalAnswer).toBe('string');
-    expect(result[0].args.finalAnswer.length).toBeGreaterThan(0);
+    expect(typeof result.finalAnswer).toBe('string');
+    expect(result.finalAnswer!.length).toBeGreaterThan(0);
   });
 
   it('handles empty attempts array gracefully', async () => {
@@ -125,10 +118,8 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(stateWithNoAttempts as AgentState);
 
-    expect(result[0].args.phase).toBe('complete');
-    expect(result[0].args.finalAnswer).toBe(
-      'Answer based on no prior attempts.',
-    );
+    expect(result.phase).toBe('complete');
+    expect(result.finalAnswer).toBe('Answer based on no prior attempts.');
   });
 
   it('handles multiple attempts and still produces a final answer', async () => {
@@ -147,10 +138,8 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(stateWithManyAttempts as AgentState);
 
-    expect(result[0].args.phase).toBe('complete');
-    expect(result[0].args.finalAnswer).toBe(
-      'Comprehensive answer from all attempts.',
-    );
+    expect(result.phase).toBe('complete');
+    expect(result.finalAnswer).toBe('Comprehensive answer from all attempts.');
   });
 
   it('calls invokeLlm exactly once', async () => {
@@ -179,8 +168,8 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(stateWithoutObjective as AgentState);
 
-    expect(result[0].args.phase).toBe('complete');
-    expect(result[0].args.finalAnswer).toBe('Answer without objective.');
+    expect(result.phase).toBe('complete');
+    expect(result.finalAnswer).toBe('Answer without objective.');
   });
 
   it('handles LLM returning a very long answer', async () => {
@@ -189,16 +178,7 @@ describe('generatorNode', () => {
 
     const result = await generatorNode(baseState as AgentState);
 
-    expect(result[0].args.phase).toBe('complete');
-    expect(result[0].args.finalAnswer).toBe(longAnswer);
-  });
-
-  it('both Send objects carry the same final state', async () => {
-    mockedInvokeLlm.mockResolvedValue('Consistent answer.');
-
-    const result = await generatorNode(baseState as AgentState);
-
-    expect(result[0].args.finalAnswer).toBe(result[1].args.finalAnswer);
-    expect(result[0].args.phase).toBe(result[1].args.phase);
+    expect(result.phase).toBe('complete');
+    expect(result.finalAnswer).toBe(longAnswer);
   });
 });

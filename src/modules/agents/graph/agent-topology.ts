@@ -76,7 +76,7 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
   [AGENT_GRAPH_NODES.SUPERVISOR]: safeNodeHandler('supervisor', supervisorNode),
   [AGENT_GRAPH_NODES.RESEARCHER_COORDINATOR]: safeNodeHandler(
     'researcher_coordinator',
-    researcherCoordinatorNode as unknown as AgentNodeHandler,
+    researcherCoordinatorNode,
   ),
   [AGENT_GRAPH_NODES.RESEARCH_FS]: safeNodeHandler(
     'research_fs',
@@ -109,11 +109,7 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
     toolResultNormalizerNode,
   ),
   [AGENT_GRAPH_NODES.CRITIC]: safeNodeHandler('critic', criticNode),
-  // Generator uses Send() fan-out so its return type is [Send, Send], not Partial<AgentState>.
-  [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler(
-    'generator',
-    generatorNode as unknown as AgentNodeHandler,
-  ),
+  [AGENT_GRAPH_NODES.GENERATOR]: safeNodeHandler('generator', generatorNode),
   [AGENT_GRAPH_NODES.MEMORY_PERSIST]: safeNodeHandler(
     'memory_persist',
     memoryPersistNode,
@@ -149,8 +145,8 @@ const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =
  * - RESEARCHER_COORDINATOR: uses Send() fan-out — LangGraph dispatches directly
  * - RESEARCH_FS: has direct static edge → RESEARCH_JOIN
  * - RESEARCH_VECTOR: has direct static edge → RESEARCH_JOIN
- * - GENERATOR: uses Send() fan-out to ROUTER + MEMORY_PERSIST in parallel
  * - MEMORY_PERSIST: has a direct static edge → END
+ * - GENERATOR: has direct static edges → ROUTER and MEMORY_PERSIST
  */
 const NODES_WITHOUT_ROUTER_EDGE = new Set<AgentGraphNodeName>([
   AGENT_GRAPH_NODES.ROUTER,
