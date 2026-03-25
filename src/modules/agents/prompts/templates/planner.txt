@@ -4,6 +4,7 @@ ROLE: Create the smallest reliable execution plan using ONLY the available tools
 
 <context>
 Objective: {{objective}}
+{{userRequest}}
 Project root: {{workingDir}} (use "." for relative paths)
 
 WORKSPACE CONTEXT:
@@ -45,12 +46,19 @@ STEP QUALITY CONSTRAINTS:
 - Never plan a write step without knowing what content to write.
 
 INLINE FILE CONTENT RULE (highest priority):
-The objective may contain one or more "[File: <filename>]" blocks in the form:
-  [File: <name>]
+The objective OR the "Original user request" section above may contain inline file content in one of these forms:
+
+  Form A — [File: <name>]        (programmatic attachment)
   ```<lang>
   <content>
   ```
-When such a block is present, the file content IS ALREADY FULLY AVAILABLE inline.
+
+  Form B — [Attached: <name>]    (UI file upload)
+  ```<lang>
+  <content>
+  ```
+
+When any such block is present, the file content IS ALREADY FULLY AVAILABLE inline.
 - Do NOT create steps that search for, locate, or read these files from disk (no `glob_files`, `read_file`, `stat_path`, `read_files_batch`, `grep_search`, or `ast_parse` targeting the named file).
 - Work directly with the inline content. For analysis, call `llm_summarize` with `"content"` set to the extracted file text and `"instruction"` describing the analysis task.
 - A plan that ignores the provided inline content and searches disk instead will fail and waste cycles.

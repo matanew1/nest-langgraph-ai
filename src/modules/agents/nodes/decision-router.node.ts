@@ -161,6 +161,27 @@ export async function decisionRouterNode(
   // This is intentional: a failed parallel group should retry the single failing step
   // rather than re-running the entire group.
   if (decision.decision === 'retry_step') {
+    // Deterministic loop prevention: if this step+tool combination has already been
+    // attempted ≥2 times the params will never change (executor uses state.toolParams
+    // unchanged). Escalate to replan so the planner can choose a different approach.
+    const currentTool = state.selectedTool ?? '';
+    const currentStepIdx = state.currentStep ?? 0;
+    const priorAttemptsForStep = (state.attempts ?? []).filter(
+      (a) => a.step === currentStepIdx && a.tool === currentTool,
+    );
+    if (priorAttemptsForStep.length >= 2) {
+      logPhaseEnd(
+        'DECISION_ROUTER',
+        `RETRY_STEP → REPLAN (${currentTool} tried ${priorAttemptsForStep.length}x for step ${currentStepIdx + 1})`,
+        elapsed(),
+      );
+      return transitionToPhase(AGENT_PHASES.RESEARCH, {
+        memoryContext: undefined,
+        counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
+        criticDecision: undefined,
+      });
+    }
+
     logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
     return transitionToPhase(AGENT_PHASES.EXECUTE, {
       counters: incrementAgentCounters(counters, {
