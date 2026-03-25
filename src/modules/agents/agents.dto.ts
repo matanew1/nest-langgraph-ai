@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsIn,
   IsNotEmpty,
@@ -6,22 +7,31 @@ import {
   IsString,
   Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+export class ImageAttachmentDto {
+  @ApiProperty({
+    description: 'Image URL (https://…) or base64 data URL (data:image/…;base64,…)',
+    example: 'data:image/jpeg;base64,/9j/4AAQ...',
+  })
+  @IsString()
+  @Matches(/^(https?:\/\/|data:image\/)/, {
+    message: 'url must be an http(s) URL or a data:image/ URL',
+  })
+  url: string;
+}
 
 export class RunAgentDto {
   @ApiProperty({
     description: 'The prompt to send to the AI agent',
     example: 'Search for NestJS best practices',
-    minLength: 1,
     maxLength: 100_000,
   })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
+  @IsOptional()
   @MaxLength(100_000)
-  prompt: string;
+  prompt?: string;
 
   @ApiProperty({
     description: 'The session ID for continuing a conversation',
@@ -31,6 +41,16 @@ export class RunAgentDto {
   @IsString()
   @IsOptional()
   sessionId?: string;
+
+  @ApiProperty({
+    description: 'Images to pass to the vision-capable LLM (https or data: URLs)',
+    required: false,
+    type: [ImageAttachmentDto],
+  })
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsOptional()
+  images?: ImageAttachmentDto[];
 }
 
 export class RunAgentResponseDto {
@@ -51,14 +71,12 @@ export class StreamAgentDto {
   @ApiProperty({
     description: 'The prompt to send to the AI agent for streaming',
     example: 'Search for NestJS best practices',
-    minLength: 1,
     maxLength: 100_000,
   })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
+  @IsOptional()
   @MaxLength(100_000)
-  prompt: string;
+  prompt?: string;
 
   @ApiProperty({
     description: 'The session ID for continuing a streaming conversation',
@@ -82,6 +100,16 @@ export class StreamAgentDto {
   @IsArray()
   @IsOptional()
   streamPhases?: string[];
+
+  @ApiProperty({
+    description: 'Images to pass to the vision-capable LLM (https or data: URLs)',
+    required: false,
+    type: [ImageAttachmentDto],
+  })
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsOptional()
+  images?: ImageAttachmentDto[];
 }
 
 export class AddMemoryEntryDto {

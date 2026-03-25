@@ -1,4 +1,5 @@
 import { ChatMistralAI } from '@langchain/mistralai';
+import { HumanMessage } from '@langchain/core/messages';
 import { Logger } from '@nestjs/common';
 import { env } from '@config/env';
 
@@ -226,6 +227,195 @@ export async function* streamLlm(
     lastError ||
     new Error(
       `LLM stream failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
+    )
+  );
+}
+
+/**
+ * Invoke the LLM with a text prompt **and** one or more image URLs / data-URLs.
+ * Requires a vision-capable Mistral model (e.g. pixtral-12b, mistral-small-latest).
+ * Uses the same circuit-breaker, timeout, and retry logic as `invokeLlm()`.
+ */
+export async function invokeLlmWithImages(
+  prompt: string,
+  images: Array<{ url: string }>,
+  timeoutMs: number = env.mistralTimeoutMs,
+  maxRetries: number = env.agentMaxRetries,
+): Promise<string> {
+  const effectiveTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
+  const retryLimit =
+    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
+  checkCircuitBreaker();
+
+  const content: Array<
+    { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+  > = [
+    { type: 'text', text: prompt },
+    ...images.map((img) => ({
+      type: 'image_url' as const,
+      image_url: { url: img.url },
+    })),
+  ];
+  const message = new HumanMessage({ content: content as any });
+
+  let attempt = 0;
+  let lastError: Error | undefined;
+
+  while (attempt <= retryLimit) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+
+    try {
+      if (attempt > 0) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+        logger.warn(
+          `Retrying vision LLM call (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+
+      const res = await llm.invoke([message], { signal: controller.signal });
+      const c = res.content;
+      let result: string;
+      if (typeof c === 'string') {
+        result = c;
+      } else if (Array.isArray(c)) {
+        result = c
+          .map((x) =>
+            typeof x === 'string' ? x : ((x as { text?: string }).text ?? ''),
+          )
+          .join('');
+      } else {
+        result = String(c);
+      }
+      recordLlmSuccess();
+      return result;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (controller.signal.aborted) {
+        logger.error(
+          `Vision LLM call timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      } else {
+        logger.error(
+          `Vision LLM call failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      }
+      if (
+        lastError.message.includes('401') ||
+        lastError.message.includes('400')
+      ) {
+        throw lastError;
+      }
+      recordLlmFailure();
+      attempt++;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      `Vision LLM invocation failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
+    )
+  );
+}
+
+/**
+ * Stream the LLM response with text + images, yielding each chunk.
+ * Requires a vision-capable Mistral model.
+ */
+export async function* streamLlmWithImages(
+  prompt: string,
+  images: Array<{ url: string }>,
+  timeoutMs: number = env.mistralTimeoutMs,
+  maxRetries: number = env.agentMaxRetries,
+): AsyncGenerator<string> {
+  const effectiveTimeoutMs =
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
+  const retryLimit =
+    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
+  checkCircuitBreaker();
+
+  const content: Array<
+    { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+  > = [
+    { type: 'text', text: prompt },
+    ...images.map((img) => ({
+      type: 'image_url' as const,
+      image_url: { url: img.url },
+    })),
+  ];
+  const message = new HumanMessage({ content: content as any });
+
+  let attempt = 0;
+  let lastError: Error | undefined;
+
+  while (attempt <= retryLimit) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+
+    try {
+      if (attempt > 0) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+        logger.warn(
+          `Retrying vision LLM stream (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+
+      const stream = await llm.stream([message], { signal: controller.signal });
+
+      for await (const chunk of stream) {
+        const c = chunk.content;
+        let token: string;
+        if (typeof c === 'string') {
+          token = c;
+        } else if (Array.isArray(c)) {
+          token = c
+            .map((x) =>
+              typeof x === 'string' ? x : ((x as { text?: string }).text ?? ''),
+            )
+            .join('');
+        } else {
+          token = String(c);
+        }
+        yield token;
+      }
+
+      recordLlmSuccess();
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (controller.signal.aborted) {
+        logger.error(
+          `Vision LLM stream timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      } else {
+        logger.error(
+          `Vision LLM stream failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+        );
+      }
+      if (
+        lastError.message.includes('401') ||
+        lastError.message.includes('400')
+      ) {
+        throw lastError;
+      }
+      recordLlmFailure();
+      attempt++;
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      `Vision LLM stream failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
     )
   );
 }

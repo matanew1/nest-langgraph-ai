@@ -51,6 +51,11 @@ export interface ReviewRequest {
   objective?: string;
 }
 
+export interface ImageAttachment {
+  /** https:// URL or data:image/…;base64,… URL */
+  url: string;
+}
+
 export interface AgentStateShape {
   input: string;
   phase: AgentPhase;
@@ -75,6 +80,8 @@ export interface AgentStateShape {
   /** True when toolResultRaw contains parallel execution results (JSON array) */
   parallelResult?: boolean;
   vectorMemoryIds?: string[];
+  /** Images attached to the current user request (vision-capable models only) */
+  images?: ImageAttachment[];
 }
 
 export const AgentStateAnnotation = Annotation.Root({
@@ -151,6 +158,11 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Transient: vector memory IDs retrieved during research (for feedback loop) */
   vectorMemoryIds: Annotation<string[] | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
+  /** Images attached to the user request (transient — not persisted across turns) */
+  images: Annotation<ImageAttachment[] | undefined>({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),

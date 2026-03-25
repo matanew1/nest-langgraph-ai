@@ -56,8 +56,11 @@ export async function supervisorNode(
     });
   }
 
-  const raw = await getStructuredNodeRawResponse(state, logger, () =>
-    buildSupervisorPrompt(state),
+  const raw = await getStructuredNodeRawResponse(
+    state,
+    logger,
+    () => buildSupervisorPrompt(state),
+    state.images,
   );
 
   const decision = await parseWithRepair(

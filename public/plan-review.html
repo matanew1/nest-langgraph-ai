@@ -359,6 +359,24 @@
     .file-chip-remove:hover { background: var(--accent); color: #fff; }
     .file-chip-remove svg { width: 12px; height: 12px; }
 
+    /* Image attachment chips */
+    .image-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .image-chips:empty { display: none; }
+    .image-chip { position: relative; display: inline-flex; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border); cursor: default; }
+    .image-chip img { width: 56px; height: 56px; object-fit: cover; display: block; }
+    .image-chip-remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; transition: background 0.15s; }
+    .image-chip-remove:hover { background: var(--error); }
+
+    /* Images inside user bubbles */
+    .bubble-images { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .bubble-images img { max-width: 200px; max-height: 200px; border-radius: var(--radius-md); object-fit: cover; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; transition: opacity 0.15s; }
+    .bubble-images img:hover { opacity: 0.85; }
+
+    /* Live streaming bubble */
+    .bubble-streaming { white-space: pre-wrap; font-size: 14px; line-height: 1.6; word-break: break-word; min-height: 1.4em; }
+    .bubble-streaming::after { content: '▋'; display: inline-block; opacity: 1; animation: cursorBlink 0.9s step-end infinite; margin-left: 1px; }
+    @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
     .input-row { display: flex; gap: 8px; align-items: flex-end; }
     .input-btn { width: 40px; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface-hover); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s var(--ease); flex-shrink: 0; }
     .input-btn:hover { background: var(--surface-elevated); color: var(--text); border-color: var(--border-strong); }
@@ -588,9 +606,13 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </div>
+          <div class="image-chips" id="image-chips"></div>
           <div class="input-row">
             <button class="input-btn" onclick="attachFile()" title="Attach file">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+            </button>
+            <button class="input-btn" onclick="attachImage()" title="Attach image">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
             </button>
             <textarea id="prompt-input" rows="1" placeholder="Message Agent..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendPrompt()}" oninput="autoResize(this)"></textarea>
             <button class="input-btn input-btn-send" onclick="sendPrompt()" title="Send message">
@@ -615,7 +637,7 @@
       emptyTitle: 'What can I help you with?',
       emptySubtitle: 'I can search the web, execute code, analyze files, create diagrams, and communicate in multiple languages.',
       chipCode: 'Code', chipFiles: 'Files', chipDiagrams: 'Diagrams',
-      placeholder: 'Message Agent...', attachFile: 'Attach file', sendMessage: 'Send message',
+      placeholder: 'Message Agent...', attachFile: 'Attach file', attachImage: 'Attach image', sendMessage: 'Send message',
       toggleSidebar: 'Toggle sidebar', switchLang: '\u05E2\u05D1',
       working: 'Working', stopped: 'Stopped',
       stepsCompleted: (n) => `${n} step${n > 1 ? 's' : ''} completed`,
@@ -635,7 +657,7 @@
       emptyTitle: '\u05D1\u05DE\u05D4 \u05D0\u05D5\u05DB\u05DC \u05DC\u05E2\u05D6\u05D5\u05E8?',
       emptySubtitle: '\u05D0\u05E0\u05D9 \u05D9\u05DB\u05D5\u05DC \u05DC\u05D7\u05E4\u05E9 \u05D1\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8, \u05DC\u05D4\u05E8\u05D9\u05E5 \u05E7\u05D5\u05D3, \u05DC\u05E0\u05EA\u05D7 \u05E7\u05D1\u05E6\u05D9\u05DD, \u05DC\u05D9\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA \u05D5\u05DC\u05EA\u05E7\u05E9\u05E8 \u05D1\u05DE\u05D2\u05D5\u05D5\u05DF \u05E9\u05E4\u05D5\u05EA.',
       chipSearch: '\u05D7\u05D9\u05E4\u05D5\u05E9 \u05D1\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8', chipCode: '\u05E7\u05D5\u05D3', chipFiles: '\u05E7\u05D1\u05E6\u05D9\u05DD', chipDiagrams: '\u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA',
-      placeholder: '...\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4 \u05DC\u05E1\u05D5\u05DB\u05DF', attachFile: '\u05E6\u05E8\u05E3 \u05E7\u05D5\u05D1\u05E5', sendMessage: '\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4',
+      placeholder: '...\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4 \u05DC\u05E1\u05D5\u05DB\u05DF', attachFile: '\u05E6\u05E8\u05E3 \u05E7\u05D5\u05D1\u05E5', attachImage: '\u05E6\u05E8\u05E3 \u05EA\u05DE\u05D5\u05E0\u05D4', sendMessage: '\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4',
       toggleSidebar: '\u05D4\u05E6\u05D2/\u05D4\u05E1\u05EA\u05E8 \u05E1\u05E8\u05D2\u05DC \u05E6\u05D3', switchLang: 'EN',
       working: '\u05E2\u05D5\u05D1\u05D3', stopped: '\u05D4\u05D5\u05E4\u05E1\u05E7',
       stepsCompleted: (n) => `${n} \u05E9\u05DC\u05D1${n > 1 ? '\u05D9\u05DD' : ''} \u05D4\u05D5\u05E9\u05DC\u05DE${n > 1 ? '\u05D5' : ''}`,
@@ -703,7 +725,7 @@
     if (emptyS) emptyS.textContent = t('emptySubtitle');
 
     const chips = document.querySelectorAll('.empty-chip');
-    const chipKeys = ['chipSearch', 'chipCode', 'chipFiles', 'chipDiagrams'];
+    const chipKeys = ['chipCode', 'chipFiles', 'chipDiagrams'];
     chips.forEach((chip, i) => {
       const svg = chip.querySelector('svg');
       chip.textContent = '';
@@ -714,6 +736,7 @@
     // Input area
     document.getElementById('prompt-input').placeholder = t('placeholder');
     document.querySelector('.input-btn[onclick*="attachFile"]').title = t('attachFile');
+    document.querySelector('.input-btn[onclick*="attachImage"]').title = t('attachImage');
     document.querySelector('.input-btn-send').title = t('sendMessage');
     document.getElementById('sidebar-toggle').title = t('toggleSidebar');
 
@@ -746,10 +769,15 @@
   let streaming = false;
   let abortController = null;
   let attachedFile = null;
+  let attachedImages = []; // [{name, dataUrl}]
   let currentActivityGroup = null;
   let activityCount = 0;
   let hadToolCalls = false;
   const mmdSourceMap = {};
+
+  // Live streaming state
+  let streamingBubbleEl = null;   // the <div class="bubble bubble-agent"> element
+  let streamingText = '';         // accumulated raw tokens
 
   const feed = document.getElementById('feed');
   const emptyWrap = document.getElementById('empty-wrap');
@@ -779,13 +807,20 @@
     return inner;
   }
 
-  function addUserBubble(text) {
+  function addUserBubble(text, images) {
     hideEmpty();
     const inner = getFeedInner();
     const row = document.createElement('div'); row.className = 'msg-row row-user';
-    const rtl = isHebrew(text);
+    const safeText = text || '';
+    const rtl = isHebrew(safeText);
     const dirAttr = rtl ? ' dir="rtl"' : '';
-    row.innerHTML = `<div class="avatar avatar-user">${ICONS.user}</div><div class="bubble-wrap"><div class="bubble bubble-user"${dirAttr}><div class="md"><p>${esc(text).replace(/\n/g,'<br>')}</p></div></div><span class="bubble-time">${ts()}</span></div>`;
+    const imagesHtml = images && images.length > 0
+      ? `<div class="bubble-images">${images.map(img => `<img src="${esc(img.dataUrl)}" alt="${esc(img.name)}" onclick="window.open(this.src)" title="${esc(img.name)}">`).join('')}</div>`
+      : '';
+    const textHtml = safeText
+      ? `<div class="md"><p>${esc(safeText).replace(/\n/g,'<br>')}</p></div>`
+      : '';
+    row.innerHTML = `<div class="avatar avatar-user">${ICONS.user}</div><div class="bubble-wrap"><div class="bubble bubble-user"${dirAttr}>${textHtml}${imagesHtml}</div><span class="bubble-time">${ts()}</span></div>`;
     inner.appendChild(row);
     scrollFeed();
   }
@@ -1002,7 +1037,7 @@
 
   async function sendPrompt() {
     let raw = promptInput.value.trim();
-    if (!raw && !attachedFile) return;
+    if (!raw && !attachedFile && attachedImages.length === 0) return;
     if (streaming) return;
 
     let prompt = raw;
@@ -1014,13 +1049,17 @@
       display = raw ? `${attachedFile.name}\n${raw}` : attachedFile.name;
     }
 
+    const images = attachedImages.map(img => ({ url: img.dataUrl }));
+    const imagesToShow = [...attachedImages];
+
     streaming = true;
     hadToolCalls = false;
     promptInput.value = '';
     promptInput.style.height = 'auto';
     removeAttachment();
+    removeAllImageAttachments();
 
-    addUserBubble(display);
+    addUserBubble(display, imagesToShow);
     addTyping();
     setProgress('Phase: supervisor');
 
@@ -1031,7 +1070,7 @@
       const res = await fetch(`${base()}/api/agents/stream`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt, sessionId}),
+        body: JSON.stringify({prompt, sessionId, ...(images.length > 0 ? {images} : {})}),
         signal: abortController.signal
       });
 
@@ -1064,17 +1103,63 @@
     }
   }
 
+  function createStreamingBubble() {
+    hideEmpty();
+    const inner = getFeedInner();
+    const row = document.createElement('div'); row.className = 'msg-row';
+    row.id = 'streaming-row';
+    row.innerHTML = `<div class="avatar avatar-agent">${ICONS.agent}</div><div class="bubble-wrap"><div class="bubble bubble-agent"><div class="bubble-streaming"></div></div><span class="bubble-time">${ts()}</span></div>`;
+    inner.appendChild(row);
+    streamingBubbleEl = row.querySelector('.bubble-streaming');
+    scrollFeed();
+  }
+
+  function finalizeStreamingBubble(htmlContent, isError = false) {
+    const row = document.getElementById('streaming-row');
+    if (row) {
+      const bubble = row.querySelector('.bubble');
+      if (isError) bubble.classList.add('bubble-error');
+      bubble.innerHTML = htmlContent + `<button class="bubble-copy" onclick="copyBubble(this)">${ICONS.copy}</button>`;
+      if (typeof mermaid !== 'undefined') mermaid.run({nodes: bubble.querySelectorAll('.mermaid')});
+      row.removeAttribute('id');
+    } else {
+      // No streaming row — create a static bubble
+      isError ? addErrorBubble(htmlContent) : addAgentBubble(htmlContent);
+    }
+    streamingBubbleEl = null;
+    streamingText = '';
+    scrollFeed();
+  }
+
   function handleStreamEvent(e) {
     removeTyping();
     const {type, data} = e;
 
-    if (type === 'status') setProgress(data);
-    else if (type === 'plan') addActivityItem('plan', t('planReady', JSON.parse(data).length));
+    if (type === 'status') {
+      setProgress(data);
+    }
+    else if (type === 'llm_stream_reset') {
+      // New LLM generation starting — create/reset the streaming bubble
+      streamingText = '';
+      if (!streamingBubbleEl) createStreamingBubble();
+      else streamingBubbleEl.textContent = '';
+    }
+    else if (type === 'llm_token') {
+      if (!streamingBubbleEl) createStreamingBubble();
+      streamingText += data;
+      streamingBubbleEl.textContent = streamingText;
+      scrollFeed();
+    }
+    else if (type === 'plan') {
+      addActivityItem('plan', t('planReady', JSON.parse(data).length));
+    }
     else if (type === 'tool_call_started') {
       hadToolCalls = true;
       addActivityItem('tool', t('running', esc(data)));
     }
-    else if (type === 'tool_call_finished') addActivityItem('success', esc(data.length > 120 ? data.slice(0,120)+'...' : data));
+    else if (type === 'tool_call_finished') {
+      addActivityItem('success', esc(data.length > 120 ? data.slice(0,120)+'...' : data));
+    }
     else if (type === 'review_required') {
       clearProgress();
       finalizeActivityGroup();
@@ -1084,19 +1169,21 @@
     else if (type === 'final') {
       clearProgress();
       finalizeActivityGroup();
-      addAgentBubble(renderMd(data));
+      finalizeStreamingBubble(renderMd(data));
       setIdle();
     }
     else if (type === 'error') {
       clearProgress();
       finalizeActivityGroup();
-      (hadToolCalls ? addErrorBubble : addAgentBubble)(renderMd(data));
+      finalizeStreamingBubble(renderMd(data), hadToolCalls);
       setIdle();
     }
   }
 
   function setIdle() {
     streaming = false;
+    streamingBubbleEl = null;
+    streamingText = '';
     stopBtn.classList.remove('visible');
     clearProgress();
     promptInput.focus();
@@ -1112,6 +1199,10 @@
     promptInput.focus();
     hadToolCalls = false;
     currentActivityGroup = null;
+    streamingBubbleEl = null;
+    streamingText = '';
+    removeAttachment();
+    removeAllImageAttachments();
     renderHistory();
   }
 
@@ -1262,6 +1353,46 @@
   function removeAttachment() {
     attachedFile = null;
     document.getElementById('file-chip').classList.remove('visible');
+  }
+
+  function attachImage() {
+    if (attachedImages.length >= 5) return alert('Maximum 5 images per message.');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = e => {
+      const files = Array.from(e.target.files).slice(0, 5 - attachedImages.length);
+      files.forEach(file => {
+        if (file.size > 5 * 1024 * 1024) return alert(`${file.name}: max 5 MB per image.`);
+        const reader = new FileReader();
+        reader.onload = ev => {
+          attachedImages.push({ name: file.name, dataUrl: ev.target.result });
+          renderImageChips();
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+    input.click();
+  }
+
+  function removeImageAttachment(index) {
+    attachedImages.splice(index, 1);
+    renderImageChips();
+  }
+
+  function removeAllImageAttachments() {
+    attachedImages = [];
+    renderImageChips();
+  }
+
+  function renderImageChips() {
+    const container = document.getElementById('image-chips');
+    container.innerHTML = attachedImages.map((img, i) => `
+      <div class="image-chip">
+        <img src="${img.dataUrl}" alt="${esc(img.name)}">
+        <button class="image-chip-remove" onclick="removeImageAttachment(${i})" title="Remove">✕</button>
+      </div>`).join('');
   }
 
   function toggleSidebar() {

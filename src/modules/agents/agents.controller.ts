@@ -53,7 +53,7 @@ export class AgentsController {
     description: 'Agent answer',
   })
   async run(@Body() body: RunAgentDto): Promise<AgentRunResult> {
-    return this.agentsService.run(body.prompt, body.sessionId);
+    return this.agentsService.run(body.prompt ?? '', body.sessionId, body.images);
   }
 
   @Post('stream')
@@ -97,9 +97,10 @@ export class AgentsController {
   stream(@Body() body: StreamAgentDto): Observable<MessageEvent> {
     return from(
       this.agentsService.streamRun(
-        body.prompt,
+        body.prompt ?? '',
         body.sessionId,
         body.streamPhases,
+        body.images,
       ),
     ).pipe(
       map((event: StreamEvent) => {

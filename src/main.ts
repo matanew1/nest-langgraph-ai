@@ -18,6 +18,9 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'));
   const logger = new Logger('Bootstrap');
 
+  // Increase JSON body limit to support base64-encoded image uploads (up to ~15 MB decoded)
+  app.use(require('express').json({ limit: '20mb' }));
+
   // Security: Helmet helps secure Express apps by setting various HTTP headers
   app.use(helmet());
 

@@ -13,7 +13,7 @@ import { env } from '@config/env';
 import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
-import type { PlanStep } from './state/agent.state';
+import type { PlanStep, ImageAttachment } from './state/agent.state';
 import { AGENT_PHASES } from './state/agent-phase';
 import { createInitialAgentRunState } from './state/agent-run-state.util';
 import {
@@ -67,7 +67,11 @@ export class AgentsService {
     });
   }
 
-  async run(prompt: string, sessionId?: string): Promise<AgentRunResult> {
+  async run(
+    prompt: string,
+    sessionId?: string,
+    images?: ImageAttachment[],
+  ): Promise<AgentRunResult> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
 
@@ -107,6 +111,7 @@ export class AgentsService {
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
         sessionId: threadId,
+        images,
       });
 
       let timeoutHandle: any;
@@ -182,6 +187,7 @@ export class AgentsService {
     prompt: string,
     sessionId?: string,
     streamPhases?: string[],
+    images?: ImageAttachment[],
   ): AsyncGenerator<StreamEvent> {
     const elapsed = startTimer();
     const threadId = sessionId || uuidv4();
@@ -210,6 +216,7 @@ export class AgentsService {
         sessionId: threadId,
         onToken,
         streamPhases,
+        images,
       });
 
       yield {
