@@ -35,7 +35,7 @@ const envSchema = Joi.object({
   NODE_ENV: Joi.string().default('development'),
   ENABLE_SWAGGER: Joi.boolean().default(false),
   REQUIRE_PLAN_REVIEW: Joi.boolean().default(false),
-  API_KEY: Joi.string().optional().default(''),
+  API_KEY: Joi.string().allow('').optional().default(''),
   LOG_FORMAT: Joi.string().valid('text', 'json').default('text'),
 }).unknown(true);
 
