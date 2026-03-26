@@ -15,6 +15,18 @@ import { transitionToPhase } from '../state/agent-transition.util';
 
 const logger = new Logger('Executor');
 
+/**
+ * Extract the first inline file content block from a user message.
+ * Handles both [Attached: name] and [File: name] forms followed by a code fence.
+ * Falls back to the full input if no block is found.
+ */
+function extractInlineContent(input: string): string {
+  const match = input.match(
+    /\[(?:Attached|File):[^\]]*\]\s*```(?:\w+)?\s*([\s\S]*?)```/,
+  );
+  return match ? match[1].trim() : input;
+}
+
 export async function executionNode(
   state: AgentState,
 ): Promise<Partial<AgentState>> {
@@ -22,18 +34,18 @@ export async function executionNode(
   const toolName = state.selectedTool ?? '';
   const rawParams: Record<string, unknown> = state.toolParams ?? {};
 
-  // Substitute __PREVIOUS_RESULT__ placeholders with actual previous tool result
+  // Substitute __PREVIOUS_RESULT__ and __INLINE_CONTENT__ placeholders
   const toolParams: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(rawParams)) {
-    if (
-      typeof value === 'string' &&
-      value.includes('__PREVIOUS_RESULT__') &&
-      state.toolResultRaw
-    ) {
-      toolParams[key] = value.replaceAll(
-        '__PREVIOUS_RESULT__',
-        state.toolResultRaw,
-      );
+    if (typeof value === 'string') {
+      let resolved = value;
+      if (resolved.includes('__PREVIOUS_RESULT__') && state.toolResultRaw) {
+        resolved = resolved.replaceAll('__PREVIOUS_RESULT__', state.toolResultRaw);
+      }
+      if (resolved.includes('__INLINE_CONTENT__') && state.input) {
+        resolved = resolved.replaceAll('__INLINE_CONTENT__', extractInlineContent(state.input));
+      }
+      toolParams[key] = resolved;
     } else {
       toolParams[key] = value;
     }

@@ -61,7 +61,8 @@ The objective OR the "Original user request" section above may contain inline fi
 
 When any such block is present, the file content IS ALREADY FULLY AVAILABLE inline.
 - Do NOT create steps that search for, locate, or read these files from disk (no `glob_files`, `read_file`, `stat_path`, `read_files_batch`, `grep_search`, or `ast_parse` targeting the named file).
-- Work directly with the inline content. For analysis, call `llm_summarize` with `"content"` set to the extracted file text and `"instruction"` describing the analysis task.
+- For analysis: call `llm_summarize` with `"content": "__INLINE_CONTENT__"` and `"instruction"` describing the analysis task. The execution engine resolves `__INLINE_CONTENT__` to the actual attached file content automatically — you MUST NOT copy the file content into the JSON.
+- CRITICAL: Never embed raw file content in a JSON step input. Always use the `"__INLINE_CONTENT__"` sentinel. Embedding large code directly breaks JSON parsing.
 - A plan that ignores the provided inline content and searches disk instead will fail and waste cycles.
 
 PLANNING GUIDANCE:
@@ -99,7 +100,7 @@ EXAMPLE — save project tree to file:
 {"objective":"Save the project tree to tree.txt","steps":[{"step_id":1,"description":"Generate the repository file tree to know the project layout","tool":"tree_dir","input":{"path":"."}},{"step_id":2,"description":"Write the captured tree output to disk as tree.txt","tool":"write_file","input":{"path":"tree.txt","content":"__PREVIOUS_RESULT__"}}],"expected_result":"tree.txt contains the repository tree"}
 
 EXAMPLE — analyze inline file content (objective already contains the file block):
-{"objective":"[File: app.ts]\n```ts\nconst x = 1;\n```\nWhat does this file do?","steps":[{"step_id":1,"description":"Analyze the inline TypeScript content provided in the objective and summarize its purpose","tool":"llm_summarize","input":{"content":"const x = 1;","instruction":"Explain what this TypeScript code does, its purpose, and key components."}}],"expected_result":"Analysis of the provided app.ts content"}
+{"objective":"What does the attached app.ts file do?","steps":[{"step_id":1,"description":"Analyze the inline TypeScript content provided in the user request and summarize its purpose","tool":"llm_summarize","input":{"content":"__INLINE_CONTENT__","instruction":"Explain what this TypeScript code does, its purpose, and key components."}}],"expected_result":"Analysis of the provided app.ts content"}
 
 EXAMPLE — safe patch workflow:
 {"objective":"Add a timeout option to the HttpClient constructor","steps":[{"step_id":1,"description":"Read the full HttpClient source to understand the current constructor signature","tool":"read_file","input":{"path":"src/http-client.ts"}},{"step_id":2,"description":"Confirm the exact anchor text for the constructor line exists in the file","tool":"grep_search","input":{"pattern":"constructor\\(","path":"src/http-client.ts"}},{"step_id":3,"description":"Patch the constructor to add the optional timeout parameter with a safe default","tool":"file_patch","input":{"path":"src/http-client.ts","find":"constructor(","replace":"constructor(timeoutMs = 5000,"}}],"expected_result":"src/http-client.ts constructor now accepts timeoutMs with default 5000"}
