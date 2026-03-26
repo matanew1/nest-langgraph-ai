@@ -124,10 +124,7 @@ export async function executionNode(
       counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
       errors: [
         {
-          code:
-            error instanceof Error && 'code' in error
-              ? 'tool_error'
-              : 'tool_error',
+          code: 'tool_error',
           message: errorResult,
           atPhase: AGENT_PHASES.EXECUTE,
           details,

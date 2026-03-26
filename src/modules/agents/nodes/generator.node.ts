@@ -27,7 +27,7 @@ export async function generatorNode(
   if (shouldStream) {
     const emit = state.onToken!;
     let accumulated = '';
-    for await (const token of streamLlm(prompt)) {
+    for await (const token of streamLlm(prompt, undefined, undefined, state.sessionId)) {
       if (token) {
         emit(token);
         accumulated += token;
@@ -38,13 +38,13 @@ export async function generatorNode(
     }
     answer = accumulated;
   } else {
-    answer = await invokeLlm(prompt);
+    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId);
   }
 
   // If the LLM returned empty content, retry once without streaming
   if (!answer.trim()) {
     logger.warn('Generator produced empty output — retrying once');
-    answer = await invokeLlm(prompt);
+    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId);
   }
 
   // If still empty, synthesize from the last successful attempt

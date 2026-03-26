@@ -155,7 +155,7 @@ describe('generatorNode', () => {
 
     await generatorNode(baseState as AgentState);
 
-    expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String));
+    expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String), undefined, undefined, undefined);
   });
 
   it('works correctly when objective is undefined', async () => {

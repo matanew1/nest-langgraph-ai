@@ -42,7 +42,7 @@ describe('generatorNode', () => {
     const state = makeState();
     await generatorNode(state);
 
-    expect(invokeLlm).toHaveBeenCalledWith('prompt');
+    expect(invokeLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined);
     expect(streamLlm).not.toHaveBeenCalled();
   });
 
@@ -58,7 +58,7 @@ describe('generatorNode', () => {
     const state = makeState({ onToken });
     await generatorNode(state);
 
-    expect(streamLlm).toHaveBeenCalledWith('prompt');
+    expect(streamLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined);
     expect(invokeLlm).not.toHaveBeenCalled();
   });
 
@@ -73,7 +73,7 @@ describe('generatorNode', () => {
     const state = makeState({ onToken, streamPhases: ['chat', 'generate'] });
     await generatorNode(state);
 
-    expect(streamLlm).toHaveBeenCalledWith('prompt');
+    expect(streamLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined);
     expect(invokeLlm).not.toHaveBeenCalled();
   });
 
@@ -82,7 +82,7 @@ describe('generatorNode', () => {
     const state = makeState({ onToken, streamPhases: ['chat'] });
     await generatorNode(state);
 
-    expect(invokeLlm).toHaveBeenCalledWith('prompt');
+    expect(invokeLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined);
     expect(streamLlm).not.toHaveBeenCalled();
   });
 

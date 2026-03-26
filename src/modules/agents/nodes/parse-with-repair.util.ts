@@ -9,12 +9,31 @@ const logger = new Logger('ParseWithRepair');
 const REPAIR_TIMEOUT_MS = 10_000;
 
 /**
- * Try to extract a JSON object from raw text using a regex before calling LLM.
- * Returns null if no JSON-like structure is found.
+ * Extract the first balanced JSON object from raw text.
+ * Handles strings, escaped characters, and nested objects correctly.
+ * More reliable than a greedy regex which matches from first '{' to last '}'.
  */
 function tryRegexJsonExtract(raw: string): string | null {
-  const match = raw.match(/\{[\s\S]*\}/);
-  return match ? match[0] : null;
+  const start = raw.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return raw.slice(start, i + 1);
+    }
+  }
+  return null;
 }
 
 export async function parseWithRepair<T>(
