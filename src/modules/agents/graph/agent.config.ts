@@ -50,3 +50,19 @@ export const AGENT_CONSTANTS = {
   /** Max tools executed concurrently in a parallel group. */
   maxParallelTools: 5,
 } as const;
+
+/** Circuit breaker configuration — extracted from llm.provider.ts. */
+export const CIRCUIT_BREAKER_CONFIG = {
+  /** Number of consecutive failures before opening the circuit. */
+  threshold: 5,
+  /** Cooldown duration (ms) before the circuit closes again. */
+  cooldownMs: 30_000,
+  /** Stale session breakers are cleaned up after this interval (ms). */
+  cleanupMs: 120_000,
+} as const;
+
+/** Research node configuration. */
+export const RESEARCH_CONFIG = {
+  /** Char threshold above which research context is LLM-summarized. */
+  summarizeThreshold: 4_000,
+} as const;

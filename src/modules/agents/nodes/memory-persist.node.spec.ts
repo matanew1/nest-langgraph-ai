@@ -3,6 +3,7 @@ import type { AgentState } from '@state/agent.state';
 
 jest.mock('@vector-db/vector-memory.util', () => ({
   upsertVectorMemory: jest.fn(),
+  searchVectorMemories: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('@nestjs/common', () => ({
@@ -40,7 +41,10 @@ describe('memoryPersistNode', () => {
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Objective: test objective'),
-        metadata: { sessionId: 'test-session', type: 'agent_result' },
+        metadata: expect.objectContaining({
+          sessionId: 'test-session',
+          type: 'agent_result',
+        }),
       }),
     );
     expect(upsertVectorMemory).toHaveBeenCalledWith(

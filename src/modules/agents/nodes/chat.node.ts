@@ -19,7 +19,8 @@ export async function chatNode(
   logPhaseStart('CHAT', `input="${state.input}"`);
 
   const prompt = buildChatPrompt(state);
-  const images = state.images && state.images.length > 0 ? state.images : undefined;
+  const images =
+    state.images && state.images.length > 0 ? state.images : undefined;
   const shouldStream =
     !!state.onToken &&
     (state.streamPhases === undefined || state.streamPhases.includes('chat'));

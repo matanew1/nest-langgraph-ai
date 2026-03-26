@@ -12,7 +12,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ImageAttachmentDto {
   @ApiProperty({
-    description: 'Image URL (https://…) or base64 data URL (data:image/…;base64,…)',
+    description:
+      'Image URL (https://…) or base64 data URL (data:image/…;base64,…)',
     example: 'data:image/jpeg;base64,/9j/4AAQ...',
   })
   @IsString()
@@ -43,7 +44,8 @@ export class RunAgentDto {
   sessionId?: string;
 
   @ApiProperty({
-    description: 'Images to pass to the vision-capable LLM (https or data: URLs)',
+    description:
+      'Images to pass to the vision-capable LLM (https or data: URLs)',
     required: false,
     type: [ImageAttachmentDto],
   })
@@ -102,7 +104,8 @@ export class StreamAgentDto {
   streamPhases?: string[];
 
   @ApiProperty({
-    description: 'Images to pass to the vision-capable LLM (https or data: URLs)',
+    description:
+      'Images to pass to the vision-capable LLM (https or data: URLs)',
     required: false,
     type: [ImageAttachmentDto],
   })
@@ -164,7 +167,10 @@ export class SessionSummaryDto {
   @ApiProperty({ description: 'Session ID' })
   sessionId: string;
 
-  @ApiProperty({ description: 'ISO timestamp of last activity', nullable: true })
+  @ApiProperty({
+    description: 'ISO timestamp of last activity',
+    nullable: true,
+  })
   lastActivity: string | null;
 
   @ApiProperty({ description: 'Last objective or prompt', nullable: true })

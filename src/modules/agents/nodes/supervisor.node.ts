@@ -22,12 +22,24 @@ const logger = new Logger('Supervisor');
  * Returns true when the input is clearly a short conversational message or
  * follow-up that should never be rejected — even if the LLM disagrees.
  */
+/**
+ * Action keywords that indicate the user wants tool execution, not chat.
+ * Short inputs starting with these should NOT be routed to conversational mode.
+ */
+const ACTION_KEYWORDS =
+  /^(create|modify|find|delete|build|fix|run|execute|patch|update|write|add|remove|rename|move|copy|install|deploy|generate|refactor|implement|migrate)\b/i;
+
 function isObviouslyConversational(input: string): boolean {
-  const words = input.trim().split(/\s+/);
+  const trimmed = input.trim();
+  const words = trimmed.split(/\s+/);
+
+  // Short inputs that start with action verbs are agent tasks, not conversation
+  if (ACTION_KEYWORDS.test(trimmed)) return false;
+
   if (
     words.length <= 8 &&
     /\b(what|who|why|how|when|where|tell|show|explain|the|it|this|that|they|them|those|his|her|its)\b/i.test(
-      input,
+      trimmed,
     )
   ) {
     return true;

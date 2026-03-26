@@ -43,11 +43,15 @@ export class RedisModule implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
-  onApplicationShutdown() {
+  onApplicationShutdown(signal?: string) {
+    this.logger.log(
+      `Shutting down Redis connection (signal: ${signal ?? 'none'})`,
+    );
     if (this.redisClient.status === 'end') {
       return;
     }
 
     this.redisClient.disconnect(false);
+    this.logger.log('Redis disconnected');
   }
 }

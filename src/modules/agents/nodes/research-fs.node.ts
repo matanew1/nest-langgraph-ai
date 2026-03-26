@@ -1,13 +1,31 @@
 import { Logger } from '@nestjs/common';
 import { toolRegistry } from '@tools/index';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
-import { AGENT_CONSTANTS } from '../graph/agent.config';
+import { AGENT_CONSTANTS, RESEARCH_CONFIG } from '../graph/agent.config';
 import { invokeLlm } from '@llm/llm.provider';
+import { env } from '@config/env';
 import type { AgentState } from '@state/agent.state';
 
 const logger = new Logger('ResearchFs');
 
-const SUMMARIZE_THRESHOLD = 4000;
+const SUMMARIZE_THRESHOLD = RESEARCH_CONFIG.summarizeThreshold;
+
+/** Wraps a promise with a timeout that rejects if not resolved in time. */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${label} timed out after ${ms}ms`)),
+        ms,
+      ),
+    ),
+  ]);
+}
 
 async function maybeSummarize(
   label: string,
@@ -81,7 +99,11 @@ export async function researchFsNode(
     const treeTool = toolRegistry.get('tree_dir');
     if (treeTool) {
       try {
-        const tree = (await treeTool.invoke({ path: '.' })) as string;
+        const tree = (await withTimeout(
+          treeTool.invoke({ path: '.' }),
+          env.toolTimeoutMs,
+          'tree_dir',
+        )) as string;
         const maxLines = AGENT_CONSTANTS.researcherTreeMaxLines;
         const lines = tree.split('\n');
         const truncated =
@@ -106,7 +128,11 @@ export async function researchFsNode(
     const gitTool = toolRegistry.get('git_info');
     if (gitTool) {
       try {
-        const status = (await gitTool.invoke({ action: 'status' })) as string;
+        const status = (await withTimeout(
+          gitTool.invoke({ action: 'status' }),
+          env.toolTimeoutMs,
+          'git_info',
+        )) as string;
         workspaceSections.push(
           `## Git status\n${status || '(clean working tree)'}`,
         );

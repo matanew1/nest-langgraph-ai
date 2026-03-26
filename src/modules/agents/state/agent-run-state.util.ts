@@ -1,4 +1,4 @@
-import { AGENT_PHASES } from './agent-phase';
+import { AGENT_PHASES, type AgentPhase } from './agent-phase';
 import { DEFAULT_AGENT_COUNTERS } from './agent-state.helpers';
 import type { AgentState, ImageAttachment } from './agent.state';
 
@@ -6,7 +6,7 @@ interface InitialAgentRunStateOptions {
   sessionMemory?: string;
   sessionId?: string;
   onToken?: (token: string) => void;
-  streamPhases?: string[];
+  streamPhases?: AgentPhase[];
   images?: ImageAttachment[];
 }
 

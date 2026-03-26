@@ -19,10 +19,7 @@ import {
   ReviewPageData,
   StreamEvent,
 } from './agents.service';
-import {
-  ListSessionsResponseDto,
-  SessionDetailDto,
-} from './agents.dto';
+import { ListSessionsResponseDto, SessionDetailDto } from './agents.dto';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import {
   RunAgentDto,
@@ -53,7 +50,11 @@ export class AgentsController {
     description: 'Agent answer',
   })
   async run(@Body() body: RunAgentDto): Promise<AgentRunResult> {
-    return this.agentsService.run(body.prompt ?? '', body.sessionId, body.images);
+    return this.agentsService.run(
+      body.prompt ?? '',
+      body.sessionId,
+      body.images,
+    );
   }
 
   @Post('stream')
@@ -99,7 +100,7 @@ export class AgentsController {
       this.agentsService.streamRun(
         body.prompt ?? '',
         body.sessionId,
-        body.streamPhases,
+        body.streamPhases as any,
         body.images,
       ),
     ).pipe(
@@ -126,7 +127,9 @@ export class AgentsController {
 
   @Get('session/:sessionId/detail')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get full detail for a session including conversation history' })
+  @ApiOperation({
+    summary: 'Get full detail for a session including conversation history',
+  })
   @ApiSessionIdParam()
   @ApiStandardResponse({
     type: SessionDetailDto,

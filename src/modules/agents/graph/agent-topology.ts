@@ -115,9 +115,12 @@ export const AGENT_GRAPH_NODE_HANDLERS: Record<
     memoryPersistNode,
   ),
   [AGENT_GRAPH_NODES.CHAT]: safeNodeHandler('chat', chatNode),
-  // Error recovery paths — NOT wrapped to avoid masking their own errors:
-  [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: terminalResponseNode,
-  [AGENT_GRAPH_NODES.ROUTER]: decisionRouterNode,
+  // Error recovery paths — wrapped with special handling to avoid silent crashes:
+  [AGENT_GRAPH_NODES.TERMINAL_RESPONSE]: safeNodeHandler(
+    'terminal_response',
+    terminalResponseNode,
+  ),
+  [AGENT_GRAPH_NODES.ROUTER]: safeNodeHandler('router', decisionRouterNode),
 };
 
 const ROUTABLE_PHASE_NODE_MAP: Record<RoutableAgentPhase, AgentGraphNodeName> =

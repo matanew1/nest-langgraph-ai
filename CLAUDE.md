@@ -37,8 +37,10 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 > Node name string constants live in `graph/agent-node-names.ts` (leaf module, no node/topology imports) and are re-exported from `agent-topology.ts` for backwards compatibility.
 
 ## Key Constants (`graph/agent.config.ts`)
-- `AGENT_CONSTANTS`: `chatMemoryMaxChars`, `researcherTreeMaxLines`, `rawResultMaxBytes`, `attemptsHistoryCap`, `errorsHistoryCap`, `checkpointHistoryLimit`
+- `AGENT_CONSTANTS`: `chatMemoryMaxChars`, `researcherTreeMaxLines`, `rawResultMaxBytes`, `attemptsHistoryCap`, `errorsHistoryCap`, `checkpointHistoryLimit`, `maxParallelTools`
 - `AGENT_PLAN_LIMITS`: `maxSteps: 20`
+- `CIRCUIT_BREAKER_CONFIG`: `threshold: 5`, `cooldownMs: 30_000`, `cleanupMs: 120_000`
+- `RESEARCH_CONFIG`: `summarizeThreshold: 4_000`
 - `getAgentLimits()`: derives `turns`, `toolCalls`, `replans`, `stepRetries`, `supervisorFallbacks` from env vars
 
 ## Development Checklist
@@ -48,11 +50,15 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **21 tools** registered in `tools/tool.catalog.ts`
 
 ## Critical Guidelines
-- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`.
+- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`. Pass `sessionId` for per-session circuit breaker scoping.
 - **File Safety:** ALWAYS wrap paths in `sandboxPath()` from `@utils/path.util.ts`.
 - **State:** Mutate ONLY via annotated reducers in `@state/agent.state.ts`. Use helpers in `agent-transition.util.ts` and `agent-run-state.util.ts`.
-- **Phase transitions:** Use `transitionToPhase()` — never set `phase` directly.
-- **Error boundaries:** Use `safeNodeHandler()` in `agent-topology.ts` for all new nodes.
+- **Phase transitions:** Use `transitionToPhase(phase, updates, fromPhase?)` — never set `phase` directly. `VALID_TRANSITIONS` map logs warnings for unexpected transitions.
+- **Error boundaries:** Use `safeNodeHandler()` in `agent-topology.ts` for all new nodes. `terminalResponseNode` and `decisionRouterNode` are also wrapped.
+- **Session locking:** `agents.service.ts` acquires a Redis-backed lock per session (120s TTL, NX). Returns 409 Conflict on concurrent mutations.
+- **API auth:** `ApiKeyGuard` checks `Authorization: Bearer` or `x-api-key` header. Empty `API_KEY` env disables auth (dev mode). Health endpoints always public.
+- **Metrics:** `MetricsService` provides Prometheus counters/histograms/gauges. `GET /metrics` endpoint.
+- **Request IDs:** `RequestIdMiddleware` propagates `X-Request-Id` via `AsyncLocalStorage`. Use `getRequestId()` in loggers.
 - **Aliases:** Use `@agents/*`, `@nodes/*`, `@tools/*`, `@state/*`, `@graph/*`, etc. (See `tsconfig.json`).
 
 ## Extended Reference (Read only if needed)

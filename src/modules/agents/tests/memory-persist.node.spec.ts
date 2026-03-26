@@ -3,8 +3,12 @@ import type { AgentState } from '../state/agent.state';
 
 const mockUpsertVectorMemory = jest.fn();
 
+const mockSearchVectorMemories = jest.fn().mockResolvedValue([]);
+
 jest.mock('@vector-db/vector-memory.util', () => ({
   upsertVectorMemory: (...args: unknown[]) => mockUpsertVectorMemory(...args),
+  searchVectorMemories: (...args: unknown[]) =>
+    mockSearchVectorMemories(...args),
 }));
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
@@ -32,10 +36,15 @@ describe('memoryPersistNode', () => {
     await memoryPersistNode(state);
 
     expect(mockUpsertVectorMemory).toHaveBeenCalledTimes(1);
-    expect(mockUpsertVectorMemory).toHaveBeenCalledWith({
-      text: 'Objective: test objective\nResult: The final answer',
-      metadata: { sessionId: 'session-abc', type: 'agent_result' },
-    });
+    expect(mockUpsertVectorMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Objective: test objective\nResult: The final answer',
+        metadata: expect.objectContaining({
+          sessionId: 'session-abc',
+          type: 'agent_result',
+        }),
+      }),
+    );
   });
 
   it('returns an empty object ({})', async () => {

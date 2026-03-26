@@ -59,6 +59,7 @@ export async function toolResultNormalizerNode(
             step: state.currentStep ?? 0,
             params: {},
             result,
+            replanGeneration: state.counters?.replans ?? 0,
           },
         ],
       });
@@ -91,6 +92,7 @@ export async function toolResultNormalizerNode(
             step: state.currentStep ?? 0,
             params: state.toolParams ?? {},
             result,
+            replanGeneration: state.counters?.replans ?? 0,
           },
         ]
       : [],

@@ -2,6 +2,7 @@ import { ChatMistralAI } from '@langchain/mistralai';
 import { HumanMessage } from '@langchain/core/messages';
 import { Logger } from '@nestjs/common';
 import { env } from '@config/env';
+import { CIRCUIT_BREAKER_CONFIG } from '@graph/agent.config';
 
 const logger = new Logger('LlmProvider');
 
@@ -13,120 +14,198 @@ export const llm = new ChatMistralAI({
 
 /* ------------------------------------------------------------------ */
 /*  Circuit breaker — prevents wasted retries when LLM is down        */
+/*  Per-session scoped so one bad session can't block all others.      */
 /* ------------------------------------------------------------------ */
-const CIRCUIT_BREAKER_THRESHOLD = 5;
-const CIRCUIT_BREAKER_COOLDOWN_MS = 30_000;
+const CIRCUIT_BREAKER_THRESHOLD = CIRCUIT_BREAKER_CONFIG.threshold;
+const CIRCUIT_BREAKER_COOLDOWN_MS = CIRCUIT_BREAKER_CONFIG.cooldownMs;
+/** Stale session breakers are cleaned up after this interval. */
+const CIRCUIT_BREAKER_CLEANUP_MS = CIRCUIT_BREAKER_CONFIG.cleanupMs;
 
-const circuitBreaker = {
-  consecutiveFailures: 0,
-  openUntil: 0,
-};
+interface CircuitBreakerState {
+  consecutiveFailures: number;
+  openUntil: number;
+  lastActivity: number;
+}
+
+function createCircuitBreakerState(): CircuitBreakerState {
+  return { consecutiveFailures: 0, openUntil: 0, lastActivity: Date.now() };
+}
+
+/** Global fallback breaker — trips only when the LLM API is truly unreachable. */
+const globalBreaker = createCircuitBreakerState();
+
+/** Per-session breakers keyed by sessionId. */
+const sessionBreakers = new Map<string, CircuitBreakerState>();
+
+let lastCleanup = Date.now();
+
+function cleanupStaleBreakers(): void {
+  const now = Date.now();
+  if (now - lastCleanup < CIRCUIT_BREAKER_CLEANUP_MS) return;
+  lastCleanup = now;
+  for (const [key, state] of sessionBreakers) {
+    if (now - state.lastActivity > CIRCUIT_BREAKER_CLEANUP_MS) {
+      sessionBreakers.delete(key);
+    }
+  }
+}
+
+function getBreaker(sessionId?: string): CircuitBreakerState {
+  cleanupStaleBreakers();
+  if (!sessionId) return globalBreaker;
+  let breaker = sessionBreakers.get(sessionId);
+  if (!breaker) {
+    breaker = createCircuitBreakerState();
+    sessionBreakers.set(sessionId, breaker);
+  }
+  breaker.lastActivity = Date.now();
+  return breaker;
+}
 
 /** Exported for testing only. */
-export function resetCircuitBreaker(): void {
-  circuitBreaker.consecutiveFailures = 0;
-  circuitBreaker.openUntil = 0;
+export function resetCircuitBreaker(sessionId?: string): void {
+  if (sessionId) {
+    sessionBreakers.delete(sessionId);
+  } else {
+    globalBreaker.consecutiveFailures = 0;
+    globalBreaker.openUntil = 0;
+    sessionBreakers.clear();
+  }
 }
 
-function checkCircuitBreaker(): void {
+function checkCircuitBreaker(sessionId?: string): void {
+  const breaker = getBreaker(sessionId);
   if (
-    circuitBreaker.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD &&
-    Date.now() < circuitBreaker.openUntil
+    breaker.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD &&
+    Date.now() < breaker.openUntil
   ) {
     throw new Error(
-      `LLM circuit breaker open — ${circuitBreaker.consecutiveFailures} consecutive failures. ` +
-        `Will retry after ${new Date(circuitBreaker.openUntil).toISOString()}.`,
+      `LLM circuit breaker open — ${breaker.consecutiveFailures} consecutive failures. ` +
+        `Will retry after ${new Date(breaker.openUntil).toISOString()}.`,
     );
   }
 }
 
-function recordLlmSuccess(): void {
-  circuitBreaker.consecutiveFailures = 0;
-  circuitBreaker.openUntil = 0;
+function recordLlmSuccess(sessionId?: string): void {
+  const breaker = getBreaker(sessionId);
+  breaker.consecutiveFailures = 0;
+  breaker.openUntil = 0;
 }
 
-function recordLlmFailure(): void {
-  circuitBreaker.consecutiveFailures++;
-  if (circuitBreaker.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
-    circuitBreaker.openUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+function recordLlmFailure(sessionId?: string): void {
+  const breaker = getBreaker(sessionId);
+  breaker.consecutiveFailures++;
+  if (breaker.consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+    breaker.openUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
     logger.warn(
-      `LLM circuit breaker OPEN after ${circuitBreaker.consecutiveFailures} failures — ` +
-        `cooldown until ${new Date(circuitBreaker.openUntil).toISOString()}`,
+      `LLM circuit breaker OPEN after ${breaker.consecutiveFailures} failures — ` +
+        `cooldown until ${new Date(breaker.openUntil).toISOString()}`,
     );
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared helpers — extracted from duplicated logic across 4 funcs    */
+/* ------------------------------------------------------------------ */
+
+/** Extract string content from LangChain message content (string | array | other). */
+function extractContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((c) =>
+        typeof c === 'string' ? c : ((c as { text?: string }).text ?? ''),
+      )
+      .join('');
+  }
+  return String(content);
+}
+
+/** Check if an error is fatal and should NOT be retried (auth/bad request). */
+function isFatalLlmError(err: Error): boolean {
+  const msg = err.message;
+  // Check for HTTP status codes in various error formats
+  return (
+    /\b401\b/.test(msg) ||
+    /\b400\b/.test(msg) ||
+    /\bUnauthorized\b/i.test(msg) ||
+    /\bForbidden\b/i.test(msg)
+  );
+}
+
+/** Compute backoff delay with jitter to desynchronize concurrent retries. */
+function backoffWithJitter(attempt: number): number {
+  const base = Math.min(1000 * Math.pow(2, attempt), 10000);
+  return base + Math.random() * 500;
+}
+
+interface RetryOpts {
+  timeoutMs: number;
+  maxRetries: number;
+  sessionId?: string;
+  label: string;
+}
+
+function resolveOpts(
+  timeoutMs: number,
+  maxRetries: number,
+  sessionId?: string,
+  label = 'LLM',
+): RetryOpts {
+  return {
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000,
+    maxRetries:
+      Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0,
+    sessionId,
+    label,
+  };
 }
 
 /**
- * Invoke the LLM with a hard timeout, retry logic, and circuit breaker.
- * Throws an Error if the call takes longer than `timeoutMs` milliseconds,
- * preventing the agent graph from hanging indefinitely on network issues.
+ * Execute an async operation with retry, timeout, and circuit breaker.
+ * Used by both invoke and image-invoke paths.
  */
-export async function invokeLlm(
-  prompt: string,
-  timeoutMs: number = env.mistralTimeoutMs,
-  maxRetries: number = env.agentMaxRetries,
-): Promise<string> {
-  const effectiveTimeoutMs =
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
-  const retryLimit =
-    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
-  checkCircuitBreaker();
+async function withRetryAndTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  opts: RetryOpts,
+): Promise<T> {
+  checkCircuitBreaker(opts.sessionId);
 
   let attempt = 0;
   let lastError: Error | undefined;
 
-  while (attempt <= retryLimit) {
+  while (attempt <= opts.maxRetries) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
 
     try {
       if (attempt > 0) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+        const backoffMs = backoffWithJitter(attempt);
         logger.warn(
-          `Retrying LLM call (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+          `Retrying ${opts.label} (attempt ${attempt}/${opts.maxRetries}) after ${Math.round(backoffMs)}ms...`,
         );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
 
-      const res = await llm.invoke(prompt, { signal: controller.signal });
-      const content = res.content;
-
-      let result: string;
-      if (typeof content === 'string') {
-        result = content;
-      } else if (Array.isArray(content)) {
-        result = content
-          .map((c) =>
-            typeof c === 'string' ? c : ((c as { text?: string }).text ?? ''),
-          )
-          .join('');
-      } else {
-        result = String(content);
-      }
-      recordLlmSuccess();
+      const result = await fn(controller.signal);
+      recordLlmSuccess(opts.sessionId);
       return result;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
       if (controller.signal.aborted) {
         logger.error(
-          `LLM call timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+          `${opts.label} timed out after ${opts.timeoutMs}ms (attempt ${attempt + 1}/${opts.maxRetries + 1})`,
         );
       } else {
         logger.error(
-          `LLM call failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+          `${opts.label} failed: ${lastError.message} (attempt ${attempt + 1}/${opts.maxRetries + 1})`,
         );
       }
 
-      // Don't retry if it's a fatal error (e.g., authentication, invalid request)
-      if (
-        lastError.message.includes('401') ||
-        lastError.message.includes('400')
-      ) {
-        throw lastError;
-      }
+      if (isFatalLlmError(lastError)) throw lastError;
 
-      recordLlmFailure();
+      recordLlmFailure(opts.sessionId);
       attempt++;
     } finally {
       clearTimeout(timer);
@@ -136,86 +215,60 @@ export async function invokeLlm(
   throw (
     lastError ||
     new Error(
-      `LLM invocation failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
+      `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms)`,
     )
   );
 }
 
 /**
- * Stream the LLM response as an async generator, yielding each chunk's content
- * individually. Uses the same circuit breaker, timeout, and retry logic as
- * `invokeLlm()`.
+ * Execute a streaming operation with retry, timeout, and circuit breaker.
+ * Yields tokens as they arrive. Used by both stream and image-stream paths.
  */
-export async function* streamLlm(
-  prompt: string,
-  timeoutMs: number = env.mistralTimeoutMs,
-  maxRetries: number = env.agentMaxRetries,
+async function* withStreamRetryAndTimeout(
+  fn: (signal: AbortSignal) => Promise<AsyncIterable<{ content: unknown }>>,
+  opts: RetryOpts,
 ): AsyncGenerator<string> {
-  const effectiveTimeoutMs =
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
-  const retryLimit =
-    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
-  checkCircuitBreaker();
+  checkCircuitBreaker(opts.sessionId);
 
   let attempt = 0;
   let lastError: Error | undefined;
 
-  while (attempt <= retryLimit) {
+  while (attempt <= opts.maxRetries) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
 
     try {
       if (attempt > 0) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+        const backoffMs = backoffWithJitter(attempt);
         logger.warn(
-          `Retrying LLM stream (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
+          `Retrying ${opts.label} (attempt ${attempt}/${opts.maxRetries}) after ${Math.round(backoffMs)}ms...`,
         );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
 
-      const stream = await llm.stream(prompt, { signal: controller.signal });
-
+      const stream = await fn(controller.signal);
       for await (const chunk of stream) {
-        const content = chunk.content;
-        let token: string;
-        if (typeof content === 'string') {
-          token = content;
-        } else if (Array.isArray(content)) {
-          token = content
-            .map((c) =>
-              typeof c === 'string' ? c : ((c as { text?: string }).text ?? ''),
-            )
-            .join('');
-        } else {
-          token = String(content);
-        }
-        yield token;
+        yield extractContent(chunk.content);
       }
 
-      recordLlmSuccess();
+      recordLlmSuccess(opts.sessionId);
       return;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
       if (controller.signal.aborted) {
         logger.error(
-          `LLM stream timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
+          `${opts.label} timed out after ${opts.timeoutMs}ms (attempt ${attempt + 1}/${opts.maxRetries + 1})`,
         );
       } else {
         logger.error(
-          `LLM stream failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
+          `${opts.label} failed: ${lastError.message} (attempt ${attempt + 1}/${opts.maxRetries + 1})`,
         );
       }
 
-      // Don't retry if it's a fatal error (e.g., authentication, invalid request)
-      if (
-        lastError.message.includes('401') ||
-        lastError.message.includes('400')
-      ) {
-        throw lastError;
-      }
+      if (isFatalLlmError(lastError)) throw lastError;
 
-      recordLlmFailure();
+      recordLlmFailure(opts.sessionId);
       attempt++;
     } finally {
       clearTimeout(timer);
@@ -226,196 +279,104 @@ export async function* streamLlm(
   throw (
     lastError ||
     new Error(
-      `LLM stream failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
+      `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms)`,
     )
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Public API                                                         */
+/* ------------------------------------------------------------------ */
+
 /**
- * Invoke the LLM with a text prompt **and** one or more image URLs / data-URLs.
- * Requires a vision-capable Mistral model (e.g. pixtral-12b, mistral-small-latest).
- * Uses the same circuit-breaker, timeout, and retry logic as `invokeLlm()`.
+ * Invoke the LLM with a hard timeout, retry logic, and circuit breaker.
+ */
+export async function invokeLlm(
+  prompt: string,
+  timeoutMs: number = env.mistralTimeoutMs,
+  maxRetries: number = env.agentMaxRetries,
+  sessionId?: string,
+): Promise<string> {
+  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'LLM call');
+  return withRetryAndTimeout(
+    async (signal) =>
+      extractContent((await llm.invoke(prompt, { signal })).content),
+    opts,
+  );
+}
+
+/**
+ * Stream the LLM response as an async generator, yielding each chunk's content.
+ */
+export async function* streamLlm(
+  prompt: string,
+  timeoutMs: number = env.mistralTimeoutMs,
+  maxRetries: number = env.agentMaxRetries,
+  sessionId?: string,
+): AsyncGenerator<string> {
+  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'LLM stream');
+  yield* withStreamRetryAndTimeout(
+    (signal) => llm.stream(prompt, { signal }),
+    opts,
+  );
+}
+
+/** Build a HumanMessage with text + image URLs for vision models. */
+function buildVisionMessage(
+  prompt: string,
+  images: Array<{ url: string }>,
+): HumanMessage {
+  const content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } }
+  > = [
+    { type: 'text', text: prompt },
+    ...images.map((img) => ({
+      type: 'image_url' as const,
+      image_url: { url: img.url },
+    })),
+  ];
+  return new HumanMessage({ content: content as any });
+}
+
+/**
+ * Invoke the LLM with text + images (vision model).
  */
 export async function invokeLlmWithImages(
   prompt: string,
   images: Array<{ url: string }>,
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
+  sessionId?: string,
 ): Promise<string> {
-  const effectiveTimeoutMs =
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
-  const retryLimit =
-    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
-  checkCircuitBreaker();
-
-  const content: Array<
-    { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
-  > = [
-    { type: 'text', text: prompt },
-    ...images.map((img) => ({
-      type: 'image_url' as const,
-      image_url: { url: img.url },
-    })),
-  ];
-  const message = new HumanMessage({ content: content as any });
-
-  let attempt = 0;
-  let lastError: Error | undefined;
-
-  while (attempt <= retryLimit) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
-
-    try {
-      if (attempt > 0) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
-        logger.warn(
-          `Retrying vision LLM call (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      }
-
-      const res = await llm.invoke([message], { signal: controller.signal });
-      const c = res.content;
-      let result: string;
-      if (typeof c === 'string') {
-        result = c;
-      } else if (Array.isArray(c)) {
-        result = c
-          .map((x) =>
-            typeof x === 'string' ? x : ((x as { text?: string }).text ?? ''),
-          )
-          .join('');
-      } else {
-        result = String(c);
-      }
-      recordLlmSuccess();
-      return result;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (controller.signal.aborted) {
-        logger.error(
-          `Vision LLM call timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
-        );
-      } else {
-        logger.error(
-          `Vision LLM call failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
-        );
-      }
-      if (
-        lastError.message.includes('401') ||
-        lastError.message.includes('400')
-      ) {
-        throw lastError;
-      }
-      recordLlmFailure();
-      attempt++;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  throw (
-    lastError ||
-    new Error(
-      `Vision LLM invocation failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
-    )
+  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'Vision LLM call');
+  const message = buildVisionMessage(prompt, images);
+  return withRetryAndTimeout(
+    async (signal) =>
+      extractContent((await llm.invoke([message], { signal })).content),
+    opts,
   );
 }
 
 /**
  * Stream the LLM response with text + images, yielding each chunk.
- * Requires a vision-capable Mistral model.
  */
 export async function* streamLlmWithImages(
   prompt: string,
   images: Array<{ url: string }>,
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
+  sessionId?: string,
 ): AsyncGenerator<string> {
-  const effectiveTimeoutMs =
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000;
-  const retryLimit =
-    Number.isInteger(maxRetries) && maxRetries >= 0 ? maxRetries : 0;
-  checkCircuitBreaker();
-
-  const content: Array<
-    { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
-  > = [
-    { type: 'text', text: prompt },
-    ...images.map((img) => ({
-      type: 'image_url' as const,
-      image_url: { url: img.url },
-    })),
-  ];
-  const message = new HumanMessage({ content: content as any });
-
-  let attempt = 0;
-  let lastError: Error | undefined;
-
-  while (attempt <= retryLimit) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
-
-    try {
-      if (attempt > 0) {
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000);
-        logger.warn(
-          `Retrying vision LLM stream (attempt ${attempt}/${retryLimit}) after ${backoffMs}ms...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      }
-
-      const stream = await llm.stream([message], { signal: controller.signal });
-
-      for await (const chunk of stream) {
-        const c = chunk.content;
-        let token: string;
-        if (typeof c === 'string') {
-          token = c;
-        } else if (Array.isArray(c)) {
-          token = c
-            .map((x) =>
-              typeof x === 'string' ? x : ((x as { text?: string }).text ?? ''),
-            )
-            .join('');
-        } else {
-          token = String(c);
-        }
-        yield token;
-      }
-
-      recordLlmSuccess();
-      return;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (controller.signal.aborted) {
-        logger.error(
-          `Vision LLM stream timed out after ${effectiveTimeoutMs}ms (attempt ${attempt + 1}/${retryLimit + 1})`,
-        );
-      } else {
-        logger.error(
-          `Vision LLM stream failed: ${lastError.message} (attempt ${attempt + 1}/${retryLimit + 1})`,
-        );
-      }
-      if (
-        lastError.message.includes('401') ||
-        lastError.message.includes('400')
-      ) {
-        throw lastError;
-      }
-      recordLlmFailure();
-      attempt++;
-    } finally {
-      clearTimeout(timer);
-      controller.abort();
-    }
-  }
-
-  throw (
-    lastError ||
-    new Error(
-      `Vision LLM stream failed after ${retryLimit + 1} attempts (timeout=${effectiveTimeoutMs}ms)`,
-    )
+  const opts = resolveOpts(
+    timeoutMs,
+    maxRetries,
+    sessionId,
+    'Vision LLM stream',
+  );
+  const message = buildVisionMessage(prompt, images);
+  yield* withStreamRetryAndTimeout(
+    (signal) => llm.stream([message], { signal }),
+    opts,
   );
 }

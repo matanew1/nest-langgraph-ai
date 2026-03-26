@@ -1,4 +1,4 @@
-import type { AgentState } from '../state/agent.state';
+import type { AgentState, AgentCounters, PlanStep } from '../state/agent.state';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { getAgentLimits } from '../graph/agent.config';
 import { AGENT_PHASES } from '../state/agent-phase';
@@ -28,10 +28,106 @@ const ROUTER_LIMIT_CHECKS = [
   },
 ] as const;
 
+/* ------------------------------------------------------------------ */
+/*  Decision handlers — pure functions returning state updates         */
+/* ------------------------------------------------------------------ */
+
+function advanceToNextStep(
+  plan: PlanStep[],
+  currentStep: number,
+): Partial<AgentState> {
+  const nextStepIndex = currentStep + 1;
+  if (nextStepIndex >= plan.length) {
+    return transitionToPhase(AGENT_PHASES.GENERATE, {
+      criticDecision: undefined,
+    });
+  }
+
+  const nextStep = plan[nextStepIndex];
+  if (nextStep.parallel_group !== undefined) {
+    return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
+      currentStep: nextStepIndex,
+      criticDecision: undefined,
+    });
+  }
+  return beginExecutionStep(nextStep, nextStepIndex, {
+    criticDecision: undefined,
+  });
+}
+
+function handleComplete(
+  plan: PlanStep[],
+  currentStep: number,
+  isLastStep: boolean,
+): Partial<AgentState> {
+  // Guard against premature completion: critic must only complete on last step.
+  if (!isLastStep) {
+    return advanceToNextStep(plan, currentStep);
+  }
+  return transitionToPhase(AGENT_PHASES.GENERATE, {
+    criticDecision: undefined,
+  });
+}
+
+function handleFatal(
+  decision: NonNullable<AgentState['criticDecision']>,
+): Partial<AgentState> {
+  return failAgentRun(
+    decision.finalAnswer ?? 'Stopped due to a fatal decision.',
+    {
+      code: 'unknown',
+      message: decision.reason,
+      atPhase: AGENT_PHASES.ROUTE,
+    },
+  );
+}
+
+function handleReplan(counters: AgentCounters): Partial<AgentState> {
+  return transitionToPhase(AGENT_PHASES.RESEARCH, {
+    memoryContext: undefined,
+    counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
+    criticDecision: undefined,
+  });
+}
+
+function handleRetryStep(
+  state: AgentState,
+  counters: AgentCounters,
+): Partial<AgentState> {
+  // Deterministic loop prevention: if this step+tool combination has already been
+  // attempted ≥2 times the params will never change. Escalate to replan.
+  // Uses replanGeneration to avoid counter reset after replans.
+  const currentTool = state.selectedTool ?? '';
+  const currentStepIdx = state.currentStep ?? 0;
+  const currentGeneration = counters.replans;
+  const priorAttemptsForStep = (state.attempts ?? []).filter(
+    (a) =>
+      a.step === currentStepIdx &&
+      a.tool === currentTool &&
+      (a.replanGeneration ?? 0) === currentGeneration,
+  );
+
+  if (priorAttemptsForStep.length >= 2) {
+    return handleReplan(counters);
+  }
+
+  return transitionToPhase(AGENT_PHASES.EXECUTE, {
+    counters: incrementAgentCounters(counters, {
+      stepRetries: 1,
+      turn: 1,
+    }),
+    criticDecision: undefined,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main router node                                                   */
+/* ------------------------------------------------------------------ */
+
 /**
  * Deterministic routing step.
  *
- * This node enforces global limits (deadlock protection) and converts the
+ * Enforces global limits (deadlock protection) and converts the
  * critic's decision into the next `phase` + state updates.
  */
 export async function decisionRouterNode(
@@ -54,9 +150,9 @@ export async function decisionRouterNode(
   }
 
   const counters = getAgentCounters(state.counters);
-
   const AGENT_LIMITS = getAgentLimits();
 
+  // Check global limits — deadlock protection
   for (const check of ROUTER_LIMIT_CHECKS) {
     const current = counters[check.counterKey];
     const limit = AGENT_LIMITS[check.limitKey];
@@ -74,8 +170,6 @@ export async function decisionRouterNode(
 
   const decision = state.criticDecision;
   if (!decision) {
-    // If there is no critic decision yet, continue to next deterministic phase.
-    // If the phase is 'route' (meaning no node changed it), it's a supervisor fallback.
     if (state.phase === AGENT_PHASES.ROUTE) {
       logPhaseEnd(
         'DECISION_ROUTER',
@@ -97,127 +191,42 @@ export async function decisionRouterNode(
   const currentStep = state.currentStep ?? 0;
   const isLastStep = plan.length === 0 ? true : currentStep >= plan.length - 1;
 
-  if (decision.decision === 'complete') {
-    // Guard against premature completion: critic must only complete on last step.
-    // If it tries to complete early, treat it as an advance.
-    if (!isLastStep) {
-      const nextStepIndex = currentStep + 1;
-      const nextStep = plan[nextStepIndex];
-      if (!nextStep) {
-        logPhaseEnd(
-          'DECISION_ROUTER',
-          'COMPLETE (plan exhausted) → GENERATE',
-          elapsed(),
-        );
-        return transitionToPhase(AGENT_PHASES.GENERATE, {
-          criticDecision: undefined,
-        });
-      }
+  let result: Partial<AgentState>;
+  let logSuffix: string;
 
-      logPhaseEnd(
-        'DECISION_ROUTER',
-        `PREMATURE COMPLETE → ADVANCE → step ${nextStepIndex + 1}`,
-        elapsed(),
-      );
-      if (nextStep.parallel_group !== undefined) {
-        return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
-          currentStep: nextStepIndex,
-          criticDecision: undefined,
-        });
-      }
-      return beginExecutionStep(nextStep, nextStepIndex, {
-        criticDecision: undefined,
-      });
-    }
+  switch (decision.decision) {
+    case 'complete':
+      logSuffix = isLastStep
+        ? 'COMPLETE → GENERATE'
+        : `PREMATURE COMPLETE → ADVANCE → step ${currentStep + 2}`;
+      result = handleComplete(plan, currentStep, isLastStep);
+      break;
 
-    logPhaseEnd('DECISION_ROUTER', 'COMPLETE → GENERATE', elapsed());
-    return transitionToPhase(AGENT_PHASES.GENERATE, {
-      criticDecision: undefined,
-    });
+    case 'fatal':
+      logSuffix = 'FATAL';
+      result = handleFatal(decision);
+      break;
+
+    case 'replan':
+      logSuffix = 'REPLAN → research';
+      result = handleReplan(counters);
+      break;
+
+    case 'retry_step':
+      logSuffix = 'RETRY_STEP';
+      result = handleRetryStep(state, counters);
+      break;
+
+    default:
+      // advance
+      logSuffix =
+        currentStep + 1 >= plan.length
+          ? 'ADVANCE (plan exhausted) → GENERATE'
+          : `ADVANCE → step ${currentStep + 2}`;
+      result = advanceToNextStep(plan, currentStep);
+      break;
   }
 
-  if (decision.decision === 'fatal') {
-    logPhaseEnd('DECISION_ROUTER', 'FATAL', elapsed());
-    return failAgentRun(
-      decision.finalAnswer ?? 'Stopped due to a fatal decision.',
-      {
-        code: 'unknown',
-        message: decision.reason,
-        atPhase: AGENT_PHASES.ROUTE,
-      },
-    );
-  }
-
-  if (decision.decision === 'replan') {
-    logPhaseEnd('DECISION_ROUTER', 'REPLAN → research', elapsed());
-    return transitionToPhase(AGENT_PHASES.RESEARCH, {
-      memoryContext: undefined,
-      counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
-      criticDecision: undefined,
-    });
-  }
-
-  // retry_step always falls back to serial EXECUTE even for parallel-group steps.
-  // This is intentional: a failed parallel group should retry the single failing step
-  // rather than re-running the entire group.
-  if (decision.decision === 'retry_step') {
-    // Deterministic loop prevention: if this step+tool combination has already been
-    // attempted ≥2 times the params will never change (executor uses state.toolParams
-    // unchanged). Escalate to replan so the planner can choose a different approach.
-    const currentTool = state.selectedTool ?? '';
-    const currentStepIdx = state.currentStep ?? 0;
-    const priorAttemptsForStep = (state.attempts ?? []).filter(
-      (a) => a.step === currentStepIdx && a.tool === currentTool,
-    );
-    if (priorAttemptsForStep.length >= 2) {
-      logPhaseEnd(
-        'DECISION_ROUTER',
-        `RETRY_STEP → REPLAN (${currentTool} tried ${priorAttemptsForStep.length}x for step ${currentStepIdx + 1})`,
-        elapsed(),
-      );
-      return transitionToPhase(AGENT_PHASES.RESEARCH, {
-        memoryContext: undefined,
-        counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
-        criticDecision: undefined,
-      });
-    }
-
-    logPhaseEnd('DECISION_ROUTER', 'RETRY_STEP → execute', elapsed());
-    return transitionToPhase(AGENT_PHASES.EXECUTE, {
-      counters: incrementAgentCounters(counters, {
-        stepRetries: 1,
-        turn: 1,
-      }),
-      criticDecision: undefined,
-    });
-  }
-
-  // advance
-  const nextStepIndex = currentStep + 1;
-  if (nextStepIndex >= plan.length) {
-    logPhaseEnd(
-      'DECISION_ROUTER',
-      'ADVANCE (plan exhausted) → GENERATE',
-      elapsed(),
-    );
-    return transitionToPhase(AGENT_PHASES.GENERATE, {
-      criticDecision: undefined,
-    });
-  }
-
-  const nextStep = plan[nextStepIndex];
-  logPhaseEnd(
-    'DECISION_ROUTER',
-    `ADVANCE → step ${nextStepIndex + 1}`,
-    elapsed(),
-  );
-  if (nextStep.parallel_group !== undefined) {
-    return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
-      currentStep: nextStepIndex,
-      criticDecision: undefined,
-    });
-  }
-  return beginExecutionStep(nextStep, nextStepIndex, {
-    criticDecision: undefined,
-  });
+  logPhaseEnd('DECISION_ROUTER', logSuffix, elapsed());
+  return result;
 }

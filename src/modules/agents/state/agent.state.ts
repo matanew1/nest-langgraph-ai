@@ -37,6 +37,8 @@ export interface Attempt {
   step: number;
   params: Record<string, unknown>;
   result: ToolResult;
+  /** Replan generation this attempt belongs to (0 = original plan). */
+  replanGeneration?: number;
 }
 
 export interface CriticDecisionState {
@@ -177,7 +179,7 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => undefined,
   }),
   /** Which phases should stream tokens (set at graph invocation time) */
-  streamPhases: Annotation<string[] | undefined>({
+  streamPhases: Annotation<AgentPhase[] | undefined>({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),

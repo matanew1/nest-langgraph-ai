@@ -7,7 +7,7 @@ const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
   MISTRAL_API_KEY: Joi.string().required(),
   MISTRAL_MODEL: Joi.string().default('mistral-small-latest'),
-  MISTRAL_TIMEOUT_MS: Joi.number().default(30_000),
+  MISTRAL_TIMEOUT_MS: Joi.number().min(1000).default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().required(),
@@ -15,7 +15,7 @@ const envSchema = Joi.object({
   AGENT_MAX_ITERATIONS: Joi.number().integer().min(1).max(10).default(3),
   AGENT_MAX_RETRIES: Joi.number().integer().min(1).max(10).default(3),
   AGENT_MAX_RETBACKS: Joi.number().integer().min(1).max(10).default(3),
-  TOOL_TIMEOUT_MS: Joi.number().default(15_000),
+  TOOL_TIMEOUT_MS: Joi.number().min(1000).default(15_000),
   HEALTH_EXTERNAL_CHECK_TIMEOUT_MS: Joi.number()
     .integer()
     .min(100)
@@ -33,8 +33,10 @@ const envSchema = Joi.object({
   // Default matches Xenova/all-MiniLM-L6-v2 embedding dimension (free, local).
   QDRANT_VECTOR_SIZE: Joi.number().integer().min(1).default(384),
   NODE_ENV: Joi.string().default('development'),
-  ENABLE_SWAGGER: Joi.string().default('false'),
+  ENABLE_SWAGGER: Joi.boolean().default(false),
   REQUIRE_PLAN_REVIEW: Joi.boolean().default(false),
+  API_KEY: Joi.string().optional().default(''),
+  LOG_FORMAT: Joi.string().valid('text', 'json').default('text'),
 }).unknown(true);
 
 interface EnvVariables {
@@ -63,8 +65,10 @@ interface EnvVariables {
   QDRANT_CHECK_COMPATIBILITY: boolean;
   QDRANT_VECTOR_SIZE: number;
   NODE_ENV: string;
-  ENABLE_SWAGGER: string;
+  ENABLE_SWAGGER: boolean;
   REQUIRE_PLAN_REVIEW: boolean;
+  API_KEY: string;
+  LOG_FORMAT: string;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -104,4 +108,6 @@ export const env = {
   nodeEnv: validatedEnv.NODE_ENV,
   enableSwagger: validatedEnv.ENABLE_SWAGGER,
   requirePlanReview: validatedEnv.REQUIRE_PLAN_REVIEW,
+  apiKey: validatedEnv.API_KEY,
+  logFormat: validatedEnv.LOG_FORMAT,
 };

@@ -20,11 +20,11 @@ nest-langgraph-ai/
 
 ```
 src/
-├── main.ts                              # NestJS bootstrap (ValidationPipe, AllExceptionsFilter, LoggingInterceptor, TimeoutInterceptor)
-├── app.module.ts                        # Root module (ThrottlerModule, ServeStaticModule, agents/llm/redis/vector-db/health)
+├── main.ts                              # NestJS bootstrap (ValidationPipe, AllExceptionsFilter, LoggingInterceptor, TimeoutInterceptor, ApiKeyGuard)
+├── app.module.ts                        # Root module (ThrottlerModule, ServeStaticModule, agents/llm/redis/vector-db/health/metrics + RequestIdMiddleware)
 ├── common/
 │   ├── config/
-│   │   └── env.ts                       # Joi-validated env schema (all variables)
+│   │   └── env.ts                       # Joi-validated env schema (all variables incl. API_KEY, LOG_FORMAT)
 │   ├── decorators/
 │   │   ├── api-standard-response.decorator.ts     # @ApiStandardResponse Swagger helper
 │   │   ├── api-standard-delete-response.decorator.ts # @ApiStandardDeleteResponse Swagger helper
@@ -33,9 +33,13 @@ src/
 │   │   └── error-response.dto.ts        # Standard error envelope DTO
 │   ├── filters/
 │   │   └── http-exception.filter.ts     # Global AllExceptionsFilter
+│   ├── guards/
+│   │   └── api-key.guard.ts             # API key authentication guard (Bearer / x-api-key; skips /health)
 │   ├── interceptors/
 │   │   ├── logging.interceptor.ts       # Request/response logging (duration, errors)
 │   │   └── timeout.interceptor.ts       # Global request timeout
+│   ├── middleware/
+│   │   └── request-id.middleware.ts      # X-Request-Id propagation via AsyncLocalStorage
 │   └── utils/
 │       ├── path.util.ts                 # sandboxPath() — MUST wrap all file paths
 │       ├── pretty-log.util.ts           # Phase logging helpers (logPhaseStart/End, startTimer, preview, prettyJson)
@@ -51,23 +55,30 @@ src/
     │   ├── agents.dto.ts                # RunAgentDto, StreamAgentDto, StreamEventDto, RunAgentResponseDto
     │   ├── graph/
     │   │   ├── agent.graph.ts           # LangGraph StateGraph assembly (buildAgentGraph)
+    │   │   ├── agent-node-names.ts      # Node name string constants (leaf module, no node/topology imports)
     │   │   ├── agent-topology.ts        # Node registry, phase→node routing map, safeNodeHandler error boundary
     │   │   ├── agent-topology.spec.ts   # Topology tests
-    │   │   └── agent.config.ts          # Graph config (getAgentLimits, AGENT_PLAN_LIMITS, AGENT_CONSTANTS)
-    │   ├── nodes/                       # 12 LangGraph nodes
-    │   │   ├── supervisor.node.ts       # Intent classification → chat or agent
-    │   │   ├── researcher.node.ts       # Project context gathering (file tree, git, vector memory)
+    │   │   └── agent.config.ts          # Graph config (getAgentLimits, AGENT_PLAN_LIMITS, AGENT_CONSTANTS, CIRCUIT_BREAKER_CONFIG, RESEARCH_CONFIG)
+    │   ├── nodes/                       # 17 LangGraph nodes
+    │   │   ├── supervisor.node.ts       # Intent classification → chat or agent (action-keyword detection)
+    │   │   ├── researcher-coordinator.node.ts # Fan-out coordinator for parallel research branches
+    │   │   ├── research-fs.node.ts      # Filesystem context gathering (file tree, git status) with timeouts
+    │   │   ├── research-vector.node.ts  # Vector memory context gathering with timeouts
+    │   │   ├── research-join.node.ts    # Joins parallel research branches
     │   │   ├── planner.node.ts          # Multi-step plan generation (Zod JSON)
     │   │   ├── plan-validator.node.ts   # Tool/param validation; optional human review gate
     │   │   ├── await-plan-review.node.ts # Human-in-the-loop pause (LangGraph interrupt)
     │   │   ├── execution.node.ts        # Single-step tool execution with AbortController timeout
-    │   │   ├── tool-result-normalizer.node.ts # Raw output → ToolResult envelope
+    │   │   ├── parallel-execution.node.ts # Parallel tool execution with __PREVIOUS_RESULT__ validation
+    │   │   ├── tool-result-normalizer.node.ts # Raw output → ToolResult envelope (includes replanGeneration)
     │   │   ├── critic.node.ts           # advance/retry/replan/complete/fatal decision
-    │   │   ├── generator.node.ts        # Final answer synthesis from attempts
+    │   │   ├── generator.node.ts        # Final answer synthesis from attempts (with empty-output retry)
+    │   │   ├── memory-persist.node.ts   # Vector DB upsert with dedup (cosine > 0.95 = update)
+    │   │   ├── memory-persist.node.spec.ts # Co-located spec
     │   │   ├── chat.node.ts             # Conversational fast-path response
     │   │   ├── terminal-response.node.ts # Fatal / clarification terminal states
-    │   │   ├── decision-router.node.ts  # Phase-driven routing (resolveRouterTarget) with deadlock protection
-    │   │   ├── parse-with-repair.util.ts # Inline JSON parse + LLM repair fallback (used by each LLM node)
+    │   │   ├── decision-router.node.ts  # Phase-driven routing with extracted helper functions and replanGeneration tracking
+    │   │   ├── parse-with-repair.util.ts # Inline JSON parse + regex fallback + LLM repair (10s timeout, 0 retries)
     │   │   └── structured-output.util.ts # Shared: getStructuredNodeRawResponse, parseStructuredNodeOutput
     │   ├── state/
     │   │   ├── agent-phase.ts           # AGENT_PHASES enum + ROUTABLE_AGENT_PHASES
@@ -75,7 +86,7 @@ src/
     │   │   ├── agent.schemas.ts         # Zod schemas for LLM structured outputs (supervisor, planner, critic)
     │   │   ├── agent-state.helpers.ts   # State query helpers (incrementAgentCounters)
     │   │   ├── agent-state.helpers.spec.ts
-    │   │   ├── agent-transition.util.ts # transitionToPhase(), failAgentRun(), requestClarification()
+    │   │   ├── agent-transition.util.ts # transitionToPhase() with phase transition validation, failAgentRun(), requestClarification()
     │   │   ├── agent-transition.util.spec.ts
     │   │   ├── agent-run-state.util.ts  # createInitialAgentRunState(), completeAgentRun()
     │   │   └── agent-run-state.util.spec.ts
@@ -143,6 +154,7 @@ src/
     │   │   ├── git-info.tool.spec.ts
     │   │   ├── glob-files.tool.spec.ts
     │   │   ├── grep-search.tool.spec.ts
+    │   │   ├── memory-persist.node.spec.ts
     │   │   ├── http-get.tool.spec.ts
     │   │   ├── http-post.tool.spec.ts
     │   │   └── json.util.spec.ts
@@ -151,8 +163,12 @@ src/
     │       └── redis-saver.spec.ts
     ├── llm/
     │   ├── llm.module.ts
-    │   ├── llm.provider.ts              # invokeLlm() with retry, circuit breaker, AbortController timeout
+    │   ├── llm.provider.ts              # invokeLlm() with per-session circuit breaker, retry, AbortController timeout
     │   └── llm.provider.spec.ts
+    ├── metrics/
+    │   ├── metrics.module.ts            # Global module exporting MetricsService
+    │   ├── metrics.service.ts           # Prometheus-compatible counters, histograms, gauges
+    │   └── metrics.controller.ts        # GET /metrics (Prometheus text exposition format)
     ├── redis/
     │   ├── redis.module.ts
     │   ├── redis.module.spec.ts

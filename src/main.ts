@@ -12,6 +12,7 @@ import { env } from './common/config/env';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+import { ApiKeyGuard } from './common/guards/api-key.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -28,9 +29,15 @@ async function bootstrap() {
   app.use(compression());
 
   // Security: Restrict CORS in production
+  if (env.nodeEnv === 'production' && env.corsOrigin === '*') {
+    logger.warn(
+      'WARNING: CORS_ORIGIN is set to wildcard (*) in production. ' +
+        'Set CORS_ORIGIN to a comma-separated list of allowed origins.',
+    );
+  }
   const corsOrigin =
     env.corsOrigin === '*'
-      ? true // Allow all in dev, but ideally this should be a list of domains
+      ? true
       : env.corsOrigin.split(',').map((origin) => origin.trim());
 
   app.enableCors({
@@ -59,6 +66,9 @@ async function bootstrap() {
   // Return consistent JSON error envelopes for all unhandled exceptions
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // API key authentication (skipped if API_KEY env var is not set)
+  app.useGlobalGuards(new ApiKeyGuard());
+
   // Apply the logging interceptor to all routes
   app.useGlobalInterceptors(new LoggingInterceptor());
 
@@ -68,10 +78,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TimeoutInterceptor(globalTimeoutMs));
 
   // Swagger Documentation (Disable in production if needed)
-  if (
-    process.env.NODE_ENV !== 'production' ||
-    process.env.ENABLE_SWAGGER === 'true'
-  ) {
+  if (env.nodeEnv !== 'production' || env.enableSwagger) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Nest LangGraph AI')
       .setDescription('AI Agent API powered by LangGraph')
@@ -91,10 +98,7 @@ async function bootstrap() {
 
   await app.listen(env.port);
   logger.log(`Application running on http://localhost:${env.port}`);
-  if (
-    process.env.NODE_ENV !== 'production' ||
-    process.env.ENABLE_SWAGGER === 'true'
-  ) {
+  if (env.nodeEnv !== 'production' || env.enableSwagger) {
     logger.log(`Swagger docs at http://localhost:${env.port}/docs`);
   }
 }

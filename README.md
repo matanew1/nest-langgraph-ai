@@ -86,8 +86,8 @@ flowchart LR
     direction TB
     CRITIC[CRITIC]
     GENERATOR[GENERATOR]
-    JSON_REPAIR[JSON_REPAIR]
     TERMINAL[TERMINAL_RESPONSE]
+    MEMORY[MEMORY_PERSIST]
   end
 
   START --> SUPERVISOR --> ROUTER
@@ -100,9 +100,9 @@ flowchart LR
   ROUTER -->|phase=normalize_tool_result| NORMALIZER --> ROUTER
   ROUTER -->|phase=judge| CRITIC --> ROUTER
   ROUTER -->|phase=generate| GENERATOR --> ROUTER
-  ROUTER -->|jsonRepair set| JSON_REPAIR --> ROUTER
   ROUTER -->|phase=fatal_recovery| TERMINAL --> ROUTER
-  ROUTER -->|phase=complete OR fatal| END
+  ROUTER -->|phase=complete| MEMORY --> END
+  ROUTER -->|phase=fatal| END
 ```
 
 ## Tech Stack
@@ -151,6 +151,13 @@ flowchart LR
 | `generate_mermaid` | Generate a Mermaid `.mmd` diagram file |
 | `read_mermaid` | Read an existing `.mmd` file |
 | `edit_mermaid` | Edit an existing `.mmd` file with an instruction |
+
+### HTTP
+
+| Tool | Description |
+|------|-------------|
+| `http_get` | HTTP GET with SSRF protection and host allowlist |
+| `http_post` | HTTP POST with SSRF protection and host allowlist |
 
 ### Git
 
@@ -231,13 +238,14 @@ curl -X DELETE http://localhost:3000/api/agents/session/my-session
 | `/agents/session/:sessionId/reject` | POST | Reject plan → stop run |
 | `/agents/session/:sessionId/replan` | POST | Reject plan → trigger re-plan |
 
-### Health
+### Health & Metrics
 
 ```bash
 curl http://localhost:3000/health             # Full status
 curl http://localhost:3000/health/live        # Liveness probe
 curl http://localhost:3000/health/ready       # Readiness probe
 curl http://localhost:3000/health/dependencies # Dependency diagnostics
+curl http://localhost:3000/metrics            # Prometheus metrics
 ```
 
 ## Environment Variables
@@ -268,9 +276,12 @@ curl http://localhost:3000/health/dependencies # Dependency diagnostics
 | `QDRANT_CHECK_COMPATIBILITY` | No | `false` | Qdrant version compatibility checks |
 | `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | External dependency health timeout |
 | `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Dependency diagnostics cache TTL |
+| `AGENT_MAX_RETBACKS` | No | `3` | Max replan cycles before fatal (1-10) |
 | `REQUIRE_PLAN_REVIEW` | No | `false` | Pause for human plan approval before execution |
 | `ENABLE_SWAGGER` | No | `false` | Enable Swagger UI at `/docs` |
 | `NODE_ENV` | No | `development` | Node environment |
+| `API_KEY` | No | `""` | API key for auth (`Authorization: Bearer` or `x-api-key`). Empty = disabled |
+| `LOG_FORMAT` | No | `text` | Log format: `text` or `json` (use `json` for production) |
 
 See [docs/ENV.md](docs/ENV.md) for the full annotated reference.
 

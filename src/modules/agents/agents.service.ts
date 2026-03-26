@@ -2,6 +2,7 @@ import {
   Injectable,
   InternalServerErrorException,
   BadRequestException,
+  ConflictException,
   Logger,
   HttpException,
   Inject,
@@ -14,7 +15,7 @@ import { preview, startTimer } from '@utils/pretty-log.util';
 import { agentWorkflow } from './graph/agent.graph';
 import { AgentState } from './state/agent.state';
 import type { PlanStep, ImageAttachment } from './state/agent.state';
-import { AGENT_PHASES } from './state/agent-phase';
+import { AGENT_PHASES, type AgentPhase } from './state/agent-phase';
 import { createInitialAgentRunState } from './state/agent-run-state.util';
 import {
   beginExecutionStep,
@@ -60,11 +61,44 @@ export class AgentsService {
 
   private app: ReturnType<typeof agentWorkflow.compile>;
 
+  /** Session lock TTL in seconds — prevents concurrent mutations on same session. */
+  private static readonly SESSION_LOCK_TTL = 120;
+
   constructor(@Inject(REDIS_CLIENT) private readonly redisClient: Redis) {
     this.checkpointer = new RedisSaver(this.redisClient);
     this.app = agentWorkflow.compile({
       checkpointer: this.checkpointer as any,
     });
+  }
+
+  /**
+   * Acquire a Redis-backed session lock. Returns a release function.
+   * Throws ConflictException if the session is already locked.
+   */
+  private async acquireSessionLock(
+    sessionId: string,
+  ): Promise<() => Promise<void>> {
+    const lockKey = `session:${sessionId}:lock`;
+    const lockValue = uuidv4();
+    const acquired = await this.redisClient.set(
+      lockKey,
+      lockValue,
+      'EX',
+      AgentsService.SESSION_LOCK_TTL,
+      'NX',
+    );
+    if (!acquired) {
+      throw new ConflictException(
+        `Session ${sessionId} is already being processed. Please wait for the current request to complete.`,
+      );
+    }
+    return async () => {
+      // Only release if we still own the lock (compare-and-delete)
+      const current = await this.redisClient.get(lockKey);
+      if (current === lockValue) {
+        await this.redisClient.del(lockKey);
+      }
+    };
   }
 
   async run(
@@ -88,6 +122,7 @@ export class AgentsService {
       recursionLimit: 200,
     };
 
+    const releaseLock = await this.acquireSessionLock(threadId);
     try {
       const sessionMemory = await this._tryLoadSessionMemory(threadId);
       const cacheKey = await this._buildCacheKey(
@@ -180,13 +215,15 @@ export class AgentsService {
       throw new InternalServerErrorException(
         `Agent execution failed: ${message}`,
       );
+    } finally {
+      await releaseLock();
     }
   }
 
   async *streamRun(
     prompt: string,
     sessionId?: string,
-    streamPhases?: string[],
+    streamPhases?: AgentPhase[],
     images?: ImageAttachment[],
   ): AsyncGenerator<StreamEvent> {
     const elapsed = startTimer();
@@ -205,6 +242,7 @@ export class AgentsService {
       recursionLimit: 200,
     };
 
+    const releaseLock = await this.acquireSessionLock(threadId);
     try {
       const sessionMemory = await this._tryLoadSessionMemory(threadId);
       const tokenQueue: string[] = [];
@@ -413,6 +451,8 @@ export class AgentsService {
         done: true,
       };
       // Do not re-throw — SSE generators must close cleanly without an unhandled rejection.
+    } finally {
+      await releaseLock();
     }
   }
 
@@ -444,8 +484,7 @@ export class AgentsService {
       if (!a.lastActivity) return 1;
       if (!b.lastActivity) return -1;
       return (
-        new Date(b.lastActivity).getTime() -
-        new Date(a.lastActivity).getTime()
+        new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
       );
     });
 

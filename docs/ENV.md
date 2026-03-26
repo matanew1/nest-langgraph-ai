@@ -16,16 +16,18 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `PORT` | `3000` | HTTP listen port |
-| `CORS_ORIGIN` | `*` | Allowed CORS origin |
-| `ENABLE_SWAGGER` | `false` | Enable Swagger UI at `/docs` |
+| `CORS_ORIGIN` | `*` | Allowed CORS origin (wildcard warns in production) |
+| `ENABLE_SWAGGER` | `false` | Enable Swagger UI at `/docs` (boolean) |
 | `NODE_ENV` | `development` | Node environment |
+| `API_KEY` | `""` | API key for `Authorization: Bearer` or `x-api-key` auth. Empty = disabled (dev mode). Health endpoints are always public |
+| `LOG_FORMAT` | `text` | `text` or `json`. Use `json` for structured logging in production (ELK, Datadog, etc.) |
 
 ## LLM (Mistral)
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `MISTRAL_MODEL` | `mistral-small-latest` | Mistral model name |
-| `MISTRAL_TIMEOUT_MS` | `30000` | LLM call timeout (ms) |
+| `MISTRAL_TIMEOUT_MS` | `30000` | LLM call timeout in ms (min 1000) |
 
 ## Agent Behaviour
 
@@ -41,7 +43,7 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `TOOL_TIMEOUT_MS` | `15000` | Per-tool invocation timeout (ms) |
+| `TOOL_TIMEOUT_MS` | `15000` | Per-tool invocation timeout in ms (min 1000) |
 | `HTTP_TOOL_ALLOWED_HOSTS` | `""` | Comma-separated hostname allowlist for `http_get`/`http_post`. Accepts exact hosts (`api.github.com`) and suffix rules (`*.openai.com`). Empty = allow all non-private hosts |
 | `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | `false` | Allow localhost / private / link-local HTTP targets |
 | `HTTP_TOOL_MAX_REDIRECTS` | `3` | Max validated redirects (0–10) |\n\n**HTTP Tool Notes:**\n- Direct requests to sites like LinkedIn often fail (status 999/403 due to bot detection). Use `search` or Tavily (via `grep-search`/`search`) for web content.\n- To allow specific hosts: `HTTP_TOOL_ALLOWED_HOSTS=api.github.com,*.openai.com`\n- Private networks localhost blocked by default for security.

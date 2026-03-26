@@ -74,7 +74,11 @@ describe('AgentsController', () => {
 
       const response = await controller.run({ prompt });
 
-      expect(mockAgentsService.run).toHaveBeenCalledWith(prompt, undefined);
+      expect(mockAgentsService.run).toHaveBeenCalledWith(
+        prompt,
+        undefined,
+        undefined,
+      );
       expect(response).toEqual(expected);
     });
 

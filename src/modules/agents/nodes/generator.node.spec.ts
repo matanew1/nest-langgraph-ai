@@ -90,7 +90,10 @@ describe('generatorNode', () => {
     const state = makeState();
     const result = await generatorNode(state);
 
-    expect(result).toMatchObject({ phase: 'complete', finalAnswer: 'invoked answer' });
+    expect(result).toMatchObject({
+      phase: 'complete',
+      finalAnswer: 'invoked answer',
+    });
   });
 
   it('calls onToken for each yielded token and assembles the full answer', async () => {

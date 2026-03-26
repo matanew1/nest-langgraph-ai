@@ -32,7 +32,8 @@ jest.mock('../graph/agent.graph', () => ({
 
 const mockRedisClient = {
   get: jest.fn(),
-  set: jest.fn(),
+  set: jest.fn().mockResolvedValue('OK'),
+  del: jest.fn().mockResolvedValue(1),
   setex: jest.fn(),
   getBuffer: jest.fn(),
   pipeline: jest.fn().mockReturnValue({

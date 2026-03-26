@@ -76,10 +76,18 @@ export async function parallelExecutionNode(
           logger.warn(
             `Step ${step.step_id} in parallel group ${groupId} uses __PREVIOUS_RESULT__ — this is unsupported in parallel execution`,
           );
-          // still substitute from state.toolResultRaw if available
-          toolParams[key] = state.toolResultRaw
-            ? value.replaceAll('__PREVIOUS_RESULT__', state.toolResultRaw)
-            : value;
+          // Substitute from state.toolResultRaw if available, otherwise fail clearly
+          if (state.toolResultRaw) {
+            toolParams[key] = value.replaceAll(
+              '__PREVIOUS_RESULT__',
+              state.toolResultRaw,
+            );
+          } else {
+            throw new Error(
+              `Step ${step.step_id} references __PREVIOUS_RESULT__ but no prior result exists. ` +
+                `Parallel steps must not depend on previous results.`,
+            );
+          }
         } else {
           toolParams[key] = value;
         }
