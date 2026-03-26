@@ -35,7 +35,6 @@ import { ApiStandardResponse } from '@common/decorators/api-standard-response.de
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
 import { ApiSessionIdParam } from '@common/decorators/api-session-id-param.decorator';
 
-@ApiTags('Agents')
 @Controller('agents')
 @UseGuards(ThrottlerGuard)
 export class AgentsController {
@@ -49,6 +48,7 @@ export class AgentsController {
     type: RunAgentResponseDto,
     description: 'Agent answer',
   })
+  @ApiTags('Conversations')
   async run(@Body() body: RunAgentDto): Promise<AgentRunResult> {
     return this.agentsService.run(
       body.prompt ?? '',
@@ -95,6 +95,7 @@ export class AgentsController {
       },
     },
   })
+  @ApiTags('Conversations')
   stream(@Body() body: StreamAgentDto): Observable<MessageEvent> {
     return from(
       this.agentsService.streamRun(
@@ -116,6 +117,7 @@ export class AgentsController {
 
   @Get('sessions')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Sessions')
   @ApiOperation({ summary: 'List all active sessions with metadata' })
   @ApiStandardResponse({
     type: ListSessionsResponseDto,
@@ -127,6 +129,7 @@ export class AgentsController {
 
   @Get('session/:sessionId/detail')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Sessions')
   @ApiOperation({
     summary: 'Get full detail for a session including conversation history',
   })
@@ -143,6 +146,7 @@ export class AgentsController {
 
   @Delete('session/:sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Sessions')
   @ApiOperation({ summary: 'Delete an agent session state from Redis' })
   @ApiSessionIdParam()
   @ApiStandardDeleteResponse({
@@ -154,6 +158,7 @@ export class AgentsController {
 
   @Get('review/:sessionId')
   @Redirect()
+  @ApiTags('Plan Review')
   @ApiOperation({
     summary: 'Human plan review page for a paused agent session',
     description:
@@ -171,6 +176,7 @@ export class AgentsController {
 
   @Get('session/:sessionId/review-data')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Plan Review')
   @ApiOperation({ summary: 'Get pending plan review data as JSON' })
   @ApiSessionIdParam()
   async getReviewData(
@@ -189,6 +195,7 @@ export class AgentsController {
 
   @Post('session/:sessionId/approve')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Plan Review')
   @ApiOperation({
     summary: 'Approve a pending plan and resume agent execution',
   })
@@ -201,6 +208,7 @@ export class AgentsController {
 
   @Post('session/:sessionId/reject')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Plan Review')
   @ApiOperation({ summary: 'Reject a pending plan and stop the agent run' })
   @ApiSessionIdParam()
   async rejectPlan(@Param('sessionId') sessionId: string): Promise<void> {
@@ -209,6 +217,7 @@ export class AgentsController {
 
   @Post('session/:sessionId/replan')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Plan Review')
   @ApiOperation({ summary: 'Reject the plan and trigger a full re-plan' })
   @ApiSessionIdParam()
   async replanSession(
@@ -219,6 +228,7 @@ export class AgentsController {
 
   @Get('session/:sessionId/memory')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Memory')
   @ApiOperation({ summary: 'Get the session memory entries' })
   @ApiSessionIdParam()
   async getSessionMemory(
@@ -229,6 +239,7 @@ export class AgentsController {
 
   @Post('session/:sessionId/memory')
   @HttpCode(HttpStatus.CREATED)
+  @ApiTags('Memory')
   @ApiOperation({ summary: 'Add an entry to the session memory' })
   @ApiSessionIdParam()
   @ApiBody({ type: AddMemoryEntryDto })
@@ -241,6 +252,7 @@ export class AgentsController {
 
   @Delete('session/:sessionId/memory')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiTags('Memory')
   @ApiOperation({ summary: 'Clear the session memory' })
   @ApiSessionIdParam()
   async clearSessionMemory(
@@ -251,6 +263,7 @@ export class AgentsController {
 
   @Post('session/:sessionId/feedback')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Feedback')
   @ApiOperation({ summary: 'Submit feedback to update vector memory salience' })
   @ApiSessionIdParam()
   @ApiBody({ type: SubmitFeedbackDto })
@@ -263,6 +276,7 @@ export class AgentsController {
 
   @Get('session/:sessionId/feedback')
   @HttpCode(HttpStatus.OK)
+  @ApiTags('Feedback')
   @ApiOperation({ summary: 'Get feedback submission stats for a session' })
   @ApiSessionIdParam()
   async getFeedbackStats(

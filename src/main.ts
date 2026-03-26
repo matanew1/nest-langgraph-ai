@@ -80,16 +80,44 @@ async function bootstrap() {
   // Swagger Documentation (Disable in production if needed)
   if (env.nodeEnv !== 'production' || env.enableSwagger) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('Nest LangGraph AI')
-      .setDescription('AI Agent API powered by LangGraph')
+      .setTitle('LangGraph AI Agent API')
+      .setDescription(
+        `## Overview\n` +
+        `A stateful multi-agent API built with **NestJS** and **LangGraph**. Agents execute multi-step reasoning pipelines backed by **Redis** checkpointing and **Qdrant** vector memory.\n\n` +
+        `## Key capabilities\n` +
+        `- **Conversations** — run or stream an agent response in real time via Server-Sent Events\n` +
+        `- **Sessions** — inspect, manage, and delete persistent session state stored in Redis\n` +
+        `- **Plan Review** — pause execution at the planning stage for human approval before the agent acts\n` +
+        `- **Memory** — read, write, and clear per-session conversation memory\n` +
+        `- **Feedback** — submit thumbs-up/down signals that adjust vector memory salience in Qdrant\n\n` +
+        `## Authentication\n` +
+        `Pass your API key as a **Bearer token** in the \`Authorization\` header, or via the \`x-api-key\` header. Authentication is disabled when \`API_KEY\` is not set (development mode).`,
+      )
       .setVersion('1.0')
-      .addBearerAuth()
+      .setContact('Matan Bardugo', '', '')
+      .setLicense('MIT', '')
+      .addServer('http://localhost:3000', 'Local development')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'API Key' },
+        'api-key',
+      )
+      .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'api-key-header')
       .build();
 
     SwaggerModule.setup(
       'docs',
       app,
-      SwaggerModule.createDocument(app, swaggerConfig),
+      SwaggerModule.createDocument(app, swaggerConfig, { autoTagControllers: false }),
+      {
+        customSiteTitle: 'LangGraph AI — API Docs',
+        swaggerOptions: {
+          persistAuthorization: true, // Keep the auth token for subsequent requests
+          tagsSorter: 'alpha', // Sort tags
+          operationsSorter: 'alpha', // Sort operations
+          filter: true, // Enable filtering
+          tryItOutEnabled: true, // Enable Try It Out
+        },
+      },
     );
   }
 
