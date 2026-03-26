@@ -82,9 +82,13 @@ function handleFatal(
   );
 }
 
-function handleReplan(counters: AgentCounters): Partial<AgentState> {
+function handleReplan(
+  counters: AgentCounters,
+  reason?: string,
+): Partial<AgentState> {
   return transitionToPhase(AGENT_PHASES.RESEARCH, {
     memoryContext: undefined,
+    replanContext: reason,
     counters: incrementAgentCounters(counters, { replans: 1, turn: 1 }),
     criticDecision: undefined,
   });
@@ -94,12 +98,20 @@ function handleRetryStep(
   state: AgentState,
   counters: AgentCounters,
 ): Partial<AgentState> {
-  // Deterministic loop prevention: if this step+tool combination has already been
-  // attempted ≥2 times the params will never change. Escalate to replan.
-  // Uses replanGeneration to avoid counter reset after replans.
   const currentTool = state.selectedTool ?? '';
   const currentStepIdx = state.currentStep ?? 0;
   const currentGeneration = counters.replans;
+  const criticReason = state.criticDecision?.reason;
+
+  // If the tool ran without error but its output was still not useful (ok: true),
+  // retrying with the same params will produce the same result. Escalate immediately.
+  if (state.toolResult?.ok === true) {
+    return handleReplan(counters, criticReason);
+  }
+
+  // Deterministic loop prevention: if this step+tool combination has already been
+  // attempted ≥2 times with a real error, the params will never change. Escalate.
+  // Uses replanGeneration to avoid counter reset after replans.
   const priorAttemptsForStep = (state.attempts ?? []).filter(
     (a) =>
       a.step === currentStepIdx &&
@@ -108,7 +120,7 @@ function handleRetryStep(
   );
 
   if (priorAttemptsForStep.length >= 2) {
-    return handleReplan(counters);
+    return handleReplan(counters, criticReason);
   }
 
   return transitionToPhase(AGENT_PHASES.EXECUTE, {
@@ -209,7 +221,7 @@ export async function decisionRouterNode(
 
     case 'replan':
       logSuffix = 'REPLAN → research';
-      result = handleReplan(counters);
+      result = handleReplan(counters, decision.reason);
       break;
 
     case 'retry_step':

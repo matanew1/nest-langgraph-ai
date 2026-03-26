@@ -16,6 +16,7 @@ MEMORY CONTEXT:
 Available tools:
 {{availableTools}}
 {{attempts}}
+{{replanContext}}
 </context>
 
 <requirements>

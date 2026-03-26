@@ -82,6 +82,12 @@ export interface AgentStateShape {
   /** True when toolResultRaw contains parallel execution results (JSON array) */
   parallelResult?: boolean;
   vectorMemoryIds?: string[];
+  /**
+   * Carry-forward context from the critic when a replan is triggered.
+   * Explains what assumption was wrong and what the new plan must do differently.
+   * Populated by the decision-router on replan; cleared by the planner after use.
+   */
+  replanContext?: string;
   /** Images attached to the current user request (vision-capable models only) */
   images?: ImageAttachment[];
 }
@@ -155,6 +161,11 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
   /** Boolean flag to indicate if toolResultRaw contains multiple parallel results */
   parallelResult: Annotation<boolean | undefined>({
+    reducer: (_, curr) => curr,
+    default: () => undefined,
+  }),
+  /** Critic failure reason carried across a replan cycle; cleared by planner after use */
+  replanContext: Annotation<string | undefined>({
     reducer: (_, curr) => curr,
     default: () => undefined,
   }),

@@ -61,5 +61,6 @@ export async function plannerNode(
     toolParams: firstStep.input,
     expectedResult: plan.expected_result,
     objective: plan.objective,
+    replanContext: undefined,
   });
 }

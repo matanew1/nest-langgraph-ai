@@ -1,28 +1,34 @@
-flowchart LR
-  %% LangGraph workflow based on provided analysis
+flowchart TD
+  %% NestJS + LangGraph multi-agent workflow (17 nodes)
+  %% Source of truth: agent-topology.ts, agent-node-names.ts, agent-phase.ts
 
-  START["START"]
-  END["END"]
+  START(["__START__"])
+  END(["__END__"])
 
-  SUPERVISOR["SUPERVISOR"]
-  RESEARCHER["RESEARCHER"]
-  PLANNER["PLANNER"]
-  PLAN_VALIDATOR["PLAN VALIDATOR"]
-  AWAIT_PLAN_REVIEW["AWAIT PLAN REVIEW"]
-  EXECUTE["EXECUTE"]
-  EXECUTE_PARALLEL["EXECUTE PARALLEL"]
-  TOOL_RESULT_NORMALIZER["TOOL RESULT NORMALIZER"]
-  CRITIC["CRITIC"]
-  GENERATOR["GENERATOR"]
-  CHAT["CHAT"]
-  JSON_REPAIR["JSON REPAIR"]
-  TERMINAL_RESPONSE["TERMINAL RESPONSE"]
-  ROUTER["ROUTER"]
+  SUPERVISOR["supervisor"]
+  RESEARCHER_COORDINATOR["researcher_coordinator"]
+  RESEARCH_FS["research_fs"]
+  RESEARCH_VECTOR["research_vector"]
+  RESEARCH_JOIN["research_join"]
+  PLANNER["planner"]
+  PLAN_VALIDATOR["plan_validator"]
+  AWAIT_PLAN_REVIEW["await_plan_review"]
+  EXECUTE["execute"]
+  EXECUTE_PARALLEL["execute_parallel"]
+  TOOL_RESULT_NORMALIZER["tool_result_normalizer"]
+  CRITIC["critic"]
+  GENERATOR["generator"]
+  MEMORY_PERSIST["memory_persist"]
+  CHAT["chat"]
+  TERMINAL_RESPONSE["terminal_response"]
+  ROUTER["router"]
 
-  %% Fixed edges (every node returns to ROUTER)
+  %% ── Entry ──
   START --> SUPERVISOR
+
+  %% ── Nodes that return to ROUTER (standard edges) ──
   SUPERVISOR --> ROUTER
-  RESEARCHER --> ROUTER
+  RESEARCH_JOIN --> ROUTER
   PLANNER --> ROUTER
   PLAN_VALIDATOR --> ROUTER
   AWAIT_PLAN_REVIEW --> ROUTER
@@ -30,27 +36,54 @@ flowchart LR
   EXECUTE_PARALLEL --> ROUTER
   TOOL_RESULT_NORMALIZER --> ROUTER
   CRITIC --> ROUTER
-  GENERATOR --> ROUTER
   CHAT --> ROUTER
-  JSON_REPAIR --> ROUTER
   TERMINAL_RESPONSE --> ROUTER
 
-  %% Conditional edges from ROUTER
-  ROUTER -->|phase = complete OR fatal| END
-  ROUTER -->|jsonRepair flag set| JSON_REPAIR
+  %% ── Research parallel fan-out / fan-in ──
+  RESEARCHER_COORDINATOR -->|"Send()"| RESEARCH_FS
+  RESEARCHER_COORDINATOR -->|"Send()"| RESEARCH_VECTOR
+  RESEARCH_FS --> RESEARCH_JOIN
+  RESEARCH_VECTOR --> RESEARCH_JOIN
 
-  ROUTER -->|phase = supervisor| SUPERVISOR
-  ROUTER -->|phase = research| RESEARCHER
-  ROUTER -->|phase = plan| PLANNER
-  ROUTER -->|phase = validate_plan| PLAN_VALIDATOR
-  ROUTER -->|phase = await_plan_review| AWAIT_PLAN_REVIEW
-  ROUTER -->|phase = execute| EXECUTE
-  ROUTER -->|phase = execute_parallel| EXECUTE_PARALLEL
-  ROUTER -->|phase = normalize_tool_result| TOOL_RESULT_NORMALIZER
-  ROUTER -->|phase = judge| CRITIC
-  ROUTER -->|phase = generate| GENERATOR
-  ROUTER -->|phase = chat| CHAT
-  ROUTER -->|phase = terminal_response| TERMINAL_RESPONSE
+  %% ── Generator dual output ──
+  GENERATOR --> ROUTER
+  GENERATOR --> MEMORY_PERSIST
 
-  %% Fallback (when phase is route/unknown and no other condition matched)
-  ROUTER -->|phase = route / default fallback| SUPERVISOR
+  %% ── Memory persist terminal ──
+  MEMORY_PERSIST --> END
+
+  %% ── Conditional edges from ROUTER ──
+  ROUTER -->|"phase = complete"| END
+  ROUTER -->|"phase = fatal"| TERMINAL_RESPONSE
+
+  ROUTER -->|"phase = supervisor"| SUPERVISOR
+  ROUTER -->|"phase = research"| RESEARCHER_COORDINATOR
+  ROUTER -->|"phase = research_join"| RESEARCH_JOIN
+  ROUTER -->|"phase = plan"| PLANNER
+  ROUTER -->|"phase = validate_plan"| PLAN_VALIDATOR
+  ROUTER -->|"phase = await_plan_review"| AWAIT_PLAN_REVIEW
+  ROUTER -->|"phase = execute"| EXECUTE
+  ROUTER -->|"phase = execute_parallel"| EXECUTE_PARALLEL
+  ROUTER -->|"phase = normalize_tool_result"| TOOL_RESULT_NORMALIZER
+  ROUTER -->|"phase = judge"| CRITIC
+  ROUTER -->|"phase = generate"| GENERATOR
+  ROUTER -->|"phase = chat"| CHAT
+  ROUTER -->|"phase = fatal_recovery"| TERMINAL_RESPONSE
+  ROUTER -->|"phase = clarification"| TERMINAL_RESPONSE
+
+  %% ── Fallback ──
+  ROUTER -.->|"unknown phase / fallback"| SUPERVISOR
+
+  %% ── Valid phase transitions (for reference) ──
+  %% SUPERVISOR → research | chat | clarification | fatal
+  %% RESEARCH → research_join | fatal
+  %% RESEARCH_JOIN → plan | fatal
+  %% PLAN → validate_plan | fatal
+  %% VALIDATE_PLAN → execute | execute_parallel | await_plan_review | fatal
+  %% EXECUTE → normalize_tool_result | fatal
+  %% EXECUTE_PARALLEL → normalize_tool_result | fatal
+  %% NORMALIZE_TOOL_RESULT → judge | fatal
+  %% JUDGE → route | fatal
+  %% ROUTE → supervisor | research | execute | execute_parallel | generate | fatal | complete
+  %% GENERATE → complete | fatal
+  %% CHAT → complete | fatal

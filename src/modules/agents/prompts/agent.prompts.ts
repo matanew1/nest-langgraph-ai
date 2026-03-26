@@ -57,6 +57,9 @@ export const buildPlannerPrompt = (state: AgentState): string => {
       '(none available)',
       env.promptMaxSummaryChars,
     ),
+    replanContext: state.replanContext
+      ? `\nPREVIOUS PLAN FAILURE — the critic identified what went wrong and what the new plan must do differently:\n${state.replanContext}`
+      : '',
   });
 };
 
