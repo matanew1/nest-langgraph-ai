@@ -16,6 +16,52 @@ import { transitionToPhase } from '../state/agent-transition.util';
 const logger = new Logger('Executor');
 
 /**
+ * Check whether a Zod schema node represents an array type (unwrapping
+ * ZodOptional / ZodDefault / ZodNullable wrappers as needed).
+ */
+function isZodArrayField(fieldSchema: unknown): boolean {
+  if (!fieldSchema || typeof fieldSchema !== 'object') return false;
+  const typeName = (fieldSchema as any)._def?.typeName as string | undefined;
+  if (typeName === 'ZodArray') return true;
+  if (
+    typeName === 'ZodOptional' ||
+    typeName === 'ZodDefault' ||
+    typeName === 'ZodNullable'
+  ) {
+    return isZodArrayField(
+      (fieldSchema as any)._def?.innerType ??
+        (fieldSchema as any)._def?.type,
+    );
+  }
+  return false;
+}
+
+/**
+ * Coerce a raw string value to a string array.
+ * Priority:
+ *   1. JSON array literal
+ *   2. File paths extracted from grep output (path:line: content)
+ *   3. Non-empty lines
+ */
+function coerceToStringArray(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed as string[];
+  } catch {
+    // not valid JSON, continue
+  }
+  // Extract unique file paths from grep output lines, e.g. "src/foo.ts:12: ..."
+  const paths = new Set<string>();
+  for (const line of value.split('\n')) {
+    const m = line.match(/^([^\s:][^:]*\.\w+):\d+:/);
+    if (m) paths.add(m[1].trim());
+  }
+  if (paths.size > 0) return Array.from(paths);
+  // Fallback: split by newlines
+  return value.split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
+/**
  * Extract the first inline file content block from a user message.
  * Handles both [Attached: name] and [File: name] forms followed by a code fence.
  * Falls back to the full input if no block is found.
@@ -36,14 +82,17 @@ export async function executionNode(
 
   // Substitute __PREVIOUS_RESULT__ and __INLINE_CONTENT__ placeholders
   const toolParams: Record<string, unknown> = {};
+  const resolvedFromPlaceholder = new Set<string>();
   for (const [key, value] of Object.entries(rawParams)) {
     if (typeof value === 'string') {
       let resolved = value;
       if (resolved.includes('__PREVIOUS_RESULT__') && state.toolResultRaw) {
         resolved = resolved.replaceAll('__PREVIOUS_RESULT__', state.toolResultRaw);
+        resolvedFromPlaceholder.add(key);
       }
       if (resolved.includes('__INLINE_CONTENT__') && state.input) {
         resolved = resolved.replaceAll('__INLINE_CONTENT__', extractInlineContent(state.input));
+        resolvedFromPlaceholder.add(key);
       }
       toolParams[key] = resolved;
     } else {
@@ -76,6 +125,25 @@ export async function executionNode(
         },
       ],
     });
+  }
+
+  // Coerce placeholder-resolved string values to arrays when the tool schema
+  // declares an array type for that field (e.g. read_files_batch.paths).
+  if (resolvedFromPlaceholder.size > 0) {
+    const toolSchema = (tool as any).schema;
+    if (toolSchema?.shape) {
+      for (const key of resolvedFromPlaceholder) {
+        if (
+          typeof toolParams[key] === 'string' &&
+          isZodArrayField(toolSchema.shape[key])
+        ) {
+          toolParams[key] = coerceToStringArray(toolParams[key] as string);
+          logger.debug(
+            `Coerced placeholder value for "${key}" to array (${(toolParams[key] as string[]).length} items)`,
+          );
+        }
+      }
+    }
   }
 
   try {

@@ -224,17 +224,27 @@ export async function planValidatorNode(
 
     const schema: any = (tool as any).schema;
     if (schema?.safeParse) {
-      const parsed = schema.safeParse(step.input);
-      if (!parsed.success) {
-        const issues = parsed.error.issues
-          .map(
-            (i: { path: (string | number)[]; message: string }) =>
-              `${i.path.join('.')}: ${i.message}`,
-          )
-          .join('; ');
-        const detail = `Invalid params for ${step.tool}: ${issues}`;
-        logPhaseEnd('PLAN_VALIDATOR', `FAILED: ${detail}`, elapsed());
-        return failValidation(detail, detail);
+      // Skip schema validation when any input value contains a placeholder that
+      // will be resolved at execution time — the actual type may differ from the
+      // placeholder string (e.g. paths: "__PREVIOUS_RESULT__" vs string[]).
+      const PLACEHOLDERS = ['__PREVIOUS_RESULT__', '__INLINE_CONTENT__'];
+      const hasPlaceholder = Object.values(step.input).some(
+        (v) =>
+          typeof v === 'string' && PLACEHOLDERS.some((p) => v.includes(p)),
+      );
+      if (!hasPlaceholder) {
+        const parsed = schema.safeParse(step.input);
+        if (!parsed.success) {
+          const issues = parsed.error.issues
+            .map(
+              (i: { path: (string | number)[]; message: string }) =>
+                `${i.path.join('.')}: ${i.message}`,
+            )
+            .join('; ');
+          const detail = `Invalid params for ${step.tool}: ${issues}`;
+          logPhaseEnd('PLAN_VALIDATOR', `FAILED: ${detail}`, elapsed());
+          return failValidation(detail, detail);
+        }
       }
     }
   }
