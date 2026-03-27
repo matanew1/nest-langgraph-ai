@@ -19,17 +19,21 @@ import {
   ReviewPageData,
   StreamEvent,
 } from './agents.service';
-import { ListSessionsResponseDto, SessionDetailDto } from './agents.dto';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import {
+  AddMemoryEntryDto,
+  EnhancePromptDto,
+  EnhancePromptResponseDto,
+  FeedbackStatsResponseDto,
+  ListSessionsResponseDto,
   RunAgentDto,
   RunAgentResponseDto,
-  StreamAgentDto,
-  AddMemoryEntryDto,
+  SessionDetailDto,
   SessionMemoryResponseDto,
+  StreamAgentDto,
   SubmitFeedbackDto,
-  FeedbackStatsResponseDto,
 } from './agents.dto';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { AgentPhase } from './state/agent-phase';
 import { ApiBody, ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { ApiStandardResponse } from '@common/decorators/api-standard-response.decorator';
 import { ApiStandardDeleteResponse } from '@common/decorators/api-standard-delete-response.decorator';
@@ -101,7 +105,7 @@ export class AgentsController {
       this.agentsService.streamRun(
         body.prompt ?? '',
         body.sessionId,
-        body.streamPhases as any,
+        body.streamPhases as AgentPhase[] | undefined,
         body.images,
       ),
     ).pipe(
@@ -283,5 +287,23 @@ export class AgentsController {
     @Param('sessionId') sessionId: string,
   ): Promise<FeedbackStatsResponseDto> {
     return this.agentsService.getFeedbackStats(sessionId);
+  }
+
+  @Post('enhance-prompt')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Prompt')
+  @ApiOperation({
+    summary: 'Enhance a user prompt for better LangGraph agent results',
+  })
+  @ApiBody({ type: EnhancePromptDto })
+  @ApiStandardResponse({
+    type: EnhancePromptResponseDto,
+    description: 'The AI-enhanced prompt',
+  })
+  async enhancePrompt(
+    @Body() body: EnhancePromptDto,
+  ): Promise<EnhancePromptResponseDto> {
+    const enhancedPrompt = await this.agentsService.enhancePrompt(body.prompt);
+    return { enhancedPrompt };
   }
 }

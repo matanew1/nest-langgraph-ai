@@ -474,6 +474,41 @@ export class AgentsService {
     }
   }
 
+  async enhancePrompt(prompt: string): Promise<string> {
+    const systemPrompt = `You are an expert prompt engineer for an AI coding and research assistant.
+The assistant uses a LangGraph architecture with tools for:
+- File system access (reading/writing files, creating directories)
+- Terminal execution (running bash commands, e.g. npm builds, tests)
+- Web search (Tavily API)
+- Mermaid diagram generation
+
+Your task is to take the user's raw prompt and enhance it to get the best possible results from the agent.
+Make the enhanced prompt:
+1. Clear, specific, and highly actionable.
+2. Structured with markdown if it's a complex multi-step task.
+3. Explicit about edge cases, constraints, and the expected final output format.
+4. If the user's prompt is already good, simply clean it up and return it.
+5. DO NOT answer their question or perform their request. ONLY rewrite their prompt.
+6. Return ONLY the final enhanced prompt text without any intro or outro filler (e.g. do not say "Here is the prompt").
+
+Original user prompt:
+"${prompt}"
+
+Enhanced prompt:`;
+
+    try {
+      const result = await invokeLlm(systemPrompt);
+      // Remove any surrounding quotes the LLM might have incorrectly added
+      return result
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .trim();
+    } catch (err) {
+      this.logger.error(`Failed to enhance prompt: ${err}`);
+      return prompt; // fallback to original prompt on failure
+    }
+  }
+
   async listSessions(): Promise<ListSessionsResponseDto> {
     const sessionIds = await this.checkpointer.listSessionIds();
     const summaries: SessionSummaryDto[] = [];

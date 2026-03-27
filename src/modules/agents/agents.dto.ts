@@ -23,6 +23,26 @@ export class ImageAttachmentDto {
   url: string;
 }
 
+export class EnhancePromptDto {
+  @ApiProperty({
+    description: 'The raw user prompt to enhance',
+    example: 'build a react app',
+    maxLength: 100_000,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100_000)
+  prompt: string;
+}
+
+export class EnhancePromptResponseDto {
+  @ApiProperty({
+    description: 'The enhanced, optimized prompt',
+    example: 'Create a modern React application...',
+  })
+  enhancedPrompt: string;
+}
+
 export class RunAgentDto {
   @ApiProperty({
     description: 'The prompt to send to the AI agent',
