@@ -169,7 +169,7 @@ export class AgentsController {
     // Validate session has a pending review before redirecting
     await this.agentsService.getReviewPageData(sessionId);
     return {
-      url: `/plan-review.html?sessionId=${sessionId}`,
+      url: `/index.html?sessionId=${sessionId}`,
       statusCode: 302,
     };
   }
