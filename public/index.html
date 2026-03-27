@@ -228,7 +228,7 @@
     .titlebar-btn:active { transform: scale(0.95); }
     .titlebar-btn svg { width: 18px; height: 18px; }
 
-    .main-grid { flex: 1; display: grid; grid-template-columns: 260px 1fr; overflow: hidden; transition: grid-template-columns 0.3s var(--ease); }
+    .main-grid { flex: 1; display: grid; grid-template-columns: 280px 1fr; overflow: hidden; transition: grid-template-columns 0.3s var(--ease); }
     .main-grid.sidebar-collapsed { grid-template-columns: 0px 1fr; }
 
     .sidebar { background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; width: 280px; min-width: 0; transition: width 0.3s var(--ease), opacity 0.3s var(--ease), transform 0.3s var(--ease); }
@@ -331,14 +331,13 @@
     .chat-session-icon svg { width: 16px; height: 16px; }
     .chat-session-title { font-weight: 600; font-size: 14px; color: var(--text); }
 
-    .progress-pill { margin-left: auto; display: none; align-items: center; gap: 10px; background: var(--surface-solid); border: 1.5px solid var(--accent); padding: 8px 18px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; color: var(--accent); animation: pillBounce 0.5s var(--spring); position: relative; overflow: hidden; box-shadow: 0 4px 16px var(--accent-glow); }
-    @keyframes pillBounce { from { opacity: 0; transform: scale(0.7) translateY(-10px); } 70% { transform: scale(1.08) translateY(2px); } to { opacity: 1; transform: none; } }
-    .progress-pill::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--accent-subtle), rgba(168,85,247,0.06), transparent); background-size: 300% 100%; animation: shimmer 2s linear infinite; }
-    .progress-pill::after { content: '🧠'; font-size: 14px; position: relative; z-index: 1; animation: wobbleEmoji 2s ease-in-out infinite; }
-    .progress-pill.visible { display: flex; }
-    .progress-pill .pulse-dot { width: 9px; height: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-radius: 50%; animation: pulse 1.2s var(--ease) infinite; box-shadow: 0 0 12px var(--accent-glow); position: relative; z-index: 1; }
+    .progress-pill { position: absolute; top: 72px; left: 50%; transform: translateX(-50%) scale(0.85); display: inline-flex; align-items: center; gap: 12px; background: var(--surface-elevated); border: 1.5px solid var(--accent); padding: 12px 28px; border-radius: var(--radius-full); font-size: 16px; font-weight: 700; color: var(--accent); overflow: hidden; box-shadow: 0 8px 32px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.08); opacity: 0; pointer-events: none; z-index: 150; white-space: nowrap; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); transition: opacity 0.4s var(--spring), transform 0.4s var(--spring); font-family: var(--font-display); letter-spacing: 0.01em; }
+    .progress-pill::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--accent-subtle), rgba(168,85,247,0.08), transparent); background-size: 300% 100%; animation: shimmer 2s linear infinite; }
+    .progress-pill::after { content: '🧠'; font-size: 18px; position: relative; z-index: 1; animation: wobbleEmoji 2s ease-in-out infinite; }
+    .progress-pill.visible { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
+    .progress-pill .pulse-dot { width: 11px; height: 11px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-radius: 50%; animation: pulse 1.2s var(--ease) infinite; box-shadow: 0 0 14px var(--accent-glow); position: relative; z-index: 1; flex-shrink: 0; }
 
-    .stop-btn { display: none; margin-left: 8px; background: linear-gradient(135deg, var(--error) 0%, #dc2626 100%); color: #fff; border: none; padding: 6px 14px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s var(--ease); box-shadow: 0 2px 10px rgba(239,68,68,0.3); animation: fadeInScale 0.3s var(--spring); }
+    .stop-btn { display: none; margin-left: auto; background: linear-gradient(135deg, var(--error) 0%, #dc2626 100%); color: #fff; border: none; padding: 6px 14px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s var(--ease); box-shadow: 0 2px 10px rgba(239,68,68,0.3); animation: fadeInScale 0.3s var(--spring); }
     .stop-btn:hover { transform: scale(1.05); box-shadow: 0 4px 18px rgba(239,68,68,0.4); }
     .stop-btn:active { transform: scale(0.95); }
     .stop-btn.visible { display: flex; }
@@ -585,8 +584,7 @@
     [dir="rtl"] .main-grid.sidebar-collapsed .sidebar { transform: translateX(20px); }
     [dir="rtl"] .chat-header { padding: 0 24px 0 16px; }
     [dir="rtl"] .chat-header .sidebar-toggle { margin-right: 0; margin-left: 4px; }
-    [dir="rtl"] .progress-pill { margin-left: 0; margin-right: auto; }
-    [dir="rtl"] .stop-btn { margin-left: 0; margin-right: 8px; }
+    [dir="rtl"] .stop-btn { margin-left: 0; margin-right: auto; }
     [dir="rtl"] .activity-group { padding-left: 0; padding-right: 44px; }
     [dir="rtl"] .activity-items { border-left: none; border-right: 2px solid var(--border); padding-left: 0; padding-right: 16px; }
     [dir="rtl"] .review-card { margin-left: 0; margin-right: 44px; }
@@ -658,24 +656,26 @@
     /* ── Model Bubble — Centered & Expansive ─────────────────────────── */
     .model-badge {
       position: absolute;
-      top: 72px;
+      top: 130px;
       left: 50%;
-      transform: translateX(-50%) scale(0.9);
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 10px 24px; border-radius: var(--radius-full);
-      font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif;
-      letter-spacing: 0.02em; border: 1px solid var(--border-strong);
+      transform: translateX(-50%) scale(0.85);
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 12px 28px; border-radius: var(--radius-full);
+      font-size: 16px; font-weight: 700; font-family: var(--font-display);
+      letter-spacing: 0.02em; border: 1.5px solid var(--border-strong);
       transition: all 0.6s var(--spring); cursor: pointer;
-      white-space: nowrap; box-shadow: var(--shadow-md), 0 0 20px rgba(99,102,241,0.1);
+      white-space: nowrap; box-shadow: var(--shadow-md), 0 0 24px rgba(99,102,241,0.12);
       opacity: 0; pointer-events: none; z-index: 150;
       background: var(--surface-elevated);
       backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
     }
     .model-badge.visible { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
     .model-badge:hover { transform: translateX(-50%) translateY(-2px); box-shadow: var(--shadow-lg), 0 0 30px var(--accent-glow); border-color: var(--accent); }
     .model-badge-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      width: 10px; height: 10px; border-radius: 50%;
       animation: modelPulse 2.5s ease-in-out infinite;
+      flex-shrink: 0;
     }
     @keyframes modelPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -780,15 +780,15 @@
           </div>
           <div class="chat-session-title" id="chat-session-title">New Conversation</div>
         </div>
-        <div class="progress-pill" id="progress-pill">
-          <span class="pulse-dot"></span>
-          <span id="progress-label">Thinking</span>
-        </div>
-        <div class="model-badge" id="model-badge">
-          <span class="model-badge-dot"></span>
-          <span id="model-badge-label"></span>
-        </div>
         <button class="stop-btn" id="stop-btn" onclick="stopStreaming()">Stop</button>
+      </div>
+      <div class="progress-pill" id="progress-pill">
+        <span class="pulse-dot"></span>
+        <span id="progress-label">Thinking</span>
+      </div>
+      <div class="model-badge" id="model-badge">
+        <span class="model-badge-dot"></span>
+        <span id="model-badge-label"></span>
       </div>
       <div class="model-toast" id="model-toast">
         <span class="model-toast-dot" id="model-toast-dot"></span>
@@ -1354,6 +1354,18 @@
         body: JSON.stringify({prompt, sessionId, ...(images.length > 0 ? {images} : {})}),
         signal: abortController.signal
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorMsg = 'Server error';
+        try {
+          const parsed = JSON.parse(errorText);
+          errorMsg = Array.isArray(parsed.message) ? parsed.message.join(', ') : (parsed.message || errorText);
+        } catch { errorMsg = errorText; }
+        removeTyping();
+        addErrorBubble(`<p>${t('connectionError')} ${esc(errorMsg)}</p>`);
+        return;
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

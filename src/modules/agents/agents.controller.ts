@@ -12,7 +12,7 @@ import {
   Redirect,
 } from '@nestjs/common';
 import { Sse, MessageEvent } from '@nestjs/common';
-import { Observable, from, map } from 'rxjs';
+import { Observable, from, map, catchError, of } from 'rxjs';
 import {
   AgentsService,
   AgentRunResult,
@@ -115,6 +115,18 @@ export class AgentsController {
           id: event.sessionId,
           type: event.type,
         } as unknown as MessageEvent;
+      }),
+      catchError((err: Error) => {
+        const errorEvent: StreamEvent = {
+          type: 'error',
+          data: err.message || 'An unexpected error occurred',
+          sessionId: body.sessionId || '',
+          done: true,
+        };
+        return of({
+          data: JSON.stringify(errorEvent),
+          type: 'error',
+        } as unknown as MessageEvent);
       }),
     );
   }
