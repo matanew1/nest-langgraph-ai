@@ -3,7 +3,7 @@ import { streamLlm, resetCircuitBreaker } from '@llm/llm.provider';
 jest.mock('@config/env', () => ({
   env: {
     mistralKey: 'test-key',
-    mistralModel: 'mistral-small-latest',
+    mistralModelBalanced: 'mistral-small-latest',
     mistralTimeoutMs: 5000,
     agentMaxRetries: 2,
   },

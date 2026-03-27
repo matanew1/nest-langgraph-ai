@@ -6,7 +6,11 @@ dotenv.config();
 const envSchema = Joi.object({
   PORT: Joi.number().default(3000),
   MISTRAL_API_KEY: Joi.string().required(),
-  MISTRAL_MODEL: Joi.string().default('mistral-small-latest'),
+  // Per-tier model overrides — each phase uses the tier that fits best
+  MISTRAL_MODEL_FAST: Joi.string().default('mistral-small-latest'),
+  MISTRAL_MODEL_BALANCED: Joi.string().default('mistral-small-latest'),
+  MISTRAL_MODEL_POWERFUL: Joi.string().default('mistral-large-latest'),
+  MISTRAL_MODEL_CODE: Joi.string().default('codestral-latest'),
   MISTRAL_TIMEOUT_MS: Joi.number().min(1000).default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
@@ -42,7 +46,10 @@ const envSchema = Joi.object({
 interface EnvVariables {
   PORT: number;
   MISTRAL_API_KEY: string;
-  MISTRAL_MODEL: string;
+  MISTRAL_MODEL_FAST: string;
+  MISTRAL_MODEL_BALANCED: string;
+  MISTRAL_MODEL_POWERFUL: string;
+  MISTRAL_MODEL_CODE: string;
   MISTRAL_TIMEOUT_MS: number;
   TAVILY_API_KEY: string;
   REDIS_HOST: string;
@@ -83,7 +90,10 @@ if (error) {
 export const env = {
   port: validatedEnv.PORT,
   mistralKey: validatedEnv.MISTRAL_API_KEY,
-  mistralModel: validatedEnv.MISTRAL_MODEL,
+  mistralModelFast: validatedEnv.MISTRAL_MODEL_FAST,
+  mistralModelBalanced: validatedEnv.MISTRAL_MODEL_BALANCED,
+  mistralModelPowerful: validatedEnv.MISTRAL_MODEL_POWERFUL,
+  mistralModelCode: validatedEnv.MISTRAL_MODEL_CODE,
   mistralTimeoutMs: validatedEnv.MISTRAL_TIMEOUT_MS,
   tavilyKey: validatedEnv.TAVILY_API_KEY,
   redisHost: validatedEnv.REDIS_HOST,

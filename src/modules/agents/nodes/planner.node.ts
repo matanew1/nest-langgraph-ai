@@ -15,6 +15,7 @@ import { AgentState, PlanStep } from '../state/agent.state';
 import { plannerOutputSchema } from '../state/agent.schemas';
 import { getStructuredNodeRawResponse } from './structured-output.util';
 import { parseWithRepair } from './parse-with-repair.util';
+import { selectModelForTier } from '@llm/model-router';
 
 const logger = new Logger('Planner');
 
@@ -26,8 +27,12 @@ export async function plannerNode(
 
   logPhaseStart('PLANNER', `objective="${preview(objective)}"`);
 
-  const raw = await getStructuredNodeRawResponse(state, logger, () =>
-    buildPlannerPrompt(state),
+  const raw = await getStructuredNodeRawResponse(
+    state,
+    logger,
+    () => buildPlannerPrompt(state),
+    undefined,
+    selectModelForTier('powerful'),
   );
 
   const plan = (await parseWithRepair(

@@ -2,7 +2,7 @@
 
 ## Context & Architecture
 NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine.
-- **LLM:** Mistral (via `invokeLlm()` in `llm.provider.ts`) with circuit breaker, retry, and AbortController timeout.
+- **LLM:** Mistral (via `invokeLlm()` / `streamLlm()` in `llm.provider.ts`) with per-model instance cache, per-session circuit breaker, retry, and AbortController timeout. Model tier routing via `model-router.ts` — each node calls `selectModelForTier('fast'|'balanced'|'powerful'|'code')` to auto-select the right model per phase.
 - **State:** Stateful sessions via Redis (IORedis checkpoints) + Qdrant (Vector DB for semantic memory).
 - **Core Loop:**
   - Conversational fast-path: `Supervisor → Chat → Router → Complete`
@@ -50,7 +50,7 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **21 tools** registered in `tools/tool.catalog.ts`
 
 ## Critical Guidelines
-- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`. Pass `sessionId` for per-session circuit breaker scoping.
+- **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`. Pass `sessionId` for per-session circuit breaker scoping. Pass `model` from `selectModelForTier()` in `@llm/model-router.ts` to use the appropriate tier model.
 - **File Safety:** ALWAYS wrap paths in `sandboxPath()` from `@utils/path.util.ts`.
 - **State:** Mutate ONLY via annotated reducers in `@state/agent.state.ts`. Use helpers in `agent-transition.util.ts` and `agent-run-state.util.ts`.
 - **Phase transitions:** Use `transitionToPhase(phase, updates, fromPhase?)` — never set `phase` directly. `VALID_TRANSITIONS` map logs warnings for unexpected transitions.

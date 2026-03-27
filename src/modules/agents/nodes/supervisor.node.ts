@@ -15,6 +15,7 @@ import { AgentState } from '../state/agent.state';
 import { supervisorOutputSchema } from '../state/agent.schemas';
 import { getStructuredNodeRawResponse } from './structured-output.util';
 import { parseWithRepair } from './parse-with-repair.util';
+import { selectModelForTier } from '@llm/model-router';
 
 const logger = new Logger('Supervisor');
 
@@ -73,6 +74,7 @@ export async function supervisorNode(
     logger,
     () => buildSupervisorPrompt(state),
     state.images,
+    selectModelForTier('fast'),
   );
 
   const decision = await parseWithRepair(

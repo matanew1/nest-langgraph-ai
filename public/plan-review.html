@@ -594,6 +594,58 @@
     .history-action-btn.danger { color: var(--error); }
     .history-action-btn.danger:hover { background: var(--error-subtle); border-color: var(--error); }
     .history-action-btn svg { width: 12px; height: 12px; }
+
+    /* ── Model Badge ──────────────────────────────────────────────── */
+    .model-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: var(--radius-full);
+      font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.01em; border: 1px solid transparent;
+      transition: all 0.4s var(--ease); cursor: default;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; transform: scale(0.85); pointer-events: none;
+    }
+    .model-badge.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+    .model-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      animation: modelPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes modelPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.75); }
+    }
+    .model-badge.tier-fast    { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .model-badge.tier-fast    .model-badge-dot { background: #10b981; }
+    .model-badge.tier-balanced { background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.3); }
+    .model-badge.tier-balanced .model-badge-dot { background: #818cf8; }
+    .model-badge.tier-powerful { background: rgba(168,85,247,0.15); color: #c084fc; border-color: rgba(168,85,247,0.35); }
+    .model-badge.tier-powerful .model-badge-dot { background: #c084fc; }
+    .model-badge.tier-code     { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+    .model-badge.tier-code     .model-badge-dot { background: #fbbf24; }
+    @keyframes modelSwitch {
+      0%   { transform: scale(1); filter: brightness(1); }
+      25%  { transform: scale(1.15); filter: brightness(1.4); }
+      55%  { transform: scale(0.96); filter: brightness(1.1); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .model-badge.switching { animation: modelSwitch 0.55s var(--spring) forwards; }
+
+    .model-toast {
+      position: fixed; bottom: 88px; left: 50%;
+      transform: translateX(-50%) translateY(24px);
+      background: var(--surface-elevated); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-full); padding: 8px 16px;
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none;
+      transition: all 0.35s var(--spring); z-index: 200; white-space: nowrap;
+    }
+    .model-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .model-toast-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    [data-theme="dark"] .model-badge.tier-fast    { color: #34d399; border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.1); }
+    [data-theme="dark"] .model-badge.tier-fast    .model-badge-dot { background: #34d399; }
+    [data-theme="dark"] .model-badge.tier-powerful { color: #d8b4fe; border-color: rgba(216,180,254,0.35); background: rgba(168,85,247,0.15); }
+    [data-theme="dark"] .model-badge.tier-powerful .model-badge-dot { background: #d8b4fe; }
   </style>
 </head>
 <body>
@@ -673,7 +725,15 @@
           <span class="pulse-dot"></span>
           <span id="progress-label">Thinking</span>
         </div>
+        <div class="model-badge" id="model-badge">
+          <span class="model-badge-dot"></span>
+          <span id="model-badge-label"></span>
+        </div>
         <button class="stop-btn" id="stop-btn" onclick="stopStreaming()">Stop</button>
+      </div>
+      <div class="model-toast" id="model-toast">
+        <span class="model-toast-dot" id="model-toast-dot"></span>
+        <span id="model-toast-text"></span>
       </div>
 
       <div id="feed">
@@ -874,6 +934,7 @@
   // Live streaming state
   let streamingBubbleEl = null;   // the <div class="bubble bubble-agent"> element
   let streamingText = '';         // accumulated raw tokens
+  let activeModel = null;         // currently active Mistral model name
 
   const feed = document.getElementById('feed');
   const emptyWrap = document.getElementById('empty-wrap');
@@ -882,6 +943,66 @@
   const progressPill = document.getElementById('progress-pill');
   const progressLabel = document.getElementById('progress-label');
   const toast = document.getElementById('toast');
+  const modelBadge = document.getElementById('model-badge');
+  const modelBadgeLabel = document.getElementById('model-badge-label');
+  const modelToast = document.getElementById('model-toast');
+  const modelToastDot = document.getElementById('model-toast-dot');
+  const modelToastText = document.getElementById('model-toast-text');
+
+  let modelToastTimer = null;
+
+  /** Infer display tier from model name for color-coding */
+  function inferTier(model) {
+    if (!model) return 'balanced';
+    const m = model.toLowerCase();
+    if (m.includes('codestral') || m.includes('code')) return 'code';
+    if (m.includes('large') || m.includes('medium') || m.includes('powerful')) return 'powerful';
+    if (m.includes('small') || m.includes('nemo') || m.includes('mini')) return 'fast';
+    return 'balanced';
+  }
+
+  /** Shorten a model name for compact display (e.g. "mistral-large-latest" → "large") */
+  function shortModelName(model) {
+    if (!model) return '';
+    return model
+      .replace(/-latest$/i, '')
+      .replace(/^mistral-/i, '')
+      .replace(/^open-/i, '');
+  }
+
+  let modelSwitchTimer = null;
+  function updateModelBadge(model) {
+    if (model === activeModel) return;
+    activeModel = model;
+    const tier = inferTier(model);
+    const short = shortModelName(model);
+
+    // Update badge appearance
+    modelBadge.className = `model-badge visible tier-${tier}`;
+    modelBadgeLabel.textContent = short;
+
+    // Flash animation
+    modelBadge.classList.remove('switching');
+    void modelBadge.offsetWidth; // reflow
+    modelBadge.classList.add('switching');
+    clearTimeout(modelSwitchTimer);
+    modelSwitchTimer = setTimeout(() => modelBadge.classList.remove('switching'), 600);
+
+    // Show mini toast notification
+    const tierLabel = { fast: '⚡ Fast', balanced: '⚖ Balanced', powerful: '🔮 Powerful', code: '💻 Code' }[tier] || tier;
+    const dotColor = { fast: '#10b981', balanced: '#818cf8', powerful: '#c084fc', code: '#fbbf24' }[tier];
+    modelToastDot.style.background = dotColor;
+    modelToastText.textContent = `Switching to ${tierLabel} · ${short}`;
+    modelToast.classList.add('visible');
+    clearTimeout(modelToastTimer);
+    modelToastTimer = setTimeout(() => modelToast.classList.remove('visible'), 2200);
+  }
+
+  function clearModelBadge() {
+    activeModel = null;
+    modelBadge.className = 'model-badge';
+    modelToast.classList.remove('visible');
+  }
 
   function base() { return 'http://localhost:3000'; }
   function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
@@ -1229,9 +1350,13 @@
 
   function handleStreamEvent(e) {
     removeTyping();
-    const {type, data} = e;
+    const {type, data, model} = e;
 
-    if (type === 'status') {
+    if (type === 'model_switch') {
+      const info = (() => { try { return JSON.parse(data); } catch { return {}; } })();
+      updateModelBadge(model || info.model);
+    }
+    else if (type === 'status') {
       setProgress(data);
     }
     else if (type === 'llm_stream_reset') {
@@ -1282,6 +1407,7 @@
     streamingText = '';
     stopBtn.classList.remove('visible');
     clearProgress();
+    clearModelBadge();
     promptInput.focus();
   }
 

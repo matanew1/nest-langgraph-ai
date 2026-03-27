@@ -4,6 +4,7 @@ import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { completeAgentRun } from '../state/agent-transition.util';
 import type { AgentState } from '../state/agent.state';
 import { buildGeneratorPrompt } from '../prompts/agent.prompts';
+import { selectModelForTier } from '@llm/model-router';
 
 const logger = new Logger('Generator');
 
@@ -18,6 +19,7 @@ export async function generatorNode(
   logPhaseStart('GENERATOR', `steps=${state.attempts?.length ?? 0}`);
 
   const prompt = buildGeneratorPrompt(state);
+  const model = selectModelForTier('powerful');
   const shouldStream =
     !!state.onToken &&
     (state.streamPhases === undefined ||
@@ -27,7 +29,7 @@ export async function generatorNode(
   if (shouldStream) {
     const emit = state.onToken!;
     let accumulated = '';
-    for await (const token of streamLlm(prompt, undefined, undefined, state.sessionId)) {
+    for await (const token of streamLlm(prompt, undefined, undefined, state.sessionId, model)) {
       if (token) {
         emit(token);
         accumulated += token;
@@ -38,13 +40,13 @@ export async function generatorNode(
     }
     answer = accumulated;
   } else {
-    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId);
+    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId, model);
   }
 
   // If the LLM returned empty content, retry once without streaming
   if (!answer.trim()) {
     logger.warn('Generator produced empty output — retrying once');
-    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId);
+    answer = await invokeLlm(prompt, undefined, undefined, state.sessionId, model);
   }
 
   // If still empty, synthesize from the last successful attempt

@@ -7,6 +7,7 @@ import { AgentState } from '../state/agent.state';
 import { criticDecisionSchema } from '../state/agent.schemas';
 import { getStructuredNodeRawResponse } from './structured-output.util';
 import { parseWithRepair } from './parse-with-repair.util';
+import { selectModelForTier } from '@llm/model-router';
 
 const logger = new Logger('Critic');
 
@@ -32,8 +33,12 @@ export async function criticNode(
 
   logPhaseStart('CRITIC', `evaluating step ${stepNum}/${totalSteps}`);
 
-  const raw = await getStructuredNodeRawResponse(state, logger, () =>
-    buildCriticPrompt(state),
+  const raw = await getStructuredNodeRawResponse(
+    state,
+    logger,
+    () => buildCriticPrompt(state),
+    undefined,
+    selectModelForTier('balanced'),
   );
 
   // Try lenient parse first: extract decision/reason even if finalAnswer is missing,

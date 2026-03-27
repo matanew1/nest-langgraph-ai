@@ -207,9 +207,12 @@ export interface StreamEventDto {
     | 'llm_stream_reset'
     | 'review_required'
     | 'final'
-    | 'error';
+    | 'error'
+    | 'model_switch';
   data: string;
   sessionId: string;
   step?: number;
   done: boolean;
+  /** Active Mistral model name — set on model_switch events. */
+  model?: string;
 }

@@ -38,6 +38,7 @@ import {
 } from './agents.dto';
 import * as crypto from 'crypto';
 import { invokeLlm } from '@llm/llm.provider';
+import { selectModelForPhase } from '@llm/model-router';
 
 export interface AgentRunResult {
   result: string;
@@ -265,9 +266,26 @@ export class AgentsService {
       };
 
       const stream = await this.app.stream(initialState as any, config);
+      let lastEmittedModel: string | undefined;
+
       for await (const event of stream) {
         const node = Object.keys(event)[0];
         const snap = event[node] as Partial<AgentState>;
+
+        // Emit model_switch whenever the active model changes with the phase
+        if (snap.phase) {
+          const currentModel = selectModelForPhase(snap.phase);
+          if (currentModel !== lastEmittedModel) {
+            lastEmittedModel = currentModel;
+            yield {
+              type: 'model_switch',
+              data: JSON.stringify({ model: currentModel, phase: snap.phase }),
+              sessionId: threadId,
+              model: currentModel,
+              done: false,
+            };
+          }
+        }
 
         if (snap.phase === AGENT_PHASES.EXECUTE && snap.selectedTool) {
           yield {

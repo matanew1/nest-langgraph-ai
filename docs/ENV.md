@@ -26,7 +26,10 @@ Full Joi validation logic is in `src/common/config/env.ts`. Docker Compose overr
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `MISTRAL_MODEL` | `mistral-small-latest` | Mistral model name |
+| `MISTRAL_MODEL_FAST` | `mistral-small-latest` | Model for fast phases: routing, validation, terminal responses |
+| `MISTRAL_MODEL_BALANCED` | `mistral-small-latest` | Model for balanced phases: chat, research, critic evaluation |
+| `MISTRAL_MODEL_POWERFUL` | `mistral-large-latest` | Model for heavy phases: planning, final answer generation |
+| `MISTRAL_MODEL_CODE` | `codestral-latest` | Model for code-focused phases: execution tasks |
 | `MISTRAL_TIMEOUT_MS` | `30000` | LLM call timeout in ms (min 1000) |
 
 ## Agent Behaviour

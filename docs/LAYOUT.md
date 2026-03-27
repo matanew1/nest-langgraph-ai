@@ -163,8 +163,10 @@ src/
     │       └── redis-saver.spec.ts
     ├── llm/
     │   ├── llm.module.ts
-    │   ├── llm.provider.ts              # invokeLlm() with per-session circuit breaker, retry, AbortController timeout
-    │   └── llm.provider.spec.ts
+    │   ├── llm.provider.ts              # invokeLlm/streamLlm with per-session circuit breaker, retry, AbortController timeout; per-model instance cache
+    │   ├── model-router.ts              # selectModelForTier() / selectModelForPhase() — maps phases to FAST/BALANCED/POWERFUL/CODE tier models
+    │   ├── llm.provider.spec.ts
+    │   └── llm-stream.spec.ts
     ├── metrics/
     │   ├── metrics.module.ts            # Global module exporting MetricsService
     │   ├── metrics.service.ts           # Prometheus-compatible counters, histograms, gauges
@@ -231,4 +233,4 @@ Tests are co-located with their modules or in dedicated `tests/` directories:
 - **State tests:** `src/modules/agents/state/*.spec.ts` (3 files)
 - **Prompt tests:** `src/modules/agents/prompts/*.spec.ts` (2 files)
 - **Module tests:** `src/modules/{redis,vector-db,health}/*.spec.ts`
-- **LLM tests:** `src/modules/llm/llm.provider.spec.ts`
+- **LLM tests:** `src/modules/llm/llm.provider.spec.ts`, `src/modules/llm/llm-stream.spec.ts`

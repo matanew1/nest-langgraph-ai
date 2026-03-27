@@ -41,7 +41,7 @@ describe('chatNode', () => {
     const state = makeState();
     await chatNode(state);
 
-    expect(invokeLlm).toHaveBeenCalledWith('prompt');
+    expect(invokeLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined, expect.any(String));
     expect(streamLlm).not.toHaveBeenCalled();
   });
 
@@ -57,7 +57,7 @@ describe('chatNode', () => {
     const state = makeState({ onToken });
     await chatNode(state);
 
-    expect(streamLlm).toHaveBeenCalledWith('prompt');
+    expect(streamLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined, expect.any(String));
     expect(invokeLlm).not.toHaveBeenCalled();
   });
 
@@ -72,7 +72,7 @@ describe('chatNode', () => {
     const state = makeState({ onToken, streamPhases: ['chat', 'generate'] });
     await chatNode(state);
 
-    expect(streamLlm).toHaveBeenCalledWith('prompt');
+    expect(streamLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined, expect.any(String));
     expect(invokeLlm).not.toHaveBeenCalled();
   });
 
@@ -81,7 +81,7 @@ describe('chatNode', () => {
     const state = makeState({ onToken, streamPhases: ['generate'] });
     await chatNode(state);
 
-    expect(invokeLlm).toHaveBeenCalledWith('prompt');
+    expect(invokeLlm).toHaveBeenCalledWith('prompt', undefined, undefined, undefined, expect.any(String));
     expect(streamLlm).not.toHaveBeenCalled();
   });
 

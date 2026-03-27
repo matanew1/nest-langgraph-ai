@@ -10,12 +10,20 @@ export async function getStructuredNodeRawResponse(
   logger: Logger,
   buildPrompt: () => string,
   images?: ImageAttachment[],
+  model?: string,
 ): Promise<string> {
   const prompt = buildPrompt();
   const raw =
     images && images.length > 0
-      ? await invokeLlmWithImages(prompt, images)
-      : await invokeLlm(prompt);
+      ? await invokeLlmWithImages(
+          prompt,
+          images,
+          undefined,
+          undefined,
+          state.sessionId,
+          model,
+        )
+      : await invokeLlm(prompt, undefined, undefined, state.sessionId, model);
   logger.debug(`LLM response:\n${preview(raw)}`);
   return raw;
 }

@@ -7,6 +7,10 @@ jest.mock('@config/env', () => ({
     mistralTimeoutMs: 5000,
     agentWorkingDir: '/tmp',
     promptMaxSummaryChars: 2000,
+    mistralModelFast: 'mistral-small-latest',
+    mistralModelBalanced: 'mistral-small-latest',
+    mistralModelPowerful: 'mistral-large-latest',
+    mistralModelCode: 'codestral-latest',
   },
 }));
 
@@ -155,7 +159,7 @@ describe('generatorNode', () => {
 
     await generatorNode(baseState as AgentState);
 
-    expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String), undefined, undefined, undefined);
+    expect(mockedInvokeLlm).toHaveBeenCalledWith(expect.any(String), undefined, undefined, undefined, expect.any(String));
   });
 
   it('works correctly when objective is undefined', async () => {

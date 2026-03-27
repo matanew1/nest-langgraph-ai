@@ -6,11 +6,29 @@ import { CIRCUIT_BREAKER_CONFIG } from '@graph/agent.config';
 
 const logger = new Logger('LlmProvider');
 
-export const llm = new ChatMistralAI({
-  apiKey: env.mistralKey,
-  model: env.mistralModel,
-  temperature: 0,
-});
+/* ------------------------------------------------------------------ */
+/*  Per-model instance cache                                            */
+/*  Instantiating ChatMistralAI is cheap but we avoid redundant work.  */
+/* ------------------------------------------------------------------ */
+const llmInstances = new Map<string, ChatMistralAI>();
+
+function getLlmInstance(model?: string): ChatMistralAI {
+  const key = model ?? env.mistralModelBalanced;
+  let instance = llmInstances.get(key);
+  if (!instance) {
+    instance = new ChatMistralAI({
+      apiKey: env.mistralKey,
+      model: key,
+      temperature: 0,
+    });
+    llmInstances.set(key, instance);
+    logger.debug(`Created LLM instance for model "${key}"`);
+  }
+  return instance;
+}
+
+/** Default instance — kept for backward compatibility with direct imports. */
+export const llm = getLlmInstance();
 
 /* ------------------------------------------------------------------ */
 /*  Circuit breaker — prevents wasted retries when LLM is down        */
@@ -290,33 +308,49 @@ async function* withStreamRetryAndTimeout(
 
 /**
  * Invoke the LLM with a hard timeout, retry logic, and circuit breaker.
+ * Pass `model` to use a specific Mistral model (e.g. from selectModelForTier()).
  */
 export async function invokeLlm(
   prompt: string,
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
   sessionId?: string,
+  model?: string,
 ): Promise<string> {
-  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'LLM call');
+  const instance = getLlmInstance(model);
+  const opts = resolveOpts(
+    timeoutMs,
+    maxRetries,
+    sessionId,
+    `LLM [${model ?? env.mistralModelBalanced}]`,
+  );
   return withRetryAndTimeout(
     async (signal) =>
-      extractContent((await llm.invoke(prompt, { signal })).content),
+      extractContent((await instance.invoke(prompt, { signal })).content),
     opts,
   );
 }
 
 /**
  * Stream the LLM response as an async generator, yielding each chunk's content.
+ * Pass `model` to use a specific Mistral model (e.g. from selectModelForTier()).
  */
 export async function* streamLlm(
   prompt: string,
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
   sessionId?: string,
+  model?: string,
 ): AsyncGenerator<string> {
-  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'LLM stream');
+  const instance = getLlmInstance(model);
+  const opts = resolveOpts(
+    timeoutMs,
+    maxRetries,
+    sessionId,
+    `LLM stream [${model ?? env.mistralModelBalanced}]`,
+  );
   yield* withStreamRetryAndTimeout(
-    (signal) => llm.stream(prompt, { signal }),
+    (signal) => instance.stream(prompt, { signal }),
     opts,
   );
 }
@@ -341,6 +375,7 @@ function buildVisionMessage(
 
 /**
  * Invoke the LLM with text + images (vision model).
+ * Pass `model` to override the default (e.g. pixtral-large-latest).
  */
 export async function invokeLlmWithImages(
   prompt: string,
@@ -348,18 +383,26 @@ export async function invokeLlmWithImages(
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
   sessionId?: string,
+  model?: string,
 ): Promise<string> {
-  const opts = resolveOpts(timeoutMs, maxRetries, sessionId, 'Vision LLM call');
+  const instance = getLlmInstance(model);
+  const opts = resolveOpts(
+    timeoutMs,
+    maxRetries,
+    sessionId,
+    `Vision LLM [${model ?? env.mistralModelBalanced}]`,
+  );
   const message = buildVisionMessage(prompt, images);
   return withRetryAndTimeout(
     async (signal) =>
-      extractContent((await llm.invoke([message], { signal })).content),
+      extractContent((await instance.invoke([message], { signal })).content),
     opts,
   );
 }
 
 /**
  * Stream the LLM response with text + images, yielding each chunk.
+ * Pass `model` to override the default (e.g. pixtral-large-latest).
  */
 export async function* streamLlmWithImages(
   prompt: string,
@@ -367,16 +410,18 @@ export async function* streamLlmWithImages(
   timeoutMs: number = env.mistralTimeoutMs,
   maxRetries: number = env.agentMaxRetries,
   sessionId?: string,
+  model?: string,
 ): AsyncGenerator<string> {
+  const instance = getLlmInstance(model);
   const opts = resolveOpts(
     timeoutMs,
     maxRetries,
     sessionId,
-    'Vision LLM stream',
+    `Vision LLM stream [${model ?? env.mistralModelBalanced}]`,
   );
   const message = buildVisionMessage(prompt, images);
   yield* withStreamRetryAndTimeout(
-    (signal) => llm.stream([message], { signal }),
+    (signal) => instance.stream([message], { signal }),
     opts,
   );
 }

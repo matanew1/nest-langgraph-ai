@@ -1,7 +1,7 @@
 jest.mock('@config/env', () => ({
   env: {
     mistralKey: 'key',
-    mistralModel: 'mistral-small-latest',
+    mistralModelBalanced: 'mistral-small-latest',
     mistralTimeoutMs: 5000,
     agentMaxRetries: 0,
   },
