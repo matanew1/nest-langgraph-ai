@@ -19,6 +19,11 @@ import { readMermaidTool } from './read-mermaid.tool';
 import { editMermaidTool } from './edit-mermaid.tool';
 import { vectorUpsertTool } from './vector-upsert.tool';
 import { vectorSearchTool } from './vector-search.tool';
+import { runCommandTool } from './run-command.tool';
+import { deleteFileTool } from './delete-file.tool';
+import { moveFileTool } from './move-file.tool';
+import { httpGetTool } from './http-get.tool';
+import { httpPostTool } from './http-post.tool';
 
 export const toolRegistrations: ToolRegistration[] = [
   { tool: searchTool, paramHint: '{"query":"<search query string>"}' },
@@ -94,5 +99,26 @@ export const toolRegistrations: ToolRegistration[] = [
   {
     tool: vectorSearchTool,
     paramHint: '{"query":"<what to recall>","topK?":5}',
+  },
+  {
+    tool: runCommandTool,
+    paramHint: '{"command":"<shell command>","cwd?":"<subdir>","timeout?":15000}',
+  },
+  {
+    tool: deleteFileTool,
+    paramHint: '{"path":"<file or empty dir to delete>"}',
+  },
+  {
+    tool: moveFileTool,
+    paramHint: '{"from":"<source path>","to":"<destination path>"}',
+  },
+  {
+    tool: httpGetTool,
+    paramHint: '{"url":"<https://...>","headers?":{"Authorization":"Bearer token"}}',
+  },
+  {
+    tool: httpPostTool,
+    paramHint:
+      '{"url":"<https://...>","body":"<string or object>","headers?":{},"contentType?":"application/json"}',
   },
 ];

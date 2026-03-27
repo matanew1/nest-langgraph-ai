@@ -103,11 +103,13 @@ src/
     │   ├── tools/
     │   │   ├── tool.registry.ts         # ToolRegistry class (register, get, describeForPrompt with cache)
     │   │   ├── tool.registry.spec.ts
-    │   │   ├── tool.catalog.ts          # Tool registrations list (21 tools)
+    │   │   ├── tool.catalog.ts          # Tool registrations list (26 tools)
     │   │   ├── tool-result.ts           # ToolResult interface + toToolResult()
     │   │   ├── index.ts                 # Re-exports toolRegistry singleton
     │   │   ├── read-file.tool.ts        # read_file
     │   │   ├── write-file.tool.ts       # write_file
+    │   │   ├── delete-file.tool.ts      # delete_file — delete a file or empty dir
+    │   │   ├── move-file.tool.ts        # move_file — rename/move a file or dir
     │   │   ├── list-dir.tool.ts         # list_dir
     │   │   ├── tree-dir.tool.ts         # tree_dir
     │   │   ├── glob-files.tool.ts       # glob_files
@@ -124,12 +126,12 @@ src/
     │   │   ├── read-mermaid.tool.ts     # read_mermaid
     │   │   ├── edit-mermaid.tool.ts     # edit_mermaid
     │   │   ├── git-info.tool.ts         # git_info
-    │   │   ├── http-get.tool.ts         # http_get
-    │   │   ├── http-post.tool.ts        # http_post
+    │   │   ├── run-command.tool.ts      # run_command — execute shell commands (destructive)
+    │   │   ├── http-get.tool.ts         # http_get — HTTP GET with SSRF guard
+    │   │   ├── http-post.tool.ts        # http_post — HTTP POST with SSRF guard (destructive)
     │   │   ├── system-info.tool.ts      # system_info
     │   │   ├── mermaid.util.ts          # Shared Mermaid helpers
     │   │   ├── http-request.util.ts     # Shared HTTP + SSRF guard logic
-    │   │   ├── http-request.util.spec.ts
     │   │   └── state-graph-extractor.ts # LangGraph state graph introspection helper
     │   ├── tests/                       # Node, tool, and integration test files
     │   │   ├── agents.controller.spec.ts
@@ -234,3 +236,4 @@ Tests are co-located with their modules or in dedicated `tests/` directories:
 - **Prompt tests:** `src/modules/agents/prompts/*.spec.ts` (2 files)
 - **Module tests:** `src/modules/{redis,vector-db,health}/*.spec.ts`
 - **LLM tests:** `src/modules/llm/llm.provider.spec.ts`, `src/modules/llm/llm-stream.spec.ts`
+- **Tool utils:** `src/modules/agents/tools/http-request.util.ts` (SSRF guard, shared by `http_get`/`http_post`)

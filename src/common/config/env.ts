@@ -41,6 +41,9 @@ const envSchema = Joi.object({
   REQUIRE_PLAN_REVIEW: Joi.boolean().default(false),
   API_KEY: Joi.string().allow('').optional().default(''),
   LOG_FORMAT: Joi.string().valid('text', 'json').default('text'),
+  HTTP_TOOL_ALLOWED_HOSTS: Joi.string().allow('').optional().default(''),
+  HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: Joi.boolean().default(false),
+  HTTP_TOOL_MAX_REDIRECTS: Joi.number().integer().min(0).max(10).default(3),
 }).unknown(true);
 
 interface EnvVariables {
@@ -76,6 +79,9 @@ interface EnvVariables {
   REQUIRE_PLAN_REVIEW: boolean;
   API_KEY: string;
   LOG_FORMAT: string;
+  HTTP_TOOL_ALLOWED_HOSTS: string;
+  HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: boolean;
+  HTTP_TOOL_MAX_REDIRECTS: number;
 }
 
 const { error, value: validatedEnv } = envSchema.validate(process.env) as {
@@ -120,4 +126,9 @@ export const env = {
   requirePlanReview: validatedEnv.REQUIRE_PLAN_REVIEW,
   apiKey: validatedEnv.API_KEY,
   logFormat: validatedEnv.LOG_FORMAT,
+  httpToolAllowedHosts: validatedEnv.HTTP_TOOL_ALLOWED_HOSTS.split(',')
+    .map((h) => h.trim())
+    .filter(Boolean),
+  httpToolAllowPrivateNetworks: validatedEnv.HTTP_TOOL_ALLOW_PRIVATE_NETWORKS,
+  httpToolMaxRedirects: validatedEnv.HTTP_TOOL_MAX_REDIRECTS,
 };

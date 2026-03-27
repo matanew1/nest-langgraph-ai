@@ -265,6 +265,9 @@ export async function planValidatorNode(
     'file_patch',
     'file_append',
     'run_command',
+    'delete_file',
+    'move_file',
+    'http_post',
   ]);
   const hasDestructiveTool = steps.some((s) => DESTRUCTIVE_TOOLS.has(s.tool));
 

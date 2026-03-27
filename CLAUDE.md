@@ -47,7 +47,7 @@ NestJS 11 + LangGraph 1.2 multi-agent workflow with a phase-driven state machine
 - **Setup:** `npm install --legacy-peer-deps`, `npm run docker:up`
 - **Run:** `npm run start:dev` | **Test:** `npm run test`
 - **Lint:** `npm run lint` (Conventional Commits required).
-- **21 tools** registered in `tools/tool.catalog.ts`
+- **26 tools** registered in `tools/tool.catalog.ts`
 
 ## Critical Guidelines
 - **No Direct LLM Calls:** Use `@llm/llm.provider.ts` → `invokeLlm()`. Pass `sessionId` for per-session circuit breaker scoping. Pass `model` from `selectModelForTier()` in `@llm/model-router.ts` to use the appropriate tier model.
