@@ -49,24 +49,30 @@ export async function planValidatorNode(
     );
   }
 
-  // Rule A: Reject parallel-group steps that use __PREVIOUS_RESULT__
+  // Rule A: Reject parallel-group steps that use __PREVIOUS_RESULT__ only when
+  // the group is the FIRST thing in the plan (no prior step has run yet).
+  // When a prior sequential step exists, __PREVIOUS_RESULT__ safely refers to
+  // that step's result in state.toolResultRaw and is fully supported.
   for (const step of steps) {
-    if (step.parallel_group !== undefined) {
-      for (const value of Object.values(step.input)) {
-        if (
-          typeof value === 'string' &&
-          value.includes('__PREVIOUS_RESULT__')
-        ) {
-          logPhaseEnd(
-            'PLAN_VALIDATOR',
-            `FAILED: parallel step ${step.step_id} uses __PREVIOUS_RESULT__`,
-            elapsed(),
-          );
-          return failValidation(
-            `Parallel group step ${step.step_id} cannot use __PREVIOUS_RESULT__ (steps run concurrently).`,
-            `Parallel group step ${step.step_id} uses __PREVIOUS_RESULT__`,
-          );
-        }
+    if (step.parallel_group === undefined) continue;
+    // Find the earliest step_id in this parallel group
+    const groupSteps = steps.filter(
+      (s) => s.parallel_group === step.parallel_group,
+    );
+    const groupStartsAtStep = Math.min(...groupSteps.map((s) => s.step_id));
+    // If the group starts after step 1, a prior step's result exists → allow __PREVIOUS_RESULT__
+    if (groupStartsAtStep > 1) continue;
+    for (const value of Object.values(step.input)) {
+      if (typeof value === 'string' && value.includes('__PREVIOUS_RESULT__')) {
+        logPhaseEnd(
+          'PLAN_VALIDATOR',
+          `FAILED: parallel step ${step.step_id} uses __PREVIOUS_RESULT__ with no prior step`,
+          elapsed(),
+        );
+        return failValidation(
+          `Parallel group step ${step.step_id} cannot use __PREVIOUS_RESULT__ — no prior step has run yet.`,
+          `Parallel group step ${step.step_id} uses __PREVIOUS_RESULT__ with no prior step`,
+        );
       }
     }
   }

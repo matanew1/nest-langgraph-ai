@@ -19,6 +19,41 @@ import { AGENT_CONSTANTS } from '../graph/agent.config';
 
 const logger = new Logger('ParallelExecutor');
 
+/** Unwrap ZodOptional/ZodDefault/ZodNullable to detect ZodArray fields. */
+function isZodArrayField(fieldSchema: unknown): boolean {
+  if (!fieldSchema || typeof fieldSchema !== 'object') return false;
+  const typeName = (fieldSchema as any)._def?.typeName as string | undefined;
+  if (typeName === 'ZodArray') return true;
+  if (
+    typeName === 'ZodOptional' ||
+    typeName === 'ZodDefault' ||
+    typeName === 'ZodNullable'
+  ) {
+    return isZodArrayField(
+      (fieldSchema as any)._def?.innerType ??
+        (fieldSchema as any)._def?.type,
+    );
+  }
+  return false;
+}
+
+/** Coerce a raw string to a string array (JSON → grep paths → newline split). */
+function coerceToStringArray(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed as string[];
+  } catch {
+    // not valid JSON, continue
+  }
+  const paths = new Set<string>();
+  for (const line of value.split('\n')) {
+    const m = line.match(/^([^\s:][^:]*\.\w+):\d+:/);
+    if (m) paths.add(m[1].trim());
+  }
+  if (paths.size > 0) return Array.from(paths);
+  return value.split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
 export interface ParallelStepResult {
   step_id: number;
   tool: string;
@@ -68,26 +103,22 @@ export async function parallelExecutionNode(
     group.map(async (step): Promise<ParallelStepResult> => {
       // Resolve __PREVIOUS_RESULT__ placeholders
       const toolParams: Record<string, unknown> = {};
+      const resolvedFromPlaceholder = new Set<string>();
       for (const [key, value] of Object.entries(step.input)) {
         if (
           typeof value === 'string' &&
           value.includes('__PREVIOUS_RESULT__')
         ) {
-          logger.warn(
-            `Step ${step.step_id} in parallel group ${groupId} uses __PREVIOUS_RESULT__ — this is unsupported in parallel execution`,
-          );
-          // Substitute from state.toolResultRaw if available, otherwise fail clearly
-          if (state.toolResultRaw) {
-            toolParams[key] = value.replaceAll(
-              '__PREVIOUS_RESULT__',
-              state.toolResultRaw,
-            );
-          } else {
+          if (!state.toolResultRaw) {
             throw new Error(
-              `Step ${step.step_id} references __PREVIOUS_RESULT__ but no prior result exists. ` +
-                `Parallel steps must not depend on previous results.`,
+              `Step ${step.step_id} references __PREVIOUS_RESULT__ but no prior result exists.`,
             );
           }
+          toolParams[key] = value.replaceAll(
+            '__PREVIOUS_RESULT__',
+            state.toolResultRaw,
+          );
+          resolvedFromPlaceholder.add(key);
         } else {
           toolParams[key] = value;
         }
@@ -103,6 +134,25 @@ export async function parallelExecutionNode(
           result: `ERROR: ${msg}`,
           success: false,
         };
+      }
+
+      // Coerce placeholder-resolved string values to arrays when the tool
+      // schema declares an array type for that field (e.g. read_files_batch.paths).
+      if (resolvedFromPlaceholder.size > 0) {
+        const toolSchema = (tool as any).schema;
+        if (toolSchema?.shape) {
+          for (const key of resolvedFromPlaceholder) {
+            if (
+              typeof toolParams[key] === 'string' &&
+              isZodArrayField(toolSchema.shape[key])
+            ) {
+              toolParams[key] = coerceToStringArray(toolParams[key] as string);
+              logger.debug(
+                `Coerced placeholder value for "${key}" to array (${(toolParams[key] as string[]).length} items)`,
+              );
+            }
+          }
+        }
       }
 
       let timedOut = false;
