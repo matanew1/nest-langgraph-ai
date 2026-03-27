@@ -149,14 +149,14 @@
 
     .mac-window {
       position: relative;
-      max-width: 1400px;
+      max-width: 1600px;
       height: 96vh;
       margin: 2vh auto;
       background: var(--surface);
       backdrop-filter: var(--blur);
       -webkit-backdrop-filter: var(--blur);
       border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-xl), var(--shadow-glow), inset 0 0.5px 0 rgba(255,255,255,0.2);
+      box-shadow: var(--shadow-xl), var(--shadow-glow);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -169,19 +169,18 @@
       inset: -2px;
       border-radius: calc(var(--radius-xl) + 2px);
       padding: 2px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent-2), var(--accent));
+      background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent-3));
       background-size: 400% 400%;
       animation: gradientShift 6s ease infinite;
       -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
-      opacity: 0.35;
+      opacity: 0.2;
       z-index: 0;
       pointer-events: none;
-      transition: opacity 0.5s var(--ease);
     }
-    .mac-window:hover::before { opacity: 0.8; }
-
+    .mac-window:hover { transform: none; box-shadow: var(--shadow-xl), var(--shadow-glow); }
+    
     .titlebar {
       height: 52px;
       background: var(--surface-elevated);
@@ -192,7 +191,6 @@
       padding: 0 20px;
       gap: 16px;
       z-index: 100;
-      -webkit-app-region: drag;
       position: relative;
     }
     .titlebar::after {
@@ -233,7 +231,7 @@
     .main-grid { flex: 1; display: grid; grid-template-columns: 260px 1fr; overflow: hidden; transition: grid-template-columns 0.3s var(--ease); }
     .main-grid.sidebar-collapsed { grid-template-columns: 0px 1fr; }
 
-    .sidebar { background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; width: 260px; min-width: 0; transition: width 0.3s var(--ease), opacity 0.3s var(--ease), transform 0.3s var(--ease); }
+    .sidebar { background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; width: 280px; min-width: 0; transition: width 0.3s var(--ease), opacity 0.3s var(--ease), transform 0.3s var(--ease); }
     .main-grid.sidebar-collapsed .sidebar { width: 0; opacity: 0; transform: translateX(-20px); pointer-events: none; }
 
     .sidebar-toggle { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--surface-hover); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s var(--ease); flex-shrink: 0; }
@@ -372,7 +370,7 @@
     .empty-shortcut kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 7px; background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: var(--text-secondary); box-shadow: 0 2px 4px rgba(0,0,0,0.06), inset 0 -1px 0 rgba(0,0,0,0.08); transition: all 0.2s; }
     .empty-shortcut kbd:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
 
-    .feed-inner { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .feed-inner { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 
     /* Messages — Bigger, centered, cartoon-style */
     .msg-row { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; animation: msgBounceIn 0.55s var(--spring); }
@@ -391,7 +389,7 @@
     .bubble-wrap { max-width: 85%; display: flex; flex-direction: column; gap: 6px; }
     .row-user .bubble-wrap { align-items: flex-end; }
 
-    .bubble { padding: 16px 22px; border-radius: 22px; font-size: 15px; line-height: 1.65; word-break: break-word; position: relative; }
+    .bubble { padding: 16px 22px; border-radius: 22px; font-size: 15px; line-height: 1.65; word-break: break-word; position: relative; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 
     .bubble-user {
       background: var(--user-bubble);
@@ -399,8 +397,9 @@
       animation: gradientShift 8s ease infinite;
       color: #fff;
       border-bottom-right-radius: 8px;
-      box-shadow: 0 6px 28px var(--accent-glow), 0 10px 44px rgba(99,102,241,0.12);
+      box-shadow: 0 4px 14px var(--accent-glow);
       transition: all 0.4s var(--ease);
+      border: none;
     }
     .bubble-user:hover {
       box-shadow: 0 10px 40px var(--accent-glow), 0 18px 60px rgba(99,102,241,0.2);
@@ -414,8 +413,8 @@
     }
     .row-user:has(.bubble-user[dir="rtl"]) { flex-direction: row-reverse; }
 
-    .bubble-agent { background: var(--surface-solid); border: 1.5px solid var(--border); color: var(--text); border-bottom-left-radius: 8px; box-shadow: var(--shadow-md); transition: all 0.35s var(--ease); }
-    .bubble-agent:hover { box-shadow: var(--shadow-lg); border-color: var(--border-strong); transform: translateY(-2px); }
+    .bubble-agent { background: var(--surface-solid); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 8px; box-shadow: var(--shadow-md); transition: all 0.35s var(--ease); }
+    .bubble-agent:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
     .bubble-error { background: var(--error-subtle) !important; border-color: var(--error) !important; color: var(--error) !important; }
 
     .bubble-time { font-size: 11px; color: var(--text-tertiary); padding: 0 6px; }
@@ -483,10 +482,9 @@
     .typing-bubble span:nth-child(3) { background: var(--accent-3); animation-delay: 0.3s; box-shadow: 0 0 8px rgba(236,72,153,0.3); }
 
     /* Input */
-    .inputbar-container { padding: 16px 24px 24px; background: linear-gradient(to top, var(--bg) 50%, transparent); position: relative; z-index: 1; }
-    .inputbar { max-width: 860px; margin: 0 auto; background: var(--surface-solid); border-radius: var(--radius-xl); padding: 14px; box-shadow: var(--shadow-lg); border: 1.5px solid var(--border); transition: all 0.4s var(--ease); position: relative; }
-    .inputbar::before { content: ''; position: absolute; inset: -3px; border-radius: calc(var(--radius-xl) + 3px); padding: 3px; background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent)); background-size: 400% 400%; animation: gradientShift 5s ease infinite; -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity 0.4s var(--ease); pointer-events: none; z-index: 1; }
-    .inputbar:focus-within { box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-glow), 0 0 50px rgba(99,102,241,0.1); transform: translateY(-3px); }
+    .inputbar-container { padding: 24px 32px 32px; background: transparent; position: relative; z-index: 1; }
+    .inputbar { max-width: 1000px; margin: 0 auto; background: var(--surface-solid); border-radius: var(--radius-xl); padding: 16px; box-shadow: var(--shadow-lg); border: 1.5px solid var(--border); transition: all 0.4s var(--ease); position: relative; }
+    .inputbar:focus-within { transform: translateY(-4px); box-shadow: var(--shadow-xl), 0 0 0 4px var(--accent-glow); }
     .inputbar:focus-within::before { opacity: 0.9; }
 
     .file-chip { display: none; align-items: center; background: var(--accent-subtle); color: var(--accent); padding: 6px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; margin-bottom: 8px; gap: 8px; }
@@ -657,39 +655,36 @@
     .history-action-btn.danger:hover { background: var(--error-subtle); border-color: var(--error); }
     .history-action-btn svg { width: 12px; height: 12px; }
 
-    /* ── Model Badge ──────────────────────────────────────────────── */
+    /* ── Model Bubble — Centered & Expansive ─────────────────────────── */
     .model-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 4px 10px; border-radius: var(--radius-full);
-      font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
-      letter-spacing: -0.01em; border: 1px solid transparent;
-      transition: all 0.4s var(--ease); cursor: default;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      opacity: 0; transform: scale(0.85); pointer-events: none;
+      position: absolute;
+      top: 72px;
+      left: 50%;
+      transform: translateX(-50%) scale(0.9);
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 24px; border-radius: var(--radius-full);
+      font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.02em; border: 1px solid var(--border-strong);
+      transition: all 0.6s var(--spring); cursor: pointer;
+      white-space: nowrap; box-shadow: var(--shadow-md), 0 0 20px rgba(99,102,241,0.1);
+      opacity: 0; pointer-events: none; z-index: 150;
+      background: var(--surface-elevated);
+      backdrop-filter: var(--blur);
     }
-    .model-badge.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+    .model-badge.visible { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
+    .model-badge:hover { transform: translateX(-50%) translateY(-2px); box-shadow: var(--shadow-lg), 0 0 30px var(--accent-glow); border-color: var(--accent); }
     .model-badge-dot {
-      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      width: 8px; height: 8px; border-radius: 50%;
       animation: modelPulse 2.5s ease-in-out infinite;
     }
     @keyframes modelPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.45; transform: scale(0.75); }
+      50% { opacity: 0.5; transform: scale(0.8); }
     }
-    .model-badge.tier-fast    { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.3); }
-    .model-badge.tier-fast    .model-badge-dot { background: #10b981; }
-    .model-badge.tier-balanced { background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.3); }
-    .model-badge.tier-balanced .model-badge-dot { background: #818cf8; }
-    .model-badge.tier-powerful { background: rgba(168,85,247,0.15); color: #c084fc; border-color: rgba(168,85,247,0.35); }
-    .model-badge.tier-powerful .model-badge-dot { background: #c084fc; }
-    .model-badge.tier-code     { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
-    .model-badge.tier-code     .model-badge-dot { background: #fbbf24; }
-    @keyframes modelSwitch {
-      0%   { transform: scale(1); filter: brightness(1); }
-      25%  { transform: scale(1.15); filter: brightness(1.4); }
-      55%  { transform: scale(0.96); filter: brightness(1.1); }
-      100% { transform: scale(1); filter: brightness(1); }
-    }
+    .model-badge.tier-fast    { background: var(--success-subtle); color: var(--success); }
+    .model-badge.tier-balanced { background: var(--accent-subtle); color: var(--accent); }
+    .model-badge.tier-powerful { background: var(--accent-subtle); color: var(--accent-2); }
+    .model-badge.tier-code     { background: var(--warning-subtle); color: var(--warning); }
     .model-badge.switching { animation: modelSwitch 0.55s var(--spring) forwards; }
 
     .model-toast {
@@ -1802,8 +1797,9 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const particles = [];
-    const PARTICLE_COUNT = 35;
-    const MAX_DIST = 120;
+    const PARTICLE_COUNT = 45;
+    const MAX_DIST = 150;
+    const mouse = { x: -1000, y: -1000 };
 
     function resize() {
       const rect = canvas.parentElement.getBoundingClientRect();
@@ -1819,10 +1815,10 @@
       return {
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        r: Math.random() * 2 + 1,
-        hue: Math.random() * 60 + 230, // 230-290 range (indigo to purple)
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 3 + 1.5,
+        hue: Math.random() * 60 + 230,
       };
     }
 
@@ -1834,18 +1830,33 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const alpha = isDark() ? 0.6 : 0.4;
+      const alpha = isDark() ? 0.7 : 0.5;
 
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
+        
+        // Mouse follow logic
+        const dxm = mouse.x - p.x;
+        const dym = mouse.y - p.y;
+        const dmouse = Math.sqrt(dxm * dxm + dym * dym);
+        if (dmouse < 200) {
+          p.vx += dxm * 0.00018;
+          p.vy += dym * 0.00018;
+        }
+
         p.x += p.vx;
         p.y += p.vy;
+        
+        // Friction
+        p.vx *= 0.99;
+        p.vy *= 0.99;
+
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${p.hue}, 70%, 65%, ${alpha * 0.7})`;
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${alpha * 0.8})`;
         ctx.fill();
 
         for (let j = i + 1; j < particles.length; j++) {
@@ -1856,8 +1867,8 @@
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(q.x, q.y);
-            ctx.strokeStyle = `hsla(${(p.hue + q.hue) / 2}, 60%, 60%, ${(1 - dist / MAX_DIST) * alpha * 0.3})`;
-            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = `hsla(${(p.hue + q.hue) / 2}, 60%, 60%, ${(1 - dist / MAX_DIST) * alpha * 0.4})`;
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
         }
@@ -1868,6 +1879,11 @@
     init();
     draw();
     window.addEventListener('resize', () => { resize(); });
+    window.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
   })();
 
 </script>
