@@ -83,11 +83,14 @@ PARALLEL EXECUTION:
 - Example: searching two directories simultaneously. Never use for steps that depend on each other's output.
 
 FILE EDITING RULES:
-- Use `file_append` to add new classes, functions, or other blocks of code to a file, especially when a good anchor for `file_patch` is not obvious. It appends content safely before the final `export {}`.
-- For `file_patch.find`, copy exact text from earlier `read_file` or `grep_search` output. Never invent placeholders.
-- Before `file_patch`, first read the target file and confirm the anchor with `grep_search`.
-- If `grep_search` finds zero matches, replan instead of retrying the same patch.
-- Prefer `write_file` only when replacing the full file is clearly safer than patching.
+- CRITICAL: When the task is to ADD or UPDATE content in an existing file (e.g., JSDoc comments, type annotations, imports, a new function, logging, config values), you MUST use `file_patch` or `file_append`. NEVER use `write_file` to replace the entire file for these cases — it risks data loss and is not atomic.
+  - Use `file_patch` when you can identify a precise anchor line to replace or insert after.
+  - Use `file_append` when adding a new top-level block with no clear anchor (e.g., adding a new export or function at the end).
+  - Use `write_file` ONLY when you are generating a brand-new file, or when a full rewrite is explicitly requested and the file content is fully known.
+- Required workflow before any patch: (1) `read_file` to get the current content, (2) `grep_search` to confirm the exact anchor text exists, (3) `file_patch` with that exact text as `find`.
+- For `file_patch.find`, copy exact text verbatim from `read_file` or `grep_search` output — never invent or paraphrase.
+- If `grep_search` finds zero matches for your intended anchor, choose a different anchor or use `file_append` instead. Do not retry the same failing patch.
+- `file_append` appends content safely before the final `export {}` — use it when a good patch anchor is not obvious.
 </requirements>
 
 <output_format>

@@ -385,6 +385,17 @@
     .review-btn-replan::before { content: '🔄 '; }
     .review-btn-replan:hover { box-shadow: 0 10px 32px var(--accent-subtle); }
 
+    /* Replan loading state */
+    .review-card.replanning { border-color: var(--accent); pointer-events: none; }
+    .review-card.replanning .review-header { background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent)); background-size: 300% 100%; animation: gradientShift 1.2s ease infinite; }
+    .review-card.replanning .review-content { opacity: 0.5; }
+    .review-replan-overlay { display: none; position: absolute; inset: 0; background: var(--surface); border-radius: 20px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 10; }
+    .review-card.replanning .review-replan-overlay { display: flex; }
+    .review-card { position: relative; }
+    .replan-spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .replan-spinner-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.01em; }
+
     /* Toast */
     .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px) scale(0.9); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: var(--radius-full); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-xl), 0 0 40px var(--accent-subtle); border: 1px solid var(--border); z-index: 9999; opacity: 0; transition: all 0.4s var(--spring); position: relative; overflow: hidden; }
     .toast::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent)); background-size: 200% 100%; animation: gradientShift 3s ease infinite; }
@@ -1007,6 +1018,10 @@
     const wrap = document.createElement('div');
     wrap.className = 'review-card';
     wrap.innerHTML = `
+      <div class="review-replan-overlay">
+        <div class="replan-spinner"></div>
+        <div class="replan-spinner-label">Replanning…</div>
+      </div>
       <div class="review-header"></div>
       <div class="review-content">
         <div class="review-badge">${ICONS.warning} ${t('planReview')}</div>
@@ -1031,14 +1046,26 @@
     const card = btn.closest('.review-card');
     const btns = card.querySelectorAll('button');
     btns.forEach(b => b.disabled = true);
-    btn.innerHTML = t('processing');
+    btn.textContent = t('processing');
+    if (action === 'replan') card.classList.add('replanning');
     try {
       const res = await fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}/${action}`, {method:'POST'});
       const body = await res.json().catch(() => ({}));
-      if (action === 'reject') addAgentBubble(renderMd(t('planRejected')));
-      else addAgentBubble(renderMd(body.result || t('done')));
-      setIdle();
+      if (action === 'replan' && body.reviewRequest) {
+        card.remove();
+        buildReviewCard(body.reviewRequest);
+      } else if (action === 'reject') {
+        card.remove();
+        addAgentBubble(renderMd(t('planRejected')));
+        setIdle();
+      } else {
+        card.remove();
+        addAgentBubble(renderMd(body.result || t('done')));
+        setIdle();
+      }
     } catch (e) {
+      card.classList.remove('replanning');
+      btns.forEach(b => b.disabled = false);
       addErrorBubble(`<p>${t('reviewFailed')}</p>`);
       setIdle();
     }

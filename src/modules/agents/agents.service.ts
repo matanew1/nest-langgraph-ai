@@ -43,6 +43,7 @@ import { selectModelForPhase } from '@llm/model-router';
 export interface AgentRunResult {
   result: string;
   sessionId: string;
+  reviewRequest?: { objective: string; plan: PlanStep[] };
 }
 
 export interface ReviewPageData {
@@ -712,6 +713,9 @@ Enhanced prompt:`;
       );
     }
 
+    if (result.reviewRequest) {
+      return { result: 'New plan ready for review.', sessionId, reviewRequest: result.reviewRequest };
+    }
     return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
 
