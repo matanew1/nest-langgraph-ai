@@ -429,10 +429,16 @@
     .process-step-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-tertiary); background: var(--surface-muted); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
     .process-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.01em; }
 
-    /* Toast */
-    .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px) scale(0.9); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: var(--radius-full); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-xl), 0 0 40px var(--accent-subtle); border: 1px solid var(--border); z-index: 9999; opacity: 0; transition: all 0.4s var(--spring); position: relative; overflow: hidden; }
-    .toast::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent)); background-size: 200% 100%; animation: gradientShift 3s ease infinite; }
-    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    /* Toast Container */
+    .toast-container { position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; }
+    .toast-item { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface); color: var(--text); border-radius: var(--radius-full); font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif; box-shadow: var(--shadow-lg); border: 1px solid var(--border); pointer-events: auto; opacity: 0; transform: translateY(12px) scale(0.95); transition: all 0.35s var(--spring); white-space: nowrap; max-width: 340px; }
+    .toast-item.visible { opacity: 1; transform: translateY(0) scale(1); }
+    .toast-item.toast-success { border-color: var(--success); }
+    .toast-item.toast-success .toast-dot { background: var(--success); box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+    .toast-item.toast-error { border-color: var(--error); }
+    .toast-item.toast-error .toast-dot { background: var(--error); box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+    .toast-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--accent); }
+    .toast-msg { overflow: hidden; text-overflow: ellipsis; }
 
     /* Animations */
     @keyframes msgIn { from { opacity: 0; transform: translateY(16px) scale(0.97); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
@@ -552,9 +558,9 @@
   </div>
   <div class="sidebar-history scrollable" id="history-list"></div>
   <div class="sidebar-footer">
-    <button class="sidebar-footer-btn" id="delete-session-btn" onclick="deleteSession()">
+    <button class="sidebar-footer-btn" id="delete-session-btn" onclick="deleteAllSessions()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-      Clear
+      Clear All
     </button>
   </div>
 </div>
@@ -660,14 +666,14 @@
 
 </div><!-- .app-layout -->
 
-<div class="toast" id="toast"></div>
+<div class="toast-container" id="toast-container"></div>
 
 <script>
   // ── i18n System ──
   let currentLang = 'en';
   const I18N = {
     en: {
-      title: 'Agent', newChat: 'New Chat', history: 'History', clear: 'Clear',
+      title: 'Agent', newChat: 'New Chat', history: 'History', clear: 'Clear All', clearAll: 'Clear All',
       newConversation: 'New Conversation', thinking: 'Thinking', stop: 'Stop',
       emptyTitle: 'What can I help you with?',
       emptySubtitle: 'I can search the web, execute code, analyze files, create diagrams, and communicate in multiple languages.',
@@ -679,15 +685,15 @@
       planReview: 'Plan Review Required', objective: 'Objective:',
       approve: 'Approve', reject: 'Reject', replan: 'Replan', processing: 'Processing...',
       planRejected: 'Plan rejected.', done: 'Done.', reviewFailed: 'Review failed.',
-      stoppedToast: 'Stopped', sessionCleared: 'Session cleared',
-      deleteConfirm: 'Delete this session memory?', fileTooLarge: 'File too large (max 512 KB)',
+      stoppedToast: 'Stopped', sessionCleared: 'Session cleared', allSessionsCleared: 'All sessions cleared',
+      fileTooLarge: 'File too large (max 512 KB)',
       currentSession: 'Current Session', now: 'now', copied: 'Copied', copy: 'Copy',
       connectionError: 'Connection error:', reviewing: 'Reviewing',
       planReady: (n) => `Plan ready: <strong>${n} steps</strong>`,
       running: (name) => `Running <code>${name}</code>`,
     },
     he: {
-      title: '\u05E1\u05D5\u05DB\u05DF', newChat: '\u05E6\u05F3\u05D0\u05D8 \u05D7\u05D3\u05E9', history: '\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4', clear: '\u05E0\u05E7\u05D4',
+      title: '\u05E1\u05D5\u05DB\u05DF', newChat: '\u05E6\u05F3\u05D0\u05D8 \u05D7\u05D3\u05E9', history: '\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4', clear: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC', clearAll: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC',
       newConversation: '\u05E9\u05D9\u05D7\u05D4 \u05D7\u05D3\u05E9\u05D4', thinking: '\u05D7\u05D5\u05E9\u05D1', stop: '\u05E2\u05E6\u05D5\u05E8',
       emptyTitle: '\u05D1\u05DE\u05D4 \u05D0\u05D5\u05DB\u05DC \u05DC\u05E2\u05D6\u05D5\u05E8?',
       emptySubtitle: '\u05D0\u05E0\u05D9 \u05D9\u05DB\u05D5\u05DC \u05DC\u05D7\u05E4\u05E9 \u05D1\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8, \u05DC\u05D4\u05E8\u05D9\u05E5 \u05E7\u05D5\u05D3, \u05DC\u05E0\u05EA\u05D7 \u05E7\u05D1\u05E6\u05D9\u05DD, \u05DC\u05D9\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA \u05D5\u05DC\u05EA\u05E7\u05E9\u05E8 \u05D1\u05DE\u05D2\u05D5\u05D5\u05DF \u05E9\u05E4\u05D5\u05EA.',
@@ -699,8 +705,8 @@
       planReview: '\u05E0\u05D3\u05E8\u05E9 \u05D0\u05D9\u05E9\u05D5\u05E8 \u05EA\u05DB\u05E0\u05D9\u05EA', objective: '\u05DE\u05D8\u05E8\u05D4:',
       approve: '\u05D0\u05E9\u05E8', reject: '\u05D3\u05D7\u05D4', replan: '\u05EA\u05DB\u05E0\u05DF \u05DE\u05D7\u05D3\u05E9', processing: '\u05DE\u05E2\u05D1\u05D3...',
       planRejected: '\u05D4\u05EA\u05DB\u05E0\u05D9\u05EA \u05E0\u05D3\u05D7\u05EA\u05D4.', done: '\u05D1\u05D5\u05E6\u05E2.', reviewFailed: '\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05E0\u05DB\u05E9\u05DC.',
-      stoppedToast: '\u05D4\u05D5\u05E4\u05E1\u05E7', sessionCleared: '\u05D4\u05E9\u05D9\u05D7\u05D4 \u05E0\u05D5\u05E7\u05EA\u05D4',
-      deleteConfirm: '\u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D6\u05D9\u05DB\u05E8\u05D5\u05DF \u05D4\u05E9\u05D9\u05D7\u05D4?', fileTooLarge: '\u05D4\u05E7\u05D5\u05D1\u05E5 \u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9 (\u05DE\u05E7\u05E1\u05D9\u05DE\u05D5\u05DD 512 KB)',
+      stoppedToast: '\u05D4\u05D5\u05E4\u05E1\u05E7', sessionCleared: '\u05D4\u05E9\u05D9\u05D7\u05D4 \u05E0\u05D5\u05E7\u05EA\u05D4', allSessionsCleared: '\u05DB\u05DC \u05D4\u05E9\u05D9\u05D7\u05D5\u05EA \u05E0\u05D5\u05E7\u05D5',
+      fileTooLarge: '\u05D4\u05E7\u05D5\u05D1\u05E5 \u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9 (\u05DE\u05E7\u05E1\u05D9\u05DE\u05D5\u05DD 512 KB)',
       currentSession: '\u05E9\u05D9\u05D7\u05D4 \u05E0\u05D5\u05DB\u05D7\u05D9\u05EA', now: '\u05E2\u05DB\u05E9\u05D9\u05D5', copied: '\u05D4\u05D5\u05E2\u05EA\u05E7', copy: '\u05D4\u05E2\u05EA\u05E7',
       connectionError: '\u05E9\u05D2\u05D9\u05D0\u05EA \u05D7\u05D9\u05D1\u05D5\u05E8:', reviewing: '\u05D1\u05D5\u05D3\u05E7',
       planReady: (n) => `\u05EA\u05DB\u05E0\u05D9\u05EA \u05DE\u05D5\u05DB\u05E0\u05D4: <strong>${n} \u05E9\u05DC\u05D1\u05D9\u05DD</strong>`,
@@ -821,7 +827,7 @@
   const stopBtn = document.getElementById('stop-btn');
   const progressPill = document.getElementById('progress-pill');
   const progressLabel = document.getElementById('progress-label');
-  const toast = document.getElementById('toast');
+  const toastContainer = document.getElementById('toast-container');
   const modelToast = document.getElementById('model-toast');
   const modelToastDot = document.getElementById('model-toast-dot');
   const modelToastText = document.getElementById('model-toast-text');
@@ -866,10 +872,16 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
   function ts() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add('visible');
-    setTimeout(() => toast.classList.remove('visible'), 2600);
+  function showToast(msg, type = 'success') {
+    const item = document.createElement('div');
+    item.className = `toast-item toast-${type}`;
+    item.innerHTML = `<span class="toast-dot"></span><span class="toast-msg">${esc(msg)}</span>`;
+    toastContainer.appendChild(item);
+    requestAnimationFrame(() => { requestAnimationFrame(() => { item.classList.add('visible'); }); });
+    setTimeout(() => {
+      item.classList.remove('visible');
+      setTimeout(() => { if (item.parentNode) item.parentNode.removeChild(item); }, 350);
+    }, 3000);
   }
 
   function hideEmpty() { emptyWrap.style.display = 'none'; }
@@ -1188,11 +1200,34 @@
 
   async function deleteSession(sid) {
     const target = sid || sessionId;
-    if (!confirm(t('deleteConfirm'))) return;
-    await fetch(`${base()}/api/agents/session/${encodeURIComponent(target)}`, {method:'DELETE'});
-    showToast(t('sessionCleared'));
-    if (target === sessionId) newSession();
-    else renderHistory();
+    try {
+      await fetch(`${base()}/api/agents/session/${encodeURIComponent(target)}`, {method:'DELETE'});
+      showToast(t('sessionCleared'), 'success');
+      if (target === sessionId) newSession();
+      else renderHistory();
+    } catch {
+      showToast(t('connectionError') + ' Could not delete session', 'error');
+    }
+  }
+
+  async function deleteAllSessions() {
+    try {
+      const res = await fetch(`${base()}/api/agents/sessions`);
+      const data = res.ok ? await res.json() : { sessions: [] };
+      const sessions = data.sessions || [];
+      const deletions = sessions.map(s =>
+        fetch(`${base()}/api/agents/session/${encodeURIComponent(s.sessionId)}`, {method:'DELETE'}).catch(() => {})
+      );
+      // Also delete the current session
+      deletions.push(
+        fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}`, {method:'DELETE'}).catch(() => {})
+      );
+      await Promise.all(deletions);
+      showToast(t('allSessionsCleared'), 'success');
+      newSession();
+    } catch {
+      showToast(t('connectionError') + ' Could not clear sessions', 'error');
+    }
   }
 
   async function sendPrompt() {
