@@ -175,9 +175,9 @@
 
     .chat-area { display: flex; flex-direction: column; background: transparent; position: relative; overflow: hidden; }
 
-    .progress-pill { position: absolute; top: 16px; left: 50%; transform: translateX(-50%) scale(0.9); display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1.5px solid transparent; padding: 8px 16px 8px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; color: var(--accent); box-shadow: var(--shadow-md); opacity: 0; pointer-events: none; z-index: 150; white-space: nowrap; transition: opacity 0.3s var(--spring), transform 0.3s var(--spring); background-clip: padding-box; }
+    .progress-pill { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(8px) scale(0.92); display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1.5px solid transparent; padding: 8px 16px 8px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; color: var(--accent); box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none; z-index: 150; white-space: nowrap; transition: opacity 0.3s var(--spring), transform 0.3s var(--spring); background-clip: padding-box; }
     .progress-pill::before { content: ''; position: absolute; inset: -1.5px; border-radius: var(--radius-full); background: linear-gradient(90deg, var(--accent), #a855f7, #06b6d4, var(--accent)); background-size: 300% 100%; animation: gradientShift 2s ease infinite; z-index: -1; }
-    .progress-pill.visible { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
+    .progress-pill.visible { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); pointer-events: auto; }
     .progress-pill .pulse-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 1s ease infinite; flex-shrink: 0; }
     .progress-phase-icon { font-size: 15px; line-height: 1; }
     .progress-step { font-size: 11px; font-weight: 500; color: var(--text-tertiary); padding: 2px 8px; background: var(--surface-muted); border-radius: var(--radius-full); }
@@ -370,7 +370,7 @@
     .review-step { display: flex; gap: 12px; padding: 10px 14px; background: var(--surface-muted); border-radius: var(--radius-md); align-items: center; transition: all 0.2s var(--ease); }
     .review-step:hover { background: var(--surface); transform: translateX(4px); }
     .review-step-num { width: 24px; height: 24px; background: linear-gradient(135deg, var(--warning), #f97316); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
-    .review-step-tool { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--accent-subtle); color: var(--accent); padding: 3px 8px; border-radius: var(--radius-sm); }
+    .review-step-tool { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--surface); border: 1.5px solid var(--border-strong); color: var(--text-secondary); padding: 3px 9px; border-radius: var(--radius-sm); font-weight: 500; white-space: nowrap; flex-shrink: 0; }
     .review-step-desc { font-size: 13px; color: var(--text-secondary); }
     .review-actions { display: flex; gap: 10px; }
     .review-btn { flex: 1; padding: 12px 18px; border: none; border-radius: 16px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.35s var(--ease); position: relative; overflow: hidden; letter-spacing: -0.01em; }
@@ -388,16 +388,46 @@
     .review-btn-replan::before { content: '🔄 '; }
     .review-btn-replan:hover { box-shadow: 0 10px 32px var(--accent-subtle); }
 
-    /* Replan loading state */
-    .review-card.replanning { border-color: var(--accent); pointer-events: none; }
-    .review-card.replanning .review-header { background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent)); background-size: 300% 100%; animation: gradientShift 1.2s ease infinite; }
-    .review-card.replanning .review-content { opacity: 0.5; }
+    /* Plan action loading states */
+    .review-card { position: relative; }
+    .review-card.replanning,
+    .review-card.processing { border-color: var(--accent); pointer-events: none; }
+    .review-card.replanning .review-header,
+    .review-card.processing .review-header { background: linear-gradient(90deg, var(--accent), #a855f7, #06b6d4, var(--accent)); background-size: 300% 100%; animation: gradientShift 1s ease infinite; height: 6px; }
+    .review-card.replanning .review-content,
+    .review-card.processing .review-content { opacity: 0.25; pointer-events: none; }
+
+    /* Shared overlay base */
+    .review-overlay-base { display: none; position: absolute; inset: 0; background: var(--surface); border-radius: 20px; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 10; padding: 28px 24px; }
+
+    /* Replan overlay */
     .review-replan-overlay { display: none; position: absolute; inset: 0; background: var(--surface); border-radius: 20px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 10; }
     .review-card.replanning .review-replan-overlay { display: flex; }
-    .review-card { position: relative; }
     .replan-spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .replan-spinner-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.01em; }
+
+    /* Processing overlay (approve in progress) */
+    .review-process-overlay { display: none; position: absolute; inset: 0; background: var(--surface); border-radius: 20px; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 10; padding: 28px 24px; }
+    .review-card.processing .review-process-overlay { display: flex; }
+
+    /* Orbital spinner */
+    .orbit-wrap { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+    .orbit-r1 { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid transparent; border-top-color: var(--accent); border-right-color: rgba(99,102,241,0.22); animation: spin 1.1s linear infinite; }
+    .orbit-r2 { position: absolute; inset: 11px; border-radius: 50%; border: 2px solid transparent; border-bottom-color: #a855f7; border-left-color: rgba(168,85,247,0.22); animation: spin 0.68s linear infinite reverse; }
+    .orbit-r3 { position: absolute; inset: 22px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: #06b6d4; border-right-color: rgba(6,182,212,0.22); animation: spin 1.6s linear infinite; }
+    .orbit-core { position: absolute; width: 11px; height: 11px; top: 50%; left: 50%; transform: translate(-50%,-50%); border-radius: 50%; background: linear-gradient(135deg,var(--accent),#a855f7); box-shadow: 0 0 14px rgba(99,102,241,0.55); animation: subtlePulse 1.4s ease-in-out infinite; }
+
+    /* Live step list in overlay */
+    .process-steps-live { display: flex; flex-direction: column; gap: 5px; width: 100%; max-width: 300px; }
+    .process-step-live { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); opacity: 0.38; transition: opacity 0.4s ease, background 0.4s ease; }
+    .process-step-live.active { opacity: 1; background: var(--accent-subtle); color: var(--text); }
+    .process-step-live.done { opacity: 0.62; color: var(--success); }
+    .process-step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); flex-shrink: 0; transition: background 0.3s ease; }
+    .process-step-live.active .process-step-dot { background: var(--accent); animation: pulse 0.9s ease infinite; }
+    .process-step-live.done .process-step-dot { background: var(--success); animation: none; }
+    .process-step-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-tertiary); background: var(--surface-muted); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+    .process-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: -0.01em; }
 
     /* Toast */
     .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px) scale(0.9); background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: var(--radius-full); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-xl), 0 0 40px var(--accent-subtle); border: 1px solid var(--border); z-index: 9999; opacity: 0; transition: all 0.4s var(--spring); position: relative; overflow: hidden; }
@@ -566,14 +596,6 @@
 
   <!-- Chat column -->
   <div class="chat-column">
-    <div class="progress-pill" id="progress-pill">
-      <span class="pulse-dot"></span>
-      <span class="progress-phase-icon" id="progress-icon">🤔</span>
-      <span id="progress-label">Thinking</span>
-      <span class="progress-step" id="progress-step" style="display:none"></span>
-      <button class="stop-btn" id="stop-btn" onclick="stopStreaming()">Stop</button>
-    </div>
-
     <div class="model-toast" id="model-toast">
       <span class="model-toast-dot" id="model-toast-dot"></span>
       <span id="model-toast-text"></span>
@@ -601,6 +623,13 @@
     </div>
 
     <div class="inputbar-container">
+      <div class="progress-pill" id="progress-pill">
+        <span class="pulse-dot"></span>
+        <span class="progress-phase-icon" id="progress-icon">🤔</span>
+        <span id="progress-label">Thinking</span>
+        <span class="progress-step" id="progress-step" style="display:none"></span>
+        <button class="stop-btn" id="stop-btn" onclick="stopStreaming()">Stop</button>
+      </div>
       <div class="inputbar">
         <div class="file-chip" id="file-chip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
@@ -1052,16 +1081,34 @@
     const inner = getFeedInner();
     const wrap = document.createElement('div');
     wrap.className = 'review-card';
+    const steps = data.plan || [];
     wrap.innerHTML = `
       <div class="review-replan-overlay">
         <div class="replan-spinner"></div>
         <div class="replan-spinner-label">Replanning…</div>
       </div>
+      <div class="review-process-overlay">
+        <div class="orbit-wrap">
+          <div class="orbit-r1"></div>
+          <div class="orbit-r2"></div>
+          <div class="orbit-r3"></div>
+          <div class="orbit-core"></div>
+        </div>
+        <div class="process-label">Executing plan…</div>
+        <div class="process-steps-live">
+          ${steps.map((s,i) => `
+          <div class="process-step-live" data-idx="${i}">
+            <div class="process-step-dot"></div>
+            <span class="process-step-tag">${esc(s.tool)}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(s.description)}</span>
+          </div>`).join('')}
+        </div>
+      </div>
       <div class="review-header"></div>
       <div class="review-content">
         <div class="review-badge">${ICONS.warning} ${t('planReview')}</div>
         <div class="review-objective"><strong>${t('objective')}</strong> ${esc(data.objective || '')}</div>
-        <div class="review-steps">${(data.plan || []).map((step,i) => `
+        <div class="review-steps">${steps.map((step,i) => `
           <div class="review-step">
             <div class="review-step-num">${i+1}</div>
             <span class="review-step-tool">${esc(step.tool)}</span>
@@ -1082,10 +1129,29 @@
     const btns = card.querySelectorAll('button');
     btns.forEach(b => b.disabled = true);
     btn.textContent = t('processing');
-    if (action === 'replan') card.classList.add('replanning');
+
+    let scanInterval = null;
+    if (action === 'replan') {
+      card.classList.add('replanning');
+    } else if (action === 'approve') {
+      card.classList.add('processing');
+      // Animate step rows one-by-one while waiting
+      const rows = card.querySelectorAll('.process-step-live');
+      let cur = 0;
+      if (rows.length) {
+        rows[0].classList.add('active');
+        scanInterval = setInterval(() => {
+          if (cur < rows.length) rows[cur].classList.remove('active');
+          cur = (cur + 1) % rows.length;
+          rows[cur].classList.add('active');
+        }, Math.max(900, 3200 / rows.length));
+      }
+    }
+
     try {
       const res = await fetch(`${base()}/api/agents/session/${encodeURIComponent(sessionId)}/${action}`, {method:'POST'});
       const body = await res.json().catch(() => ({}));
+      if (scanInterval) clearInterval(scanInterval);
       if (action === 'replan' && body.reviewRequest) {
         card.remove();
         buildReviewCard(body.reviewRequest);
@@ -1099,7 +1165,9 @@
         setIdle();
       }
     } catch (e) {
+      if (scanInterval) clearInterval(scanInterval);
       card.classList.remove('replanning');
+      card.classList.remove('processing');
       btns.forEach(b => b.disabled = false);
       addErrorBubble(`<p>${t('reviewFailed')}</p>`);
       setIdle();
