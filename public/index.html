@@ -777,15 +777,12 @@
   const progressPill = document.getElementById('progress-pill');
   const progressLabel = document.getElementById('progress-label');
   const toast = document.getElementById('toast');
-  const modelBadge = document.getElementById('model-badge');
-  const modelBadgeLabel = document.getElementById('model-badge-label');
   const modelToast = document.getElementById('model-toast');
   const modelToastDot = document.getElementById('model-toast-dot');
   const modelToastText = document.getElementById('model-toast-text');
 
   let modelToastTimer = null;
 
-  /** Infer display tier from model name for color-coding */
   function inferTier(model) {
     if (!model) return 'balanced';
     const m = model.toLowerCase();
@@ -795,7 +792,6 @@
     return 'balanced';
   }
 
-  /** Shorten a model name for compact display (e.g. "mistral-large-latest" → "large") */
   function shortModelName(model) {
     if (!model) return '';
     return model
@@ -804,38 +800,21 @@
       .replace(/^open-/i, '');
   }
 
-  let modelSwitchTimer = null;
   function updateModelBadge(model) {
     if (model === activeModel) return;
     activeModel = model;
     const tier = inferTier(model);
     const short = shortModelName(model);
-
-    // Update badge appearance
-    modelBadge.className = `model-badge visible tier-${tier}`;
-    modelBadgeLabel.textContent = short;
-
-    // Flash animation
-    modelBadge.classList.remove('switching');
-    void modelBadge.offsetWidth; // reflow
-    modelBadge.classList.add('switching');
-    clearTimeout(modelSwitchTimer);
-    modelSwitchTimer = setTimeout(() => modelBadge.classList.remove('switching'), 600);
-
-    // Show mini toast notification
     const tierLabel = { fast: '⚡ Fast', balanced: '⚖ Balanced', powerful: '🔮 Powerful', code: '💻 Code' }[tier] || tier;
     const dotColor = { fast: '#10b981', balanced: '#818cf8', powerful: '#c084fc', code: '#fbbf24' }[tier];
-    modelToastDot.style.background = dotColor;
-    modelToastText.textContent = `Switching to ${tierLabel} · ${short}`;
-    modelToast.classList.add('visible');
-    clearTimeout(modelToastTimer);
-    modelToastTimer = setTimeout(() => modelToast.classList.remove('visible'), 2200);
+    if (modelToastDot) modelToastDot.style.background = dotColor;
+    if (modelToastText) modelToastText.textContent = `Switching to ${tierLabel} · ${short}`;
+    if (modelToast) { modelToast.classList.add('visible'); clearTimeout(modelToastTimer); modelToastTimer = setTimeout(() => modelToast.classList.remove('visible'), 2200); }
   }
 
   function clearModelBadge() {
     activeModel = null;
-    modelBadge.className = 'model-badge';
-    modelToast.classList.remove('visible');
+    if (modelToast) modelToast.classList.remove('visible');
   }
 
   function base() { return window.location.origin; }
