@@ -26,11 +26,13 @@ export const fileAppendTool = tool(
       return `ERROR: file "${path}" does not exist or cannot be read.`;
     }
 
-    const exportToken = 'export {};';
-    const insertionPoint = originalContent.lastIndexOf(exportToken);
+    // Match `export {};`, `export { }`, `export{}` etc. — all valid TS forms.
+    const exportTokenRe = /export\s*\{\s*\}\s*;?[ \t]*$/m;
+    const match = exportTokenRe.exec(originalContent);
 
     let updatedContent: string;
-    if (insertionPoint !== -1) {
+    if (match !== null) {
+      const insertionPoint = match.index;
       const before = originalContent.substring(0, insertionPoint);
       const after = originalContent.substring(insertionPoint);
       updatedContent = before + finalContent + '\n\n' + after;

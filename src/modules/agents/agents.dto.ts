@@ -7,6 +7,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -61,6 +62,11 @@ export class RunAgentDto {
   })
   @IsString()
   @IsOptional()
+  @MinLength(1)
+  @MaxLength(64)
+  @Matches(/^[a-zA-Z0-9_-]+$/, {
+    message: 'sessionId must contain only alphanumeric characters, hyphens, or underscores',
+  })
   sessionId?: string;
 
   @ApiProperty({
@@ -107,6 +113,11 @@ export class StreamAgentDto {
   })
   @IsString()
   @IsOptional()
+  @MinLength(1)
+  @MaxLength(64)
+  @Matches(/^[a-zA-Z0-9_-]+$/, {
+    message: 'sessionId must contain only alphanumeric characters, hyphens, or underscores',
+  })
   sessionId?: string;
 
   @ApiProperty({

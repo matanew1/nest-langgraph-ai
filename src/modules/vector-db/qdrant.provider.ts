@@ -59,12 +59,23 @@ export async function connectQdrant(
   );
 
   if (!exists) {
-    await client.createCollection(env.qdrantCollection, {
-      vectors: { size: env.qdrantVectorSize, distance: 'Cosine' },
-    });
-    logger.log(
-      `Qdrant connected — collection '${env.qdrantCollection}' created (size=${env.qdrantVectorSize})`,
-    );
+    try {
+      await client.createCollection(env.qdrantCollection, {
+        vectors: { size: env.qdrantVectorSize, distance: 'Cosine' },
+      });
+      logger.log(
+        `Qdrant connected — collection '${env.qdrantCollection}' created (size=${env.qdrantVectorSize})`,
+      );
+    } catch (err: unknown) {
+      // Two concurrent app instances could both see the collection as absent
+      // and both attempt to create it. If Qdrant says it already exists, that
+      // is fine — another instance created it first. Re-throw everything else.
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.toLowerCase().includes('already exists')) throw err;
+      logger.log(
+        `Qdrant collection '${env.qdrantCollection}' was created by a concurrent process — continuing`,
+      );
+    }
   } else {
     try {
       const info = await client.getCollection(env.qdrantCollection);

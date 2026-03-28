@@ -1,6 +1,7 @@
 /**
  * Shared HTTP request utilities for http_get / http_post tools.
- * Includes an SSRF guard to block private network access unless explicitly allowed.
+ * Includes an SSRF guard to block private network access unless explicitly allowed,
+ * and a manual redirect follower that re-validates each hop against the SSRF guard.
  */
 import { env } from '@config/env';
 
@@ -69,4 +70,74 @@ export function checkHttpAllowed(url: string): string | null {
   }
 
   return null;
+}
+
+/** HTTP status codes that carry a Location redirect. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * Follow redirects manually up to `env.httpToolMaxRedirects` hops.
+ * Re-runs the SSRF guard on every redirect target so an attacker cannot
+ * chain a public → private-network redirect to bypass the allowlist.
+ *
+ * For 303 and (301/302 on POST) the method is degraded to GET per RFC 7231.
+ * 307/308 preserve the original method.
+ *
+ * @returns The final Response, or an error string if blocked / too many hops.
+ */
+export async function fetchWithRedirectLimit(
+  url: string,
+  init: RequestInit & { signal?: AbortSignal },
+  method: 'GET' | 'POST' = 'GET',
+): Promise<Response | string> {
+  let currentUrl = url;
+  let currentMethod = method;
+  let currentBody = init.body;
+  let hops = 0;
+  const maxRedirects = env.httpToolMaxRedirects;
+
+  while (true) {
+    const response = await fetch(currentUrl, {
+      ...init,
+      method: currentMethod,
+      body: currentBody,
+      redirect: 'manual',
+    });
+
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      return response;
+    }
+
+    if (hops >= maxRedirects) {
+      return `ERROR: Too many redirects (limit: ${maxRedirects}). Last URL: ${currentUrl}`;
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      // No Location header — treat as final response
+      return response;
+    }
+
+    // Resolve relative redirects against the current URL
+    try {
+      currentUrl = new URL(location, currentUrl).toString();
+    } catch {
+      return `ERROR: Invalid redirect location "${location}"`;
+    }
+
+    // Re-check SSRF guard on the new target
+    const guard = checkHttpAllowed(currentUrl);
+    if (guard) return `ERROR: Redirect target blocked — ${guard}`;
+
+    // Downgrade method per RFC 7231 §6.4
+    if (
+      currentMethod === 'POST' &&
+      (response.status === 301 || response.status === 302 || response.status === 303)
+    ) {
+      currentMethod = 'GET';
+      currentBody = undefined;
+    }
+
+    hops++;
+  }
 }

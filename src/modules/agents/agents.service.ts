@@ -53,6 +53,17 @@ export interface ReviewPageData {
 
 const SEPARATOR = '━'.repeat(60);
 
+/** Safe session ID pattern — same constraint as the DTO @Matches validator. */
+const SESSION_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+function assertValidSessionId(sessionId: string): void {
+  if (!SESSION_ID_RE.test(sessionId)) {
+    throw new BadRequestException(
+      `Invalid sessionId "${sessionId}". Must be 1–64 alphanumeric/hyphen/underscore characters.`,
+    );
+  }
+}
+
 export type StreamEvent = StreamEventDto;
 
 @Injectable()
@@ -94,11 +105,17 @@ export class AgentsService {
       );
     }
     return async () => {
-      // Only release if we still own the lock (compare-and-delete)
-      const current = await this.redisClient.get(lockKey);
-      if (current === lockValue) {
-        await this.redisClient.del(lockKey);
-      }
+      // Atomic compare-and-delete via Lua to avoid TOCTOU:
+      // GET + DEL as two separate calls could delete a lock that another request
+      // just acquired between the two operations.
+      const luaScript = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+      await this.redisClient.eval(luaScript, 1, lockKey, lockValue);
     };
   }
 
@@ -545,6 +562,7 @@ Enhanced prompt:`;
   }
 
   async getSessionDetail(sessionId: string): Promise<SessionDetailDto> {
+    assertValidSessionId(sessionId);
     const memory = await this._tryLoadSessionMemory(sessionId);
     const entries = memory
       ? memory
@@ -582,11 +600,13 @@ Enhanced prompt:`;
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    assertValidSessionId(sessionId);
     this.logger.log(`🗑️ Deleting session state for ID: ${sessionId}`);
     return this.checkpointer.deleteThread(sessionId);
   }
 
   async approvePlan(sessionId: string): Promise<AgentRunResult> {
+    assertValidSessionId(sessionId);
     const config = {
       configurable: { thread_id: sessionId },
       recursionLimit: 200,
@@ -633,6 +653,7 @@ Enhanced prompt:`;
   }
 
   async rejectPlan(sessionId: string): Promise<void> {
+    assertValidSessionId(sessionId);
     const config = {
       configurable: { thread_id: sessionId },
       recursionLimit: 200,
@@ -655,6 +676,7 @@ Enhanced prompt:`;
   }
 
   async replanSession(sessionId: string): Promise<AgentRunResult> {
+    assertValidSessionId(sessionId);
     const config = {
       configurable: { thread_id: sessionId },
       recursionLimit: 200,
@@ -694,6 +716,7 @@ Enhanced prompt:`;
   }
 
   async getSessionMemory(sessionId: string): Promise<SessionMemoryResponseDto> {
+    assertValidSessionId(sessionId);
     const raw = await this._tryLoadSessionMemory(sessionId);
     const entries = raw
       ? raw
@@ -708,6 +731,7 @@ Enhanced prompt:`;
     sessionId: string,
     entry: string,
   ): Promise<SessionMemoryResponseDto> {
+    assertValidSessionId(sessionId);
     const existing = await this._tryLoadSessionMemory(sessionId);
     const merged = this._mergeSessionMemory(existing, entry.trim());
     await this.checkpointer.setThreadMemory(sessionId, merged);
@@ -719,10 +743,12 @@ Enhanced prompt:`;
   }
 
   async clearSessionMemory(sessionId: string): Promise<void> {
+    assertValidSessionId(sessionId);
     await this.checkpointer.setThreadMemory(sessionId, '');
   }
 
   async getReviewPageData(sessionId: string): Promise<ReviewPageData> {
+    assertValidSessionId(sessionId);
     const config = {
       configurable: { thread_id: sessionId },
       recursionLimit: 200,
@@ -745,6 +771,7 @@ Enhanced prompt:`;
     sessionId: string,
     dto: SubmitFeedbackDto,
   ): Promise<FeedbackStatsResponseDto> {
+    assertValidSessionId(sessionId);
     const idempotencyKey = `agent:feedback:${sessionId}`;
 
     const existing = await this.redisClient.get(`${idempotencyKey}:stats`);
@@ -791,6 +818,7 @@ Enhanced prompt:`;
   }
 
   async getFeedbackStats(sessionId: string): Promise<FeedbackStatsResponseDto> {
+    assertValidSessionId(sessionId);
     const stats = await this.redisClient.get(
       `agent:feedback:${sessionId}:stats`,
     );
@@ -819,14 +847,17 @@ Enhanced prompt:`;
 
   private async _buildCacheKey(
     prompt: string,
-    sessionId: string,
+    _sessionId: string,
     sessionMemory?: string,
   ): Promise<string> {
     const gitHash = await this._getRepoFingerprint();
+    // sessionMemory hash already captures session-specific context. Including
+    // sessionId on top would make every session miss the cache even when the
+    // prompt and memory are identical — defeating the cache entirely.
     const memHash = sessionMemory
       ? crypto.createHash('md5').update(sessionMemory).digest('hex').slice(0, 8)
       : 'nomem';
-    const body = `${sessionId}:${gitHash}:${memHash}:${prompt}`;
+    const body = `${gitHash}:${memHash}:${prompt}`;
     const hash = crypto.createHash('sha256').update(body).digest('hex');
     return `agent:cache:${hash}`;
   }

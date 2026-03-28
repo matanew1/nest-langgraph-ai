@@ -184,6 +184,8 @@ export async function buildVectorResearchContext(
   const cacheKey = query.trim().toLowerCase();
   const cached = vectorResearchCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < VECTOR_CACHE_TTL_MS) {
+    // Update access timestamp so this entry is not evicted as LRU
+    cached.ts = Date.now();
     return { text: cached.result, ids: cached.ids };
   }
 
@@ -217,10 +219,19 @@ export async function buildVectorResearchContext(
 
     const result = lines.join('\n');
 
-    // Evict oldest entries if cache is full
+    // Evict LRU entry when the cache is full.
+    // Map insertion-order is FIFO, not LRU, so we find the entry with the
+    // smallest `ts` (last-accessed timestamp) instead.
     if (vectorResearchCache.size >= VECTOR_CACHE_MAX_SIZE) {
-      const oldest = vectorResearchCache.keys().next().value!;
-      vectorResearchCache.delete(oldest);
+      let lruKey: string | undefined;
+      let lruTs = Infinity;
+      for (const [k, v] of vectorResearchCache) {
+        if (v.ts < lruTs) {
+          lruTs = v.ts;
+          lruKey = k;
+        }
+      }
+      if (lruKey !== undefined) vectorResearchCache.delete(lruKey);
     }
     vectorResearchCache.set(cacheKey, { result, ids, ts: Date.now() });
 

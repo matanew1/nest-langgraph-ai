@@ -1,7 +1,7 @@
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { checkHttpAllowed } from './http-request.util';
+import { checkHttpAllowed, fetchWithRedirectLimit } from './http-request.util';
 import { env } from '@config/env';
 
 const logger = new Logger('HttpGetTool');
@@ -18,16 +18,21 @@ export const httpGetTool = tool(
     const timer = setTimeout(() => controller.abort(), env.toolTimeoutMs);
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'nest-langgraph-ai/1.0',
-          ...headers,
+      const result = await fetchWithRedirectLimit(
+        url,
+        {
+          headers: {
+            'User-Agent': 'nest-langgraph-ai/1.0',
+            ...headers,
+          },
+          signal: controller.signal,
         },
-        signal: controller.signal,
-        redirect: 'follow',
-      });
+        'GET',
+      );
 
+      if (typeof result === 'string') return result;
+
+      const response = result;
       const text = await response.text();
       const body = text.slice(0, MAX_RESPONSE_SIZE);
       const truncated = text.length > MAX_RESPONSE_SIZE ? ' (truncated)' : '';

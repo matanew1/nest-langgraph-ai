@@ -67,7 +67,12 @@ export class RedisSaver extends BaseCheckpointSaver {
           message.includes('ECONNREFUSED') ||
           message.includes('ECONNRESET') ||
           message.includes('ETIMEDOUT') ||
-          message.includes('Connection is closed');
+          message.includes('ENOTFOUND') ||      // DNS resolution failure
+          message.includes('EHOSTUNREACH') ||   // Host unreachable (network partition)
+          message.includes('ENETUNREACH') ||    // Network unreachable
+          message.includes('Connection is closed') ||
+          message.includes('Stream isn\'t writeable') || // ioredis internal
+          message.includes('write EPIPE');      // broken pipe on write
 
         if (!isTransient || attempt >= retries) throw err;
 

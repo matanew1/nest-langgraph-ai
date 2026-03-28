@@ -23,7 +23,14 @@ export const vectorUpsertTool = tool(
       .object({
         text: z.string().min(1),
         id: z.string().min(1).optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
+        // Restrict metadata values to JSON-serializable primitives so that
+        // Qdrant payload schema conflicts and serialisation errors are avoided.
+        metadata: z
+          .record(
+            z.string(),
+            z.union([z.string(), z.number(), z.boolean(), z.null()]),
+          )
+          .optional(),
       })
       .strict(),
   },

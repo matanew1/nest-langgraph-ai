@@ -40,6 +40,7 @@ function advanceToNextStep(
   if (nextStepIndex >= plan.length) {
     return transitionToPhase(AGENT_PHASES.GENERATE, {
       criticDecision: undefined,
+      replanContext: undefined,
     });
   }
 
@@ -48,10 +49,12 @@ function advanceToNextStep(
     return transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
       currentStep: nextStepIndex,
       criticDecision: undefined,
+      replanContext: undefined,
     });
   }
   return beginExecutionStep(nextStep, nextStepIndex, {
     criticDecision: undefined,
+    replanContext: undefined,
   });
 }
 
@@ -66,6 +69,7 @@ function handleComplete(
   }
   return transitionToPhase(AGENT_PHASES.GENERATE, {
     criticDecision: undefined,
+    replanContext: undefined,
   });
 }
 

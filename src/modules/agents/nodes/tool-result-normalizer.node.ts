@@ -1,9 +1,12 @@
+import { Logger } from '@nestjs/common';
 import type { AgentState } from '../state/agent.state';
 import { toToolResult } from '../tools/tool-result';
 import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { env } from '@config/env';
 import { AGENT_PHASES } from '../state/agent-phase';
 import { transitionToPhase } from '../state/agent-transition.util';
+
+const logger = new Logger('ToolResultNormalizer');
 
 /**
  * Converts raw tool output (`toolResultRaw`) into a structured ToolResult envelope.
@@ -64,7 +67,12 @@ export async function toolResultNormalizerNode(
         ],
       });
     } catch {
-      // fallthrough to normal path if JSON parse fails
+      // toolResultRaw was not valid JSON — fall through to single-result path.
+      // The single-result path always returns { parallelResult: false }, so the
+      // stale flag is cleared even though we skip the parallel branch above.
+      logger.warn(
+        'parallelResult=true but toolResultRaw is not valid JSON — falling through to single-result normalisation',
+      );
     }
   }
 

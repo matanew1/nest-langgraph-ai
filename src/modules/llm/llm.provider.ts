@@ -9,13 +9,24 @@ const logger = new Logger('LlmProvider');
 /* ------------------------------------------------------------------ */
 /*  Per-model instance cache                                            */
 /*  Instantiating ChatMistralAI is cheap but we avoid redundant work.  */
+/*  The cache is bounded to prevent unbounded growth if arbitrary model */
+/*  names were ever passed (e.g. from a misconfigured env var).        */
 /* ------------------------------------------------------------------ */
+const LLM_INSTANCE_CACHE_MAX = 20;
 const llmInstances = new Map<string, ChatMistralAI>();
 
 function getLlmInstance(model?: string): ChatMistralAI {
   const key = model ?? env.mistralModelBalanced;
   let instance = llmInstances.get(key);
   if (!instance) {
+    // Evict the oldest (first-inserted) entry when the cache is full
+    if (llmInstances.size >= LLM_INSTANCE_CACHE_MAX) {
+      const oldest = llmInstances.keys().next().value;
+      if (oldest !== undefined) {
+        llmInstances.delete(oldest);
+        logger.warn(`LLM instance cache full — evicted entry for model "${oldest}"`);
+      }
+    }
     instance = new ChatMistralAI({
       apiKey: env.mistralKey,
       model: key,
