@@ -503,11 +503,11 @@ The assistant uses a LangGraph architecture with tools for:
 Your task is to take the user's raw prompt and enhance it to get the best possible results from the agent.
 Make the enhanced prompt:
 1. Clear, specific, and highly actionable.
-2. Structured with markdown if it's a complex multi-step task.
+2. Written as plain prose — one or two sentences max. NO markdown, NO bullet points, NO headers, NO code fences.
 3. Explicit about edge cases, constraints, and the expected final output format.
 4. If the user's prompt is already good, simply clean it up and return it.
 5. DO NOT answer their question or perform their request. ONLY rewrite their prompt.
-6. Return ONLY the final enhanced prompt text without any intro or outro filler (e.g. do not say "Here is the prompt").
+6. Return ONLY the final enhanced prompt text as a plain sentence — no intro, no outro, no formatting whatsoever.
 
 Original user prompt:
 "${prompt}"

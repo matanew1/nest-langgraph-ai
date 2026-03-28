@@ -66,11 +66,13 @@ function coerceToStringArray(value: string): string[] {
  * Handles both [Attached: name] and [File: name] forms followed by a code fence.
  * Falls back to the full input if no block is found.
  */
+const INLINE_NOT_FOUND = '__INLINE_CONTENT_MISSING__';
+
 function extractInlineContent(input: string): string {
   const match = input.match(
     /\[(?:Attached|File):[^\]]*\]\s*```(?:\w+)?\s*([\s\S]*?)```/,
   );
-  return match ? match[1].trim() : input;
+  return match ? match[1].trim() : INLINE_NOT_FOUND;
 }
 
 export async function executionNode(
@@ -91,7 +93,18 @@ export async function executionNode(
         resolvedFromPlaceholder.add(key);
       }
       if (resolved.includes('__INLINE_CONTENT__') && state.input) {
-        resolved = resolved.replaceAll('__INLINE_CONTENT__', extractInlineContent(state.input));
+        const extracted = extractInlineContent(state.input);
+        if (extracted === INLINE_NOT_FOUND) {
+          const errorMsg =
+            'ERROR: __INLINE_CONTENT__ could not be resolved — no attached file block found in the user message. ' +
+            'The plan must be revised to read the target file from disk using read_file instead of relying on inline content.';
+          logPhaseEnd('EXECUTOR', 'FAILED: inline content missing', elapsed());
+          return transitionToPhase(AGENT_PHASES.NORMALIZE_TOOL_RESULT, {
+            toolResultRaw: errorMsg,
+            counters: incrementAgentCounters(state.counters, { toolCalls: 1 }),
+          });
+        }
+        resolved = resolved.replaceAll('__INLINE_CONTENT__', extracted);
         resolvedFromPlaceholder.add(key);
       }
       toolParams[key] = resolved;

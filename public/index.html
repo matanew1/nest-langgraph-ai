@@ -175,9 +175,12 @@
 
     .chat-area { display: flex; flex-direction: column; background: transparent; position: relative; overflow: hidden; }
 
-    .progress-pill { position: absolute; top: 16px; left: 50%; transform: translateX(-50%) scale(0.9); display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1.5px solid var(--accent); padding: 8px 16px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; color: var(--accent); box-shadow: var(--shadow-md); opacity: 0; pointer-events: none; z-index: 150; white-space: nowrap; transition: opacity 0.3s var(--spring), transform 0.3s var(--spring); }
+    .progress-pill { position: absolute; top: 16px; left: 50%; transform: translateX(-50%) scale(0.9); display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1.5px solid transparent; padding: 8px 16px 8px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; color: var(--accent); box-shadow: var(--shadow-md); opacity: 0; pointer-events: none; z-index: 150; white-space: nowrap; transition: opacity 0.3s var(--spring), transform 0.3s var(--spring); background-clip: padding-box; }
+    .progress-pill::before { content: ''; position: absolute; inset: -1.5px; border-radius: var(--radius-full); background: linear-gradient(90deg, var(--accent), #a855f7, #06b6d4, var(--accent)); background-size: 300% 100%; animation: gradientShift 2s ease infinite; z-index: -1; }
     .progress-pill.visible { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: auto; }
-    .progress-pill .pulse-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1.2s ease infinite; flex-shrink: 0; }
+    .progress-pill .pulse-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 1s ease infinite; flex-shrink: 0; }
+    .progress-phase-icon { font-size: 15px; line-height: 1; }
+    .progress-step { font-size: 11px; font-weight: 500; color: var(--text-tertiary); padding: 2px 8px; background: var(--surface-muted); border-radius: var(--radius-full); }
 
     .stop-btn { display: none; margin-left: 4px; background: var(--error); color: #fff; border: none; padding: 4px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.2s var(--ease); }
     .stop-btn:hover { background: #dc2626; }
@@ -565,7 +568,9 @@
   <div class="chat-column">
     <div class="progress-pill" id="progress-pill">
       <span class="pulse-dot"></span>
+      <span class="progress-phase-icon" id="progress-icon">🤔</span>
       <span id="progress-label">Thinking</span>
+      <span class="progress-step" id="progress-step" style="display:none"></span>
       <button class="stop-btn" id="stop-btn" onclick="stopStreaming()">Stop</button>
     </div>
 
@@ -994,23 +999,53 @@
     setTimeout(() => btn.textContent = old, 1400);
   }
 
-  const PHASE_KEYS = {
-    'Phase: supervisor': 'reviewing', 'Phase: research': 'researching',
-    'Phase: plan': 'planning', 'Phase: execute': 'executing',
-    'Phase: generate': 'composing', 'Phase: chat': 'thinking'
+  const PHASE_META = {
+    'Phase: supervisor': { key: 'reviewing',   icon: '🧠' },
+    'Phase: research':   { key: 'researching', icon: '🔍' },
+    'Phase: plan':       { key: 'planning',    icon: '📋' },
+    'Phase: execute':    { key: 'executing',   icon: '⚙️' },
+    'Phase: generate':   { key: 'composing',   icon: '✍️' },
+    'Phase: chat':       { key: 'thinking',    icon: '💬' },
+    'Phase: judge':      { key: 'reviewing',   icon: '⚖️' },
+    'Phase: normalize_tool_result': { key: 'executing', icon: '⚙️' },
   };
   const PHASE_I18N = {
     en: { reviewing:'Reviewing', researching:'Researching', planning:'Planning', executing:'Executing', composing:'Composing', thinking:'Thinking' },
     he: { reviewing:'\u05D1\u05D5\u05D3\u05E7', researching:'\u05D7\u05D5\u05E7\u05E8', planning:'\u05DE\u05EA\u05DB\u05E0\u05DF', executing:'\u05DE\u05D1\u05E6\u05E2', composing:'\u05DE\u05D7\u05D1\u05E8', thinking:'\u05D7\u05D5\u05E9\u05D1' }
   };
 
+  let progressStep = { current: 0, total: 0 };
+
   function setProgress(label) {
-    const key = PHASE_KEYS[label];
+    const meta = PHASE_META[label];
+    const key = meta?.key;
+    document.getElementById('progress-icon').textContent = meta?.icon ?? '⏳';
     progressLabel.textContent = key ? (PHASE_I18N[currentLang][key] || label) : label;
+    const stepEl = document.getElementById('progress-step');
+    // Only show step counter during execute phase
+    if (label === 'Phase: execute' && progressStep.total > 0) {
+      stepEl.textContent = `${progressStep.current}/${progressStep.total}`;
+      stepEl.style.display = '';
+    } else if (label !== 'Phase: execute') {
+      stepEl.style.display = 'none';
+    }
     progressPill.classList.add('visible');
   }
 
-  function clearProgress() { progressPill.classList.remove('visible'); }
+  function setProgressTool(toolName, stepNum, totalSteps) {
+    progressStep = { current: stepNum, total: totalSteps };
+    document.getElementById('progress-icon').textContent = '⚙️';
+    progressLabel.textContent = toolName;
+    const stepEl = document.getElementById('progress-step');
+    if (totalSteps > 1) { stepEl.textContent = `${stepNum}/${totalSteps}`; stepEl.style.display = ''; }
+    progressPill.classList.add('visible');
+  }
+
+  function clearProgress() {
+    progressStep = { current: 0, total: 0 };
+    document.getElementById('progress-step').style.display = 'none';
+    progressPill.classList.remove('visible');
+  }
 
   function buildReviewCard(data) {
     hideEmpty();
@@ -1224,11 +1259,18 @@
       scrollFeed();
     }
     else if (type === 'plan') {
-      addActivityItem('plan', t('planReady', JSON.parse(data).length));
+      const steps = JSON.parse(data);
+      progressStep.total = steps.length;
+      addActivityItem('plan', t('planReady', steps.length));
     }
     else if (type === 'tool_call_started') {
       hadToolCalls = true;
-      addActivityItem('tool', t('running', esc(data)));
+      // data = "tool_name (step N)"
+      const stepMatch = data.match(/^(.+?) \(step (\d+)\)$/);
+      const toolName = stepMatch ? stepMatch[1] : data;
+      const stepNum  = stepMatch ? parseInt(stepMatch[2], 10) : 0;
+      setProgressTool(toolName, stepNum, progressStep.total);
+      addActivityItem('tool', t('running', esc(toolName)));
     }
     else if (type === 'tool_call_finished') {
       addActivityItem('success', esc(data.length > 120 ? data.slice(0,120)+'...' : data));
@@ -1486,7 +1528,17 @@
       const enhanced = data.data?.enhancedPrompt || data.enhancedPrompt;
       
       if (enhanced) {
-        input.value = enhanced;
+        // Strip any markdown the LLM snuck in (headers, bold, bullets, fences)
+        const plain = enhanced
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/^#{1,6}\s+/gm, '')
+          .replace(/\*\*(.+?)\*\*/g, '$1')
+          .replace(/\*(.+?)\*/g, '$1')
+          .replace(/^[-*]\s+/gm, '')
+          .replace(/^\d+\.\s+/gm, '')
+          .replace(/\n{2,}/g, ' ')
+          .trim();
+        input.value = plain;
         autoResize(input);
         
         // Gamified flash effect
