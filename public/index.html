@@ -1068,7 +1068,7 @@
     modelToast.classList.remove('visible');
   }
 
-  function base() { return 'http://localhost:3000'; }
+  function base() { return window.location.origin; }
   function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
   function ts() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
@@ -1699,7 +1699,7 @@
     btn.disabled = true;
     
     try {
-      const res = await fetch('/api/agents/enhance-prompt', {
+      const res = await fetch(`${base()}/api/agents/enhance-prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: text })

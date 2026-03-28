@@ -5,6 +5,7 @@ import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { env } from '@config/env';
 import { AGENT_PHASES } from '../state/agent-phase';
 import { transitionToPhase } from '../state/agent-transition.util';
+import { AGENT_CONSTANTS } from '../graph/agent.config';
 
 const logger = new Logger('ToolResultNormalizer');
 
@@ -45,7 +46,7 @@ export async function toolResultNormalizerNode(
         tool: 'parallel_execution',
         raw: summaryText,
         previewMaxChars: env.criticResultMaxChars,
-        rawMaxChars: 200_000,
+        rawMaxChars: AGENT_CONSTANTS.rawResultMaxBytes,
       });
 
       logPhaseEnd(

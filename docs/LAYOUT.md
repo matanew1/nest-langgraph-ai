@@ -103,7 +103,7 @@ src/
     │   ├── tools/
     │   │   ├── tool.registry.ts         # ToolRegistry class (register, get, describeForPrompt with cache)
     │   │   ├── tool.registry.spec.ts
-    │   │   ├── tool.catalog.ts          # Tool registrations list (26 tools)
+    │   │   ├── tool.catalog.ts          # Tool registrations list (25 tools)
     │   │   ├── tool-result.ts           # ToolResult interface + toToolResult()
     │   │   ├── index.ts                 # Re-exports toolRegistry singleton
     │   │   ├── read-file.tool.ts        # read_file
@@ -131,7 +131,7 @@ src/
     │   │   ├── http-post.tool.ts        # http_post — HTTP POST with SSRF guard (destructive)
     │   │   ├── system-info.tool.ts      # system_info
     │   │   ├── mermaid.util.ts          # Shared Mermaid helpers
-    │   │   ├── http-request.util.ts     # Shared HTTP + SSRF guard logic
+    │   │   ├── http-request.util.ts     # Shared HTTP + SSRF guard + redirect-limiting logic
     │   │   └── state-graph-extractor.ts # LangGraph state graph introspection helper
     │   ├── tests/                       # Node, tool, and integration test files
     │   │   ├── agents.controller.spec.ts

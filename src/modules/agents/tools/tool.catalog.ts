@@ -94,7 +94,7 @@ export const toolRegistrations: ToolRegistration[] = [
   {
     tool: vectorUpsertTool,
     paramHint:
-      '{"text":"<text to remember>","id?":"<optional stable id>","metadata?":{"any":"json"}}',
+      '{"text":"<text to remember>","id?":"<optional stable id>","metadata?":{"key":"string|number|boolean|null"}}',
   },
   {
     tool: vectorSearchTool,
