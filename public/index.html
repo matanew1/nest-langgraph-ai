@@ -386,10 +386,28 @@
     .md a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: all 0.2s; }
     .md a:hover { border-bottom-color: var(--accent); text-shadow: 0 0 8px var(--accent-subtle); }
     .md hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, var(--border-strong), transparent); margin: 20px 0; }
-    .md table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
-    .md th { background: var(--surface-muted); font-weight: 600; text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--border-strong); }
-    .md td { padding: 8px 14px; border-bottom: 1px solid var(--border); }
-    .md tr:hover td { background: var(--accent-subtle); }
+    .md table {
+      width: 100%; border-collapse: separate; border-spacing: 0; margin: 18px 0;
+      font-size: 13px; border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+      overflow: hidden; background: var(--surface-glass); box-shadow: var(--shadow-sm);
+    }
+    .md th {
+      background: var(--surface-muted); color: var(--accent); font-family: 'Orbitron', sans-serif;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+      text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border-strong);
+    }
+    .md td {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      color: var(--text-secondary); line-height: 1.5;
+    }
+    .md tr:last-child td { border-bottom: none; }
+    .md tr:hover td {
+      background: var(--accent-subtle); color: var(--text);
+    }
+    [data-theme="light"] .md table { background: #fff; }
+    [data-theme="light"] .md th { background: #f8fafc; }
+
+    .preview-block { margin: 14px 0; }
 
     .pre-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface-muted); border-bottom: 1px solid var(--border); }
     .pre-lang { font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; }
@@ -1094,6 +1112,8 @@
         const id = 'mmd-' + Math.random().toString(36).slice(2);
         mmdSourceMap[id] = raw;
         blocks.push(`<div class="preview-block"><div class="pre-header"><span class="pre-lang">mermaid</span><button class="pre-copy" onclick="copyBlock(this)">Copy</button></div><div class="mermaid" id="${id}">${raw}</div></div>`);
+      } else if (lang === 'markdown' || lang === 'md') {
+        blocks.push(`<div class="preview-block" style="border: 1px solid var(--border-strong); border-radius: var(--radius-lg); overflow: hidden;"><div class="pre-header"><span class="pre-lang">markdown preview</span></div><div style="padding: 0 20px 10px; background: var(--surface-glass);">${renderMd(raw)}</div></div>`);
       } else {
         blocks.push(`<pre><div class="pre-header"><span class="pre-lang">${esc(lang||'text')}</span><button class="pre-copy" onclick="copyBlock(this)">Copy</button></div><code>${esc(raw)}</code></pre>`);
       }
@@ -1111,6 +1131,19 @@
     s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
     s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
     s = s.replace(/^---+$/gm, '<hr>');
+
+    // Table parsing logic
+    s = s.replace(/((?:^\|.+\|(?:\n|$))+)/gm, m => {
+      const lines = m.trim().split('\n');
+      if (lines.length < 2) return m;
+      const parseRow = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      const headerRow = parseRow(lines[0]);
+      const sepRow = parseRow(lines[1]);
+      if (!sepRow.every(c => /^[ :-]+$/.test(c) && c.includes('-'))) return m;
+      const bodyRows = lines.slice(2).map(l => `<tr>${parseRow(l).map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+      return `<table><thead><tr>${headerRow.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    });
+
     s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, m => `<ul>${m.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /,'')}</li>`).join('')}</ul>`);
     s = s.replace(/((?:^\d+\. .+\n?)+)/gm, m => `<ol>${m.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('')}</ol>`);
     s = s.split(/\n{2,}/).map(block => {
