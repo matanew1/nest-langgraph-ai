@@ -9,14 +9,18 @@ export const redis = new Redis({
   port: env.redisPort,
   // Don't establish the connection immediately — connect only on first use
   lazyConnect: true,
-  // Exponential backoff: 200ms, 400ms, 800ms then give up
+  // Exponential backoff: 500ms → 1s → 2s → ... capped at 15s, retries indefinitely.
+  // Previous strategy gave up after 3 attempts, permanently killing the connection.
   retryStrategy: (times) => {
-    if (times > 3) {
-      logger.error('Redis max reconnect attempts reached — giving up');
-      return null;
+    const delay = Math.min(times * 500, 15_000);
+    if (times % 10 === 0) {
+      logger.warn(
+        `Redis reconnect attempt #${times} — next retry in ${delay}ms`,
+      );
     }
-    return Math.min(times * 200, 800);
+    return delay;
   },
+  maxRetriesPerRequest: 3,
 });
 
 redis.on('connect', () => logger.log('Redis connected'));

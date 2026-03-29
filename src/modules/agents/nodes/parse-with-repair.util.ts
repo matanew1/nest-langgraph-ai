@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { ZodType } from 'zod';
 import { invokeLlm } from '@llm/llm.provider';
+import { selectModelForTier } from '@llm/model-router';
 import { parseStructuredNodeOutput } from './structured-output.util';
 
 const logger = new Logger('ParseWithRepair');
@@ -40,6 +41,7 @@ export async function parseWithRepair<T>(
   raw: string,
   schema: ZodType<T>,
   schemaDescription: string,
+  sessionId?: string,
 ): Promise<T> {
   try {
     return parseStructuredNodeOutput(raw, schema);
@@ -64,7 +66,13 @@ export async function parseWithRepair<T>(
       'Invalid input to repair:',
       raw,
     ].join('\n');
-    const repaired = await invokeLlm(repairPrompt, REPAIR_TIMEOUT_MS, 0);
+    const repaired = await invokeLlm(
+      repairPrompt,
+      REPAIR_TIMEOUT_MS,
+      0,
+      sessionId,
+      selectModelForTier('fast'),
+    );
     // Throws on double failure — caught by safeNodeHandler → failAgentRun
     return parseStructuredNodeOutput(repaired, schema);
   }

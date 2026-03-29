@@ -48,10 +48,15 @@ const makeAttempt = (tool: string, ok: boolean) => ({
 });
 
 describe('getAvailableTools (via buildSupervisorPrompt)', () => {
-  it('excludes ALL tools that had failed attempts', () => {
+  it('excludes tools that failed 2+ times with different params', () => {
     const state = {
       input: 'test',
-      attempts: [makeAttempt('search', false), makeAttempt('read_file', false)],
+      attempts: [
+        { tool: 'search', step: 0, params: { query: 'a' }, result: { ok: false, kind: 'error', summary: '', preview: '', raw: '' } },
+        { tool: 'search', step: 1, params: { query: 'b' }, result: { ok: false, kind: 'error', summary: '', preview: '', raw: '' } },
+        { tool: 'read_file', step: 2, params: { path: 'x' }, result: { ok: false, kind: 'error', summary: '', preview: '', raw: '' } },
+        { tool: 'read_file', step: 3, params: { path: 'y' }, result: { ok: false, kind: 'error', summary: '', preview: '', raw: '' } },
+      ],
     } as unknown as AgentState;
 
     const prompt = buildSupervisorPrompt(state);

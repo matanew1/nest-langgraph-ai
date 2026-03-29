@@ -79,6 +79,7 @@ export async function criticNode(
     raw,
     criticDecisionSchema,
     '{"decision":"advance|retry_step|replan|complete|fatal","reason":"string","finalAnswer?":"string"}',
+    state.sessionId,
   );
 
   logPhaseEnd('CRITIC', `DECISION: ${decision.decision}`, elapsed());

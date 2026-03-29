@@ -12,47 +12,13 @@ import type { AgentState, AgentError, PlanStep } from '../state/agent.state';
 import { toolRegistry } from '../tools/index';
 import { env } from '@config/env';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
+import { isZodArrayField, coerceToStringArray } from '@utils/zod-coerce.util';
 import { incrementAgentCounters } from '../state/agent-state.helpers';
 import { AGENT_PHASES } from '../state/agent-phase';
 import { transitionToPhase } from '../state/agent-transition.util';
 import { AGENT_CONSTANTS } from '../graph/agent.config';
 
 const logger = new Logger('ParallelExecutor');
-
-/** Unwrap ZodOptional/ZodDefault/ZodNullable to detect ZodArray fields. */
-function isZodArrayField(fieldSchema: unknown): boolean {
-  if (!fieldSchema || typeof fieldSchema !== 'object') return false;
-  const typeName = (fieldSchema as any)._def?.typeName as string | undefined;
-  if (typeName === 'ZodArray') return true;
-  if (
-    typeName === 'ZodOptional' ||
-    typeName === 'ZodDefault' ||
-    typeName === 'ZodNullable'
-  ) {
-    return isZodArrayField(
-      (fieldSchema as any)._def?.innerType ??
-        (fieldSchema as any)._def?.type,
-    );
-  }
-  return false;
-}
-
-/** Coerce a raw string to a string array (JSON → grep paths → newline split). */
-function coerceToStringArray(value: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (Array.isArray(parsed)) return parsed as string[];
-  } catch {
-    // not valid JSON, continue
-  }
-  const paths = new Set<string>();
-  for (const line of value.split('\n')) {
-    const m = line.match(/^([^\s:][^:]*\.\w+):\d+:/);
-    if (m) paths.add(m[1].trim());
-  }
-  if (paths.size > 0) return Array.from(paths);
-  return value.split('\n').map((l) => l.trim()).filter(Boolean);
-}
 
 export interface ParallelStepResult {
   step_id: number;

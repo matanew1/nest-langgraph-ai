@@ -172,6 +172,17 @@ export function resolveRouterTarget(
     return AGENT_GRAPH_NODES.TERMINAL_RESPONSE;
   }
 
+  // ROUTE phase means the router itself should run — but since the router IS
+  // the node calling this function, returning ROUTER would create a self-loop.
+  // This edge case happens when decisionRouterNode returns {} without changing
+  // the phase. Log a warning and fall through to supervisor to break the cycle.
+  if (state.phase === AGENT_PHASES.ROUTE) {
+    topologyLogger.warn(
+      'resolveRouterTarget called with ROUTE phase — falling back to SUPERVISOR to break potential cycle',
+    );
+    return AGENT_GRAPH_NODES.SUPERVISOR;
+  }
+
   if (
     (ROUTABLE_AGENT_PHASES as readonly AgentPhase[]).includes(state.phase) &&
     state.phase in ROUTABLE_PHASE_NODE_MAP
@@ -181,5 +192,8 @@ export function resolveRouterTarget(
     ];
   }
 
+  topologyLogger.warn(
+    `resolveRouterTarget: unrecognized phase "${state.phase}" — falling back to SUPERVISOR`,
+  );
   return AGENT_GRAPH_NODES.SUPERVISOR;
 }

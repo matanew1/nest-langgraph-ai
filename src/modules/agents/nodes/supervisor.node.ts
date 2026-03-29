@@ -81,6 +81,7 @@ export async function supervisorNode(
     raw,
     supervisorOutputSchema,
     '{"status":"ok|reject","mode?":"agent|chat","objective?":"string","message?":"string","missing_capabilities?":["string"]}',
+    state.sessionId,
   );
 
   if (decision.status === 'reject') {

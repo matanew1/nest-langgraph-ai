@@ -156,7 +156,7 @@ describe('getAvailableTools', () => {
     expect(result).toContain('write_file');
   });
 
-  it('excludes tools that have failed attempts', () => {
+  it('does not exclude a tool after a single failure', () => {
     const state: Partial<AgentState> = {
       ...emptyState,
       attempts: [makeAttempt('search', 0, false, 'ERROR: no results')],
@@ -164,7 +164,23 @@ describe('getAvailableTools', () => {
 
     const result = getAvailableTools(state as AgentState);
 
-    // 'search' had a failed attempt, so it should be excluded
+    // A single failure should NOT exclude the tool — it may succeed with different params
+    expect(result).toContain('- search:');
+    expect(result).toContain('read_file');
+  });
+
+  it('excludes a tool after 2+ failures with different params', () => {
+    const state: Partial<AgentState> = {
+      ...emptyState,
+      attempts: [
+        { tool: 'search', step: 0, params: { query: 'foo' }, result: makeToolResult(false, 'ERROR') },
+        { tool: 'search', step: 1, params: { query: 'bar' }, result: makeToolResult(false, 'ERROR') },
+      ],
+    };
+
+    const result = getAvailableTools(state as AgentState);
+
+    // 'search' failed with two different param sets — now excluded
     expect(result).not.toContain('- search:');
     expect(result).toContain('read_file');
   });
@@ -181,12 +197,14 @@ describe('getAvailableTools', () => {
     expect(result).toContain('read_file');
   });
 
-  it('excludes multiple tools that all failed', () => {
+  it('excludes multiple tools that each failed 2+ times with different params', () => {
     const state: Partial<AgentState> = {
       ...emptyState,
       attempts: [
-        makeAttempt('search', 0, false, 'ERROR'),
-        makeAttempt('write_file', 1, false, 'ERROR'),
+        { tool: 'search', step: 0, params: { query: 'a' }, result: makeToolResult(false, 'ERROR') },
+        { tool: 'search', step: 1, params: { query: 'b' }, result: makeToolResult(false, 'ERROR') },
+        { tool: 'write_file', step: 2, params: { path: 'x' }, result: makeToolResult(false, 'ERROR') },
+        { tool: 'write_file', step: 3, params: { path: 'y' }, result: makeToolResult(false, 'ERROR') },
       ],
     };
 

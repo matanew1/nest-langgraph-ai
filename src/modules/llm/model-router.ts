@@ -13,10 +13,11 @@ export type ModelTier = 'fast' | 'balanced' | 'powerful' | 'code';
 /** Phases that benefit most from the powerful model */
 const POWERFUL_PHASES = new Set(['plan', 'generate']);
 
-/** Phases that work best with the code-specialized model */
-const CODE_PHASES = new Set(['execute', 'execute_parallel']);
-
-/** Phases that only need a fast, cheap model */
+/**
+ * Phases that only need a fast, cheap model.
+ * Note: execute/execute_parallel run tools directly (no LLM call), and
+ * normalize_tool_result/route are lightweight routing steps — all use fast.
+ */
 const FAST_PHASES = new Set([
   'supervisor',
   'validate_plan',
@@ -26,6 +27,9 @@ const FAST_PHASES = new Set([
   'research_join',
   'memory_persist',
   'normalize_tool_result',
+  'execute',
+  'execute_parallel',
+  'research',
 ]);
 
 /**
@@ -34,8 +38,8 @@ const FAST_PHASES = new Set([
  */
 export function selectModelForPhase(phase: string): string {
   if (POWERFUL_PHASES.has(phase)) return env.mistralModelPowerful;
-  if (CODE_PHASES.has(phase)) return env.mistralModelCode;
   if (FAST_PHASES.has(phase)) return env.mistralModelFast;
+  // Balanced covers: chat, judge (critic), research_vector, etc.
   return env.mistralModelBalanced;
 }
 

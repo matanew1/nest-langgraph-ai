@@ -86,6 +86,43 @@ export class RedisSaver extends BaseCheckpointSaver {
     return null;
   }
 
+  /**
+   * Retry a Redis read operation with exponential backoff.
+   * Mirrors execWithRetry but for arbitrary async reads (not just pipelines).
+   */
+  private async getWithRetry<T>(
+    fn: () => Promise<T>,
+    label: string,
+    retries = 3,
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isTransient =
+          message.includes('ECONNREFUSED') ||
+          message.includes('ECONNRESET') ||
+          message.includes('ETIMEDOUT') ||
+          message.includes('ENOTFOUND') ||
+          message.includes('EHOSTUNREACH') ||
+          message.includes('ENETUNREACH') ||
+          message.includes('Connection is closed') ||
+          message.includes("Stream isn't writeable") ||
+          message.includes('write EPIPE');
+
+        if (!isTransient || attempt >= retries) throw err;
+
+        const backoffMs = 100 * Math.pow(2, attempt);
+        this.logger.warn(
+          `Redis ${label} failed (attempt ${attempt + 1}/${retries + 1}): ${message} — retrying in ${backoffMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+    }
+    throw new Error(`Redis ${label} failed after ${retries + 1} attempts`);
+  }
+
   private getCheckpointNamespace(config: RunnableConfig): string {
     return config.configurable?.checkpoint_ns ?? '';
   }
@@ -256,31 +293,33 @@ export class RedisSaver extends BaseCheckpointSaver {
       throw new Error('Thread ID is not configured.');
     }
 
-    const checkpointNamespace = this.getCheckpointNamespace(config);
-    let checkpointId = config.configurable?.checkpoint_id;
+    return this.getWithRetry(async () => {
+      const checkpointNamespace = this.getCheckpointNamespace(config);
+      let checkpointId = config.configurable?.checkpoint_id;
 
-    if (!checkpointId) {
-      checkpointId =
-        (await this.client.get(
-          this.getThreadLatestKey(threadId, checkpointNamespace),
-        )) ??
-        (checkpointNamespace === ''
-          ? await this.client.get(this.getLegacyThreadKey(threadId))
-          : undefined);
-    }
+      if (!checkpointId) {
+        checkpointId =
+          (await this.client.get(
+            this.getThreadLatestKey(threadId, checkpointNamespace),
+          )) ??
+          (checkpointNamespace === ''
+            ? await this.client.get(this.getLegacyThreadKey(threadId))
+            : undefined);
+      }
 
-    if (!checkpointId) return undefined;
+      if (!checkpointId) return undefined;
 
-    const record = await this.loadRecord(checkpointId);
-    if (!record) return undefined;
+      const record = await this.loadRecord(checkpointId);
+      if (!record) return undefined;
 
-    const pendingWrites = await this.loadPendingWrites(checkpointId);
+      const pendingWrites = await this.loadPendingWrites(checkpointId);
 
-    this.logger.log(
-      `📥 Loaded checkpoint for thread "${threadId}" (ns="${record.checkpointNamespace ?? checkpointNamespace}", id: ${checkpointId})`,
-    );
+      this.logger.log(
+        `📥 Loaded checkpoint for thread "${threadId}" (ns="${record.checkpointNamespace ?? checkpointNamespace}", id: ${checkpointId})`,
+      );
 
-    return this.buildTuple(threadId, checkpointId, record, pendingWrites);
+      return this.buildTuple(threadId, checkpointId, record, pendingWrites);
+    }, 'getTuple');
   }
 
   async *list(

@@ -1,28 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
+import { withTimeout } from '@utils/timeout.util';
 import { AGENT_PHASES } from '@state/agent-phase';
 import { buildVectorResearchContext } from '@vector-db/vector-memory.util';
 import { env } from '@config/env';
 import type { AgentState, AgentError } from '@state/agent.state';
 
 const logger = new Logger('ResearchVector');
-
-/** Wraps a promise with a timeout that rejects if not resolved in time. */
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`${label} timed out after ${ms}ms`)),
-        ms,
-      ),
-    ),
-  ]);
-}
 
 /**
  * RESEARCH_VECTOR node — gathers vector/session memory context for the planner.

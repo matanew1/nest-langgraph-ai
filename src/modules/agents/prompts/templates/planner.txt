@@ -67,6 +67,7 @@ When any such block is present, the file content IS ALREADY FULLY AVAILABLE inli
 - EXCEPTION — MODIFYING AN INLINE FILE: If the task requires patching or appending to the attached file (not just reading/analyzing it), you MUST still `read_file` + `grep_search` that file from disk before `file_patch`. The inline content may be stale or differ from the current disk state. Anchor text that does not exist on disk will cause the patch to fail.
 
 PLANNING GUIDANCE:
+- `__PREVIOUS_RESULT__` resolves to the output of step N-1 ONLY. There is NO way to reference step N-2 or earlier. If step 3 needs the output of step 1, the steps MUST be reordered so that step 1's output flows directly into step 2 (the consumer). Never insert a step between a producer and its consumer if the consumer uses `__PREVIOUS_RESULT__`.
 - `__PREVIOUS_RESULT__` may be used only inside string fields, and only when the immediately prior step produced one coherent text blob.
 - Prefer safe discovery tools first: `glob_files`, `read_files_batch`, `grep_search`, `ast_parse`, `git_info`, `stat_path`.
 - If you need many files, use `glob_files` then `read_files_batch` with a bounded set.

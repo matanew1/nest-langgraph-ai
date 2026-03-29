@@ -39,6 +39,7 @@ export async function plannerNode(
     raw,
     plannerOutputSchema,
     '{"objective":"string","steps":[{"step_id":1,"description":"string","tool":"tool_name","input":{}}],"expected_result":"string"}',
+    state.sessionId,
   )) as {
     objective: string;
     steps: PlanStep[];

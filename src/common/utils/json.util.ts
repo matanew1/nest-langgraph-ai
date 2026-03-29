@@ -18,6 +18,34 @@ function tryParse<T>(text: string): T | undefined {
 }
 
 /**
+ * Extract the first balanced JSON object from raw text.
+ * Tracks brace depth and respects string boundaries, so it won't
+ * greedily match from the first `{` to the last `}` in the entire string.
+ */
+function extractBalancedJson(raw: string): string | null {
+  const start = raw.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) return raw.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
  * Attempt to extract a JSON object from a string that may contain
  * surrounding prose, markdown fences, or literal newlines inside string values.
  */
@@ -43,13 +71,13 @@ export function extractJson<T>(raw: string): T {
     if (result !== undefined) return result;
   }
 
-  // 4. Grab first { … } substring
-  const braceMatch = raw.match(/\{[\s\S]*\}/);
-  if (braceMatch) {
-    stagesTried.push('brace extraction');
+  // 4. Extract first balanced { … } substring (depth-aware, not greedy)
+  const balanced = extractBalancedJson(raw);
+  if (balanced) {
+    stagesTried.push('balanced brace extraction');
     result =
-      tryParse<T>(braceMatch[0]) ??
-      tryParse<T>(sanitizeJsonNewlines(braceMatch[0]));
+      tryParse<T>(balanced) ??
+      tryParse<T>(sanitizeJsonNewlines(balanced));
     if (result !== undefined) return result;
   }
 

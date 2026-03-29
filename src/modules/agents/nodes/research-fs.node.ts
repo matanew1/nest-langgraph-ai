@@ -1,8 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { toolRegistry } from '@tools/index';
 import { logPhaseStart, logPhaseEnd, startTimer } from '@utils/pretty-log.util';
+import { withTimeout } from '@utils/timeout.util';
 import { AGENT_CONSTANTS, RESEARCH_CONFIG } from '../graph/agent.config';
 import { invokeLlm } from '@llm/llm.provider';
+import { selectModelForTier } from '@llm/model-router';
 import { env } from '@config/env';
 import type { AgentState } from '@state/agent.state';
 
@@ -10,27 +12,11 @@ const logger = new Logger('ResearchFs');
 
 const SUMMARIZE_THRESHOLD = RESEARCH_CONFIG.summarizeThreshold;
 
-/** Wraps a promise with a timeout that rejects if not resolved in time. */
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`${label} timed out after ${ms}ms`)),
-        ms,
-      ),
-    ),
-  ]);
-}
-
 async function maybeSummarize(
   label: string,
   text: string,
   objective: string,
+  sessionId?: string,
 ): Promise<string> {
   if (text.length <= SUMMARIZE_THRESHOLD) return text;
 
@@ -53,7 +39,13 @@ async function maybeSummarize(
   ].join('\n');
 
   try {
-    const summary = await invokeLlm(prompt);
+    const summary = await invokeLlm(
+      prompt,
+      undefined,
+      undefined,
+      sessionId,
+      selectModelForTier('fast'),
+    );
     logger.log(
       `ResearchFs: summarized "${label}" from ${text.length} → ${summary.length} chars`,
     );
@@ -84,6 +76,7 @@ export async function researchFsNode(
   logPhaseStart('RESEARCH_FS', 'gathering filesystem context');
 
   const objective = state.objective ?? state.input;
+  const sessionId = state.sessionId;
   const workspaceSections: string[] = [];
 
   if (state.projectContext) {
@@ -92,6 +85,7 @@ export async function researchFsNode(
       'project context (cached)',
       state.projectContext,
       objective,
+      sessionId,
     );
     workspaceSections.push(summarized);
   } else {
@@ -116,6 +110,7 @@ export async function researchFsNode(
           'project file tree',
           section,
           objective,
+          sessionId,
         );
         workspaceSections.push(summarized);
       } catch (e) {

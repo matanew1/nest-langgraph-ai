@@ -1,7 +1,6 @@
 import {
   Injectable,
   InternalServerErrorException,
-  BadRequestException,
   ConflictException,
   Logger,
   HttpException,
@@ -18,27 +17,24 @@ import type { PlanStep, ImageAttachment } from './state/agent.state';
 import { AGENT_PHASES, type AgentPhase } from './state/agent-phase';
 import { createInitialAgentRunState } from './state/agent-run-state.util';
 import {
-  beginExecutionStep,
-  failAgentRun,
-  transitionToPhase,
-} from './state/agent-transition.util';
-import {
   upsertVectorMemory,
-  updatePointSalience,
 } from '../vector-db/vector-memory.util';
 import { RedisSaver } from './utils/redis-saver';
 import type { StreamEventDto } from './agents.dto';
-import {
+import type {
   SessionMemoryResponseDto,
   SubmitFeedbackDto,
   FeedbackStatsResponseDto,
-  SessionSummaryDto,
   ListSessionsResponseDto,
   SessionDetailDto,
 } from './agents.dto';
 import * as crypto from 'crypto';
 import { invokeLlm } from '@llm/llm.provider';
 import { selectModelForPhase } from '@llm/model-router';
+import { SessionMemoryService } from './services/session-memory.service';
+import { PlanReviewService } from './services/plan-review.service';
+import { SessionService } from './services/session.service';
+import { FeedbackService } from './services/feedback.service';
 
 export interface AgentRunResult {
   result: string;
@@ -54,34 +50,33 @@ export interface ReviewPageData {
 
 const SEPARATOR = '━'.repeat(60);
 
-/** Safe session ID pattern — same constraint as the DTO @Matches validator. */
-const SESSION_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
-
-function assertValidSessionId(sessionId: string): void {
-  if (!SESSION_ID_RE.test(sessionId)) {
-    throw new BadRequestException(
-      `Invalid sessionId "${sessionId}". Must be 1–64 alphanumeric/hyphen/underscore characters.`,
-    );
-  }
-}
-
 export type StreamEvent = StreamEventDto;
 
 @Injectable()
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
-  private checkpointer: RedisSaver;
+  private readonly checkpointer: RedisSaver;
 
   private app: ReturnType<typeof agentWorkflow.compile>;
 
   /** Session lock TTL in seconds — prevents concurrent mutations on same session. */
   private static readonly SESSION_LOCK_TTL = 120;
 
-  constructor(@Inject(REDIS_CLIENT) private readonly redisClient: Redis) {
-    this.checkpointer = new RedisSaver(this.redisClient);
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redisClient: Redis,
+    private readonly sessionMemoryService: SessionMemoryService,
+    private readonly planReviewService: PlanReviewService,
+    private readonly sessionService: SessionService,
+    private readonly feedbackService: FeedbackService,
+    checkpointer: RedisSaver,
+  ) {
+    this.checkpointer = checkpointer;
     this.app = agentWorkflow.compile({
       checkpointer: this.checkpointer as any,
     });
+    // Share compiled app with sub-services that need graph access
+    this.planReviewService.setApp(this.app);
+    this.sessionService.setApp(this.app);
   }
 
   /**
@@ -143,7 +138,7 @@ export class AgentsService {
 
     const releaseLock = await this.acquireSessionLock(threadId);
     try {
-      const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const sessionMemory = await this.sessionMemoryService.tryLoad(threadId);
       const cacheKey = await this._buildCacheKey(
         prompt,
         threadId,
@@ -203,7 +198,7 @@ export class AgentsService {
       const status = result.finalAnswer ? 'COMPLETE' : 'PARTIAL';
       const steps = Array.isArray(result.attempts) ? result.attempts.length : 0;
 
-      await this._persistSessionMemory(threadId, prompt, result, sessionMemory);
+      await this.sessionMemoryService.persist(threadId, prompt, result, sessionMemory);
 
       if (result.vectorMemoryIds?.length) {
         await this.checkpointer.setVectorMemoryIds(
@@ -263,7 +258,7 @@ export class AgentsService {
 
     const releaseLock = await this.acquireSessionLock(threadId);
     try {
-      const sessionMemory = await this._tryLoadSessionMemory(threadId);
+      const sessionMemory = await this.sessionMemoryService.tryLoad(threadId);
       const tokenQueue: string[] = [];
       const onToken = (token: string): void => {
         tokenQueue.push(token);
@@ -433,7 +428,7 @@ export class AgentsService {
         };
       }
 
-      await this._persistSessionMemory(
+      await this.sessionMemoryService.persist(
         threadId,
         prompt,
         finalValues,
@@ -527,310 +522,75 @@ Enhanced prompt:`;
     }
   }
 
+  // ── Delegated: Session management ──────────────────────────────
+
   async listSessions(): Promise<ListSessionsResponseDto> {
-    const sessionIds = await this.checkpointer.listSessionIds();
-    const summaries: SessionSummaryDto[] = [];
-
-    for (const sessionId of sessionIds) {
-      const memory = await this._tryLoadSessionMemory(sessionId);
-      const entries = memory
-        ? memory
-            .split('\n---\n')
-            .map((e) => e.trim())
-            .filter(Boolean)
-        : [];
-      const latest = entries[0] ?? '';
-      const tsMatch = latest.match(/^\[(.+?)\]/);
-      const objMatch = latest.match(/^Objective:\s*(.+)$/m);
-      summaries.push({
-        sessionId,
-        lastActivity: tsMatch ? tsMatch[1] : null,
-        lastObjective: objMatch ? objMatch[1].trim().slice(0, 120) : null,
-        messageCount: entries.length,
-      });
-    }
-
-    summaries.sort((a, b) => {
-      if (!a.lastActivity && !b.lastActivity) return 0;
-      if (!a.lastActivity) return 1;
-      if (!b.lastActivity) return -1;
-      return (
-        new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
-      );
-    });
-
-    return { sessions: summaries, total: summaries.length };
+    return this.sessionService.listSessions();
   }
 
   async getSessionDetail(sessionId: string): Promise<SessionDetailDto> {
-    assertValidSessionId(sessionId);
-    const memory = await this._tryLoadSessionMemory(sessionId);
-    const entries = memory
-      ? memory
-          .split('\n---\n')
-          .map((e) => e.trim())
-          .filter(Boolean)
-      : [];
-
-    let lastInput: string | null = null;
-    let lastObjective: string | null = null;
-    let phase: string | null = null;
-
-    try {
-      const config = {
-        configurable: { thread_id: sessionId },
-        recursionLimit: 200,
-      };
-      const snapshot = await this.app.getState(config);
-      const values = snapshot.values as Partial<AgentState>;
-      lastInput = values.input ?? null;
-      lastObjective = values.objective ?? null;
-      phase = values.phase ?? null;
-    } catch {
-      // Session may not have a checkpoint yet — return what we have from memory
-    }
-
-    return {
-      sessionId,
-      entries,
-      raw: memory ?? '',
-      lastInput,
-      lastObjective,
-      phase,
-    };
+    return this.sessionService.getSessionDetail(sessionId);
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    assertValidSessionId(sessionId);
-    this.logger.log(`🗑️ Deleting session state for ID: ${sessionId}`);
-    return this.checkpointer.deleteThread(sessionId);
+    return this.sessionService.deleteSession(sessionId);
+  }
+
+  // ── Delegated: Plan review ───────────────────────────────────
+
+  async getReviewPageData(sessionId: string): Promise<ReviewPageData> {
+    return this.planReviewService.getReviewPageData(sessionId);
   }
 
   async approvePlan(sessionId: string): Promise<AgentRunResult> {
-    assertValidSessionId(sessionId);
-    const config = {
-      configurable: { thread_id: sessionId },
-      recursionLimit: 200,
-    };
-    const snapshot = await this.app.getState(config);
-    const values = snapshot.values as Partial<AgentState>;
-
-    if (!values.reviewRequest) {
-      throw new BadRequestException('No pending plan review for this session.');
-    }
-    const first = values.plan?.[0];
-    if (!first) {
-      throw new BadRequestException('Session has an empty plan.');
-    }
-
-    const previousMemory = await this._tryLoadSessionMemory(sessionId);
-    // If the first step belongs to a parallel group, resume to EXECUTE_PARALLEL
-    // rather than serial EXECUTE to avoid incorrect routing.
-    const firstStepUpdate =
-      first.parallel_group !== undefined
-        ? transitionToPhase(AGENT_PHASES.EXECUTE_PARALLEL, {
-            currentStep: 0,
-            reviewRequest: undefined,
-          })
-        : beginExecutionStep(first, 0, { reviewRequest: undefined });
-    await this.app.updateState(config, firstStepUpdate);
-    const result: any = await this.app.invoke(null, config);
-
-    await this._persistSessionMemory(
+    return this.planReviewService.approve(
       sessionId,
-      values.objective ?? values.input ?? '',
-      result,
-      previousMemory,
+      this.acquireSessionLock.bind(this),
     );
-
-    if (result.vectorMemoryIds?.length) {
-      await this.checkpointer.setVectorMemoryIds(
-        sessionId,
-        result.vectorMemoryIds as string[],
-      );
-    }
-
-    return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
 
   async rejectPlan(sessionId: string): Promise<void> {
-    assertValidSessionId(sessionId);
-    const config = {
-      configurable: { thread_id: sessionId },
-      recursionLimit: 200,
-    };
-    const snapshot = await this.app.getState(config);
-    const values = snapshot.values as Partial<AgentState>;
-
-    if (!values.reviewRequest) {
-      throw new BadRequestException('No pending plan review for this session.');
-    }
-
-    await this.app.updateState(
-      config,
-      failAgentRun('Plan rejected by user.', {
-        code: 'unknown',
-        message: 'User rejected the plan',
-        atPhase: AGENT_PHASES.AWAIT_PLAN_REVIEW,
-      }),
-    );
+    return this.planReviewService.reject(sessionId);
   }
 
   async replanSession(sessionId: string): Promise<AgentRunResult> {
-    assertValidSessionId(sessionId);
-    const config = {
-      configurable: { thread_id: sessionId },
-      recursionLimit: 200,
-    };
-    const snapshot = await this.app.getState(config);
-    const values = snapshot.values as Partial<AgentState>;
-
-    if (!values.reviewRequest) {
-      throw new BadRequestException('No pending plan review for this session.');
-    }
-
-    const previousMemory = await this._tryLoadSessionMemory(sessionId);
-    await this.app.updateState(
-      config,
-      transitionToPhase(AGENT_PHASES.RESEARCH, {
-        reviewRequest: undefined,
-        plan: [],
-      }),
-    );
-    const result: any = await this.app.invoke(null, config);
-
-    await this._persistSessionMemory(
+    return this.planReviewService.replan(
       sessionId,
-      values.objective ?? values.input ?? '',
-      result,
-      previousMemory,
+      this.acquireSessionLock.bind(this),
     );
-
-    if (result.vectorMemoryIds?.length) {
-      await this.checkpointer.setVectorMemoryIds(
-        sessionId,
-        result.vectorMemoryIds as string[],
-      );
-    }
-
-    if (result.reviewRequest) {
-      return { result: 'New plan ready for review.', sessionId, reviewRequest: result.reviewRequest };
-    }
-    return { result: result.finalAnswer ?? 'Completed.', sessionId };
   }
 
+  // ── Delegated: Session memory ────────────────────────────────
+
   async getSessionMemory(sessionId: string): Promise<SessionMemoryResponseDto> {
-    assertValidSessionId(sessionId);
-    const raw = await this._tryLoadSessionMemory(sessionId);
-    const entries = raw
-      ? raw
-          .split('\n---\n')
-          .map((e) => e.trim())
-          .filter(Boolean)
-      : [];
-    return { sessionId, entries, raw: raw ?? '' };
+    return this.sessionMemoryService.getSessionMemory(sessionId);
   }
 
   async addSessionMemoryEntry(
     sessionId: string,
     entry: string,
   ): Promise<SessionMemoryResponseDto> {
-    assertValidSessionId(sessionId);
-    const existing = await this._tryLoadSessionMemory(sessionId);
-    const merged = this._mergeSessionMemory(existing, entry.trim());
-    await this.checkpointer.setThreadMemory(sessionId, merged);
-    const entries = merged
-      .split('\n---\n')
-      .map((e) => e.trim())
-      .filter(Boolean);
-    return { sessionId, entries, raw: merged };
+    return this.sessionMemoryService.addEntry(sessionId, entry);
   }
 
   async clearSessionMemory(sessionId: string): Promise<void> {
-    assertValidSessionId(sessionId);
-    await this.checkpointer.setThreadMemory(sessionId, '');
+    return this.sessionMemoryService.clear(sessionId);
   }
 
-  async getReviewPageData(sessionId: string): Promise<ReviewPageData> {
-    assertValidSessionId(sessionId);
-    const config = {
-      configurable: { thread_id: sessionId },
-      recursionLimit: 200,
-    };
-    const snapshot = await this.app.getState(config);
-    const values = snapshot.values as Partial<AgentState>;
-
-    if (!values.reviewRequest) {
-      throw new BadRequestException('No pending plan review for this session.');
-    }
-
-    return {
-      sessionId,
-      objective: values.reviewRequest.objective ?? '(no objective set)',
-      plan: values.reviewRequest.plan,
-    };
-  }
+  // ── Delegated: Feedback ──────────────────────────────────────
 
   async submitFeedback(
     sessionId: string,
     dto: SubmitFeedbackDto,
   ): Promise<FeedbackStatsResponseDto> {
-    assertValidSessionId(sessionId);
-    const idempotencyKey = `agent:feedback:${sessionId}`;
-
-    const existing = await this.redisClient.get(`${idempotencyKey}:stats`);
-    if (existing) {
-      return JSON.parse(existing) as FeedbackStatsResponseDto;
-    }
-
-    const vectorIds = await this.checkpointer.getVectorMemoryIds(sessionId);
-    const targetSalience = dto.rating === 'positive' ? 0.9 : 0.2;
-    let pointsUpdated = 0;
-
-    for (const id of vectorIds) {
-      try {
-        await updatePointSalience(id, targetSalience);
-        pointsUpdated++;
-      } catch (err) {
-        this.logger.warn(`Failed to update salience for point ${id}: ${err}`);
-      }
-    }
-
-    const stats: FeedbackStatsResponseDto = {
-      sessionId,
-      rating: dto.rating,
-      submittedAt: new Date().toISOString(),
-      pointsUpdated,
-    };
-
-    const ttl = env.sessionTtlSeconds;
-    if (ttl > 0) {
-      await this.redisClient.set(
-        `${idempotencyKey}:stats`,
-        JSON.stringify(stats),
-        'EX',
-        ttl,
-      );
-    } else {
-      await this.redisClient.set(
-        `${idempotencyKey}:stats`,
-        JSON.stringify(stats),
-      );
-    }
-
-    return stats;
+    return this.feedbackService.submitFeedback(sessionId, dto);
   }
 
   async getFeedbackStats(sessionId: string): Promise<FeedbackStatsResponseDto> {
-    assertValidSessionId(sessionId);
-    const stats = await this.redisClient.get(
-      `agent:feedback:${sessionId}:stats`,
-    );
-    if (!stats) {
-      return { sessionId, rating: null, submittedAt: null, pointsUpdated: 0 };
-    }
-    return JSON.parse(stats) as FeedbackStatsResponseDto;
+    return this.feedbackService.getFeedbackStats(sessionId);
   }
+
+  // ── Private helpers (kept in orchestrator) ───────────────────
 
   private _repoFingerprintCache?: string;
 
@@ -855,116 +615,12 @@ Enhanced prompt:`;
     sessionMemory?: string,
   ): Promise<string> {
     const gitHash = await this._getRepoFingerprint();
-    // sessionMemory hash already captures session-specific context. Including
-    // sessionId on top would make every session miss the cache even when the
-    // prompt and memory are identical — defeating the cache entirely.
     const memHash = sessionMemory
       ? crypto.createHash('md5').update(sessionMemory).digest('hex').slice(0, 8)
       : 'nomem';
     const body = `${gitHash}:${memHash}:${prompt}`;
     const hash = crypto.createHash('sha256').update(body).digest('hex');
     return `agent:cache:${hash}`;
-  }
-
-  private async _tryLoadSessionMemory(
-    threadId: string,
-  ): Promise<string | undefined> {
-    try {
-      return await this.checkpointer.getThreadMemory(threadId);
-    } catch {
-      return undefined;
-    }
-  }
-
-  private async _persistSessionMemory(
-    threadId: string,
-    prompt: string,
-    result: Partial<AgentState>,
-    previousMemory?: string,
-  ): Promise<void> {
-    const entry = await this._buildSessionMemoryEntry(prompt, result);
-    if (!entry) return;
-
-    const merged = this._mergeSessionMemory(previousMemory, entry);
-
-    try {
-      await this.checkpointer.setThreadMemory(threadId, merged);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to persist session memory: ${message}`);
-    }
-  }
-
-  /**
-   * Build a session memory entry for the completed run.
-   *
-   * When the run produced a final answer, we ask the LLM to extract a compact
-   * set of key facts so future turns receive structured, signal-dense context
-   * rather than a raw answer dump. Falls back to the plain objective+outcome
-   * format if the LLM call fails or there is no final answer.
-   */
-  private async _buildSessionMemoryEntry(
-    prompt: string,
-    result: Partial<AgentState>,
-  ): Promise<string | undefined> {
-    const objective = (result.objective ?? prompt).trim();
-    const answer =
-      result.finalAnswer ??
-      result.toolResult?.preview ??
-      result.toolResultRaw ??
-      undefined;
-
-    if (!objective || !answer) return undefined;
-
-    const timestamp = new Date().toISOString();
-
-    // Skip LLM fact extraction for short answers — plain format is sufficient.
-    const SHORT_ANSWER_THRESHOLD = 300;
-
-    // Attempt LLM-based fact extraction for richer cross-turn context.
-    if (result.finalAnswer && answer.length >= SHORT_ANSWER_THRESHOLD) {
-      try {
-        const extractionPrompt = [
-          `Extract 2-4 key facts or learnings from this completed AI agent run.`,
-          `Each fact must be a single sentence that would help a future AI agent answer`,
-          `follow-up questions or avoid repeating the same work.`,
-          ``,
-          `Objective: ${preview(objective, 200)}`,
-          `Outcome: ${preview(answer, 400)}`,
-          ``,
-          `Rules:`,
-          `- Include concrete values: file paths, function names, command results, decisions made.`,
-          `- Do NOT include vague summaries like "the task was completed successfully".`,
-          `- Output as plain numbered list (1. ... 2. ... etc.), no JSON, no markdown headers.`,
-          `- Maximum 4 facts, each under 120 characters.`,
-          ``,
-          `Facts:`,
-        ].join('\n');
-
-        const facts = await invokeLlm(extractionPrompt);
-        const trimmedFacts = facts.trim();
-
-        if (trimmedFacts) {
-          return [
-            `[${timestamp}]`,
-            `Objective: ${preview(objective, 160)}`,
-            `Key facts:\n${trimmedFacts}`,
-          ].join('\n');
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(
-          `Session memory fact extraction failed: ${message} — using plain format`,
-        );
-      }
-    }
-
-    // Fallback: plain objective + outcome format
-    return [
-      `[${timestamp}]`,
-      `Objective: ${preview(objective, 160)}`,
-      `Outcome: ${preview(answer, 280)}`,
-    ].join('\n');
   }
 
   private async _autoUpsertVectorMemory(
@@ -989,24 +645,5 @@ Enhanced prompt:`;
       const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(`Auto vector upsert failed: ${message}`);
     }
-  }
-
-  private _mergeSessionMemory(
-    previousMemory: string | undefined,
-    entry: string,
-  ): string {
-    const existingEntries = previousMemory
-      ? previousMemory
-          .split('\n---\n')
-          .map((part) => part.trim())
-          .filter(Boolean)
-      : [];
-
-    const merged = [entry, ...existingEntries.filter((item) => item !== entry)]
-      .slice(0, 3)
-      .join('\n---\n');
-
-    const maxChars = Math.max(env.promptMaxSummaryChars, 1200);
-    return merged.length <= maxChars ? merged : merged.slice(0, maxChars);
   }
 }
