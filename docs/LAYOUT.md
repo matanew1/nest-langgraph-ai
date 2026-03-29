@@ -51,7 +51,12 @@ src/
     ├── agents/                          # Core agent module
     │   ├── agents.module.ts
     │   ├── agents.controller.ts         # REST + SSE endpoints (run, stream, session CRUD, plan review)
-    │   ├── agents.service.ts            # run() / streamRun() / session management / memory / cache
+    │   ├── agents.service.ts            # Thin orchestrator: run() / streamRun() / cache / vector upsert; delegates to sub-services
+    │   ├── services/
+    │   │   ├── session-memory.service.ts    # tryLoad(), getSessionMemory(), addEntry(), persist(), merge()
+    │   │   ├── plan-review.service.ts       # approve(), reject(), replan(), getReviewPageData()
+    │   │   ├── session.service.ts           # listSessions(), getSessionDetail(), deleteSession()
+    │   │   └── feedback.service.ts          # submitFeedback(), getFeedbackStats()
     │   ├── agents.dto.ts                # RunAgentDto, StreamAgentDto, StreamEventDto, RunAgentResponseDto
     │   ├── graph/
     │   │   ├── agent.graph.ts           # LangGraph StateGraph assembly (buildAgentGraph)
@@ -162,6 +167,7 @@ src/
     │   │   └── json.util.spec.ts
     │   └── utils/
     │       ├── redis-saver.ts           # LangGraph checkpoint saver (Redis) + session memory + thread management
+    │       ├── redis-saver.provider.ts  # NestJS provider factory for RedisSaver DI
     │       └── redis-saver.spec.ts
     ├── llm/
     │   ├── llm.module.ts

@@ -27,13 +27,22 @@ export async function generatorNode(
 
   let answer: string;
   if (shouldStream) {
-    const emit = state.onToken!;
+    if (!state.onToken) {
+      throw new Error('shouldStream is true but state.onToken is undefined');
+    }
+    const emit = state.onToken;
     let accumulated = '';
-    for await (const token of streamLlm(prompt, undefined, undefined, state.sessionId, model)) {
-      if (token) {
-        emit(token);
-        accumulated += token;
+    try {
+      for await (const token of streamLlm(prompt, undefined, undefined, state.sessionId, model)) {
+        if (token) {
+          emit(token);
+          accumulated += token;
+        }
       }
+    } catch (streamErr) {
+      const msg = streamErr instanceof Error ? streamErr.message : String(streamErr);
+      logger.warn(`streamLlm threw mid-stream: ${msg} — falling back to invokeLlm`);
+      accumulated = await invokeLlm(prompt, undefined, undefined, state.sessionId, model);
     }
     if (!accumulated) {
       logger.warn('streamLlm yielded no content');

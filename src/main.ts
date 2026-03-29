@@ -2,6 +2,7 @@ import 'module-alias/register'; // Register path aliases for compiled JS
 import './extensions/extensions'; // This executes the prototype assignments
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as express from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger, RequestMethod } from '@nestjs/common';
@@ -20,7 +21,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Increase JSON body limit to support base64-encoded image uploads (up to ~15 MB decoded)
-  app.use(require('express').json({ limit: '20mb' }));
+  app.use(express.json({ limit: '20mb' }));
 
   // Security: Helmet helps secure Express apps by setting various HTTP headers
   app.use(helmet());
@@ -28,10 +29,10 @@ async function bootstrap() {
   // Performance: Compression middleware for response bodies
   app.use(compression());
 
-  // Security: Restrict CORS in production
+  // Security: Wildcard CORS in production is a misconfiguration — abort startup
   if (env.nodeEnv === 'production' && env.corsOrigin === '*') {
-    logger.warn(
-      'WARNING: CORS_ORIGIN is set to wildcard (*) in production. ' +
+    throw new Error(
+      'CORS_ORIGIN is set to wildcard (*) in production. ' +
         'Set CORS_ORIGIN to a comma-separated list of allowed origins.',
     );
   }

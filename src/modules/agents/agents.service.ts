@@ -155,8 +155,10 @@ export class AgentsService {
         return { result: cachedResult, sessionId: threadId };
       }
 
-      const graphTimeoutMs =
-        env.mistralTimeoutMs * env.agentMaxIterations * 4 || 120000;
+      const graphTimeoutMs = Math.min(
+        env.mistralTimeoutMs * env.agentMaxIterations * 4,
+        300_000, // hard cap at 5 minutes
+      );
       const initialState = createInitialAgentRunState(prompt, {
         sessionMemory,
         sessionId: threadId,
@@ -208,11 +210,14 @@ export class AgentsService {
       }
 
       if (result.phase === AGENT_PHASES.COMPLETE) {
-        void this._autoUpsertVectorMemory(
+        this._autoUpsertVectorMemory(
           prompt,
           result,
           await this._getRepoFingerprint(),
-        );
+        ).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`Vector memory upsert failed (non-fatal): ${msg}`);
+        });
       }
 
       this.logger.log(SEPARATOR);
@@ -230,7 +235,10 @@ export class AgentsService {
         `Agent execution failed: ${message}`,
       );
     } finally {
-      await releaseLock();
+      await releaseLock().catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.error(`Failed to release session lock: ${msg}`);
+      });
     }
   }
 

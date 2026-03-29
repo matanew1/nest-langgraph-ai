@@ -29,7 +29,10 @@ export async function chatNode(
 
   let answer: string;
   if (shouldStream) {
-    const emit = state.onToken!;
+    if (!state.onToken) {
+      throw new Error('shouldStream is true but state.onToken is undefined');
+    }
+    const emit = state.onToken;
     let accumulated = '';
     const tokenStream = images
       ? streamLlmWithImages(prompt, images, undefined, undefined, state.sessionId, model)

@@ -39,7 +39,18 @@ const envSchema = Joi.object({
   NODE_ENV: Joi.string().default('development'),
   ENABLE_SWAGGER: Joi.boolean().default(false),
   REQUIRE_PLAN_REVIEW: Joi.boolean().default(false),
-  API_KEY: Joi.string().allow('').optional().default(''),
+  // Empty string means auth is disabled (dev mode). Non-empty strings must be at least 16 chars.
+  API_KEY: Joi.string()
+    .allow('')
+    .optional()
+    .default('')
+    .custom((value, helpers) => {
+      if (value !== '' && value.length < 16) {
+        return helpers.error('string.min', { limit: 16 });
+      }
+      return value;
+    })
+    .messages({ 'string.min': 'API_KEY must be at least 16 characters when set' }),
   LOG_FORMAT: Joi.string().valid('text', 'json').default('text'),
   HTTP_TOOL_ALLOWED_HOSTS: Joi.string().allow('').optional().default(''),
   HTTP_TOOL_ALLOW_PRIVATE_NETWORKS: Joi.boolean().default(false),

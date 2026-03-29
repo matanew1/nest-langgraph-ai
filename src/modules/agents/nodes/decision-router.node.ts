@@ -205,7 +205,7 @@ export async function decisionRouterNode(
 
   const plan = state.plan ?? [];
   const currentStep = state.currentStep ?? 0;
-  const isLastStep = plan.length === 0 ? true : currentStep >= plan.length - 1;
+  const isLastStep = plan.length === 0 || currentStep + 1 >= plan.length;
 
   let result: Partial<AgentState>;
   let logSuffix: string;

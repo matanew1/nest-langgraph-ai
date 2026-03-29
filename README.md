@@ -1,4 +1,4 @@
-# nest-langgraph-ai [![CI](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanbardugo/nest-langgraph-ai/actions/workflows/ci.yml)
+# nest-langgraph-ai [![CI](https://github.com/matanew1/nest-langgraph-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/matanew1/nest-langgraph-ai/actions/workflows/ci.yml)
 
 A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangGraph. Submit a natural-language prompt and the system autonomously plans, executes, and validates tasks using an LLM-backed agent loop and a rich toolset. Conversational prompts are handled via a fast-path chat mode; complex tasks go through the full planning pipeline.
 
@@ -10,47 +10,60 @@ A NestJS API that exposes an autonomous multi-agent AI workflow powered by LangG
 User Prompt
      |
      v
-+-----------+
-| SUPERVISOR|  Classifies intent → chat or agent; resolves pronouns via session memory
-+-----+-----+
-      |
-      +-- chat ---------> CHAT -------> COMPLETE
-      |
-      v
-+-----------+
-| RESEARCHER|  Gathers project context (file tree, git status, vector recall)
-+-----+-----+
-      v
-+-----------+
-|  PLANNER  |  Creates multi-step execution plan (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-| VALIDATOR |  Validates tools + params (Zod); optional human review pause
-+-----+-----+
-      |
-      +-- REQUIRE_PLAN_REVIEW=true --> AWAIT_PLAN_REVIEW (human approve/reject/replan)
-      |
-      v
-+-----------+
-|  EXECUTOR |  Runs tool for the current step
-+-----+-----+
-      v
-+-----------+
-|NORMALIZER |  Wraps raw tool output into ToolResult envelope
-+-----+-----+
-      v
-+-----------+
-|   CRITIC  |  Decides advance / retry_step / replan / complete / fatal (Zod JSON)
-+-----+-----+
-      v
-+-----------+
-|   ROUTER  |  Phase-driven routing + hard stop limits (deadlock-proof)
-+-----+-----+
-      |
-      +-- complete --> GENERATOR --> COMPLETE
-      |
-      +-- fatal    --> TERMINAL_RESPONSE --> COMPLETE
++---------------------+
+|     SUPERVISOR      |  Classifies intent → chat or agent; resolves pronouns via session memory
++----------+----------+
+           |
+           +-- chat ---------> CHAT -------> ROUTER -------> COMPLETE
+           |
+           v
++---------------------+
+| RESEARCHER_COORD.   |  Fan-out coordinator → parallel FS + Vector research branches
++----------+----------+
+           |
+    +------+------+
+    v             v
+RESEARCH_FS  RESEARCH_VECTOR   (run in parallel)
+    |             |
+    +------+------+
+           v
++---------------------+
+|    RESEARCH_JOIN    |  Merges parallel research results
++----------+----------+
+           v
++---------------------+
+|       PLANNER       |  Creates multi-step execution plan (Zod JSON)
++----------+----------+
+           v
++---------------------+
+|    PLAN_VALIDATOR   |  Validates tools + params (Zod); optional human review gate
++----------+----------+
+           |
+           +-- REQUIRE_PLAN_REVIEW=true --> AWAIT_PLAN_REVIEW (human approve/reject/replan)
+           |
+           v
++---------------------+
+|  EXECUTE /          |  Runs tool for the current step (sequential or parallel)
+|  EXECUTE_PARALLEL   |
++----------+----------+
+           v
++---------------------+
+| TOOL_RESULT_NORM.   |  Wraps raw tool output into ToolResult envelope
++----------+----------+
+           v
++---------------------+
+|       CRITIC        |  Decides advance / retry_step / replan / complete / fatal (Zod JSON)
++----------+----------+
+           v
++---------------------+
+|       ROUTER        |  Phase-driven routing + hard stop limits (deadlock-proof)
++----------+----------+
+           |
+           +-- generate --> GENERATOR --> ROUTER + MEMORY_PERSIST (parallel fan-out)
+           |                                                   |
+           +-- complete ----------------------------------------> END
+           |
+           +-- fatal -----> TERMINAL_RESPONSE --> ROUTER -----> END
 ```
 
 ```mermaid
@@ -68,9 +81,16 @@ flowchart LR
     CHAT[CHAT]
   end
 
+  subgraph Research["Research (parallel)"]
+    direction TB
+    RESEARCHER[RESEARCHER_COORDINATOR]
+    RESEARCH_FS[RESEARCH_FS]
+    RESEARCH_VECTOR[RESEARCH_VECTOR]
+    RESEARCH_JOIN[RESEARCH_JOIN]
+  end
+
   subgraph Planning["Planning"]
     direction TB
-    RESEARCHER[RESEARCHER]
     PLANNER[PLANNER]
     PLAN_VALIDATOR[PLAN_VALIDATOR]
     AWAIT_REVIEW[AWAIT_PLAN_REVIEW]
@@ -79,10 +99,11 @@ flowchart LR
   subgraph Execution["Execution"]
     direction TB
     EXECUTE[EXECUTE]
+    EXECUTE_PARALLEL[EXECUTE_PARALLEL]
     NORMALIZER[TOOL_RESULT_NORMALIZER]
   end
 
-  subgraph Analysis["Analysis"]
+  subgraph Analysis["Analysis & Output"]
     direction TB
     CRITIC[CRITIC]
     GENERATOR[GENERATOR]
@@ -91,18 +112,32 @@ flowchart LR
   end
 
   START --> SUPERVISOR --> ROUTER
+
   ROUTER -->|phase=chat| CHAT --> ROUTER
-  ROUTER -->|phase=research| RESEARCHER --> ROUTER
+  ROUTER -->|phase=research| RESEARCHER
+  RESEARCHER --> RESEARCH_FS
+  RESEARCHER --> RESEARCH_VECTOR
+  RESEARCH_FS --> RESEARCH_JOIN
+  RESEARCH_VECTOR --> RESEARCH_JOIN
+  RESEARCH_JOIN --> ROUTER
+
   ROUTER -->|phase=plan| PLANNER --> ROUTER
   ROUTER -->|phase=validate_plan| PLAN_VALIDATOR --> ROUTER
   ROUTER -->|phase=await_plan_review| AWAIT_REVIEW --> ROUTER
+
   ROUTER -->|phase=execute| EXECUTE --> ROUTER
+  ROUTER -->|phase=execute_parallel| EXECUTE_PARALLEL --> ROUTER
   ROUTER -->|phase=normalize_tool_result| NORMALIZER --> ROUTER
+
   ROUTER -->|phase=judge| CRITIC --> ROUTER
-  ROUTER -->|phase=generate| GENERATOR --> ROUTER
-  ROUTER -->|phase=fatal_recovery| TERMINAL --> ROUTER
-  ROUTER -->|phase=complete| MEMORY --> END
-  ROUTER -->|phase=fatal| END
+  ROUTER -->|phase=generate| GENERATOR
+  GENERATOR --> ROUTER
+  GENERATOR --> MEMORY --> END
+
+  ROUTER -->|phase=fatal| TERMINAL --> ROUTER
+  ROUTER -->|phase=fatal_recovery| TERMINAL
+  ROUTER -->|phase=clarification| TERMINAL
+  ROUTER -->|phase=complete| END
 ```
 
 ## Tech Stack
@@ -110,9 +145,9 @@ flowchart LR
 - **NestJS 11** — HTTP framework, DI, Swagger, throttling
 - **LangGraph 1.2** — StateGraph for agent orchestration + Redis checkpoint saver
 - **LangChain 1.x** — Tool abstractions and integrations
-- **Mistral LLM** — Chat completion provider (`invokeLlm()`)
+- **Mistral LLM** — Chat completion provider (`invokeLlm()` / `streamLlm()`)
 - **Tavily** — Web search API
-- **Redis** — Session checkpoints + response caching
+- **Redis** — Session checkpoints + response caching + session locking
 - **Qdrant** — Vector DB for semantic memory (cross-turn recall)
 - **@xenova/transformers** — Free on-device embeddings (384-dim, all-MiniLM-L6-v2)
 - **Zod 4** — Runtime schema validation for all LLM outputs
@@ -120,22 +155,25 @@ flowchart LR
 
 ## Available Tools
 
-### File Operations (sandbox-enforced via `sandboxPath`)
+### File Operations (13 tools, sandbox-enforced via `sandboxPath`)
 
 | Tool | Description |
 |------|-------------|
 | `read_file` | Read a local file (100 KB limit) |
 | `write_file` | Write/create a file (creates parent dirs) |
+| `file_append` | Append content to a file |
+| `file_patch` | Find-and-replace within a file |
+| `delete_file` | Delete a file or empty directory |
+| `move_file` | Rename or move a file or directory |
 | `list_dir` | List directory contents |
 | `tree_dir` | Recursive directory tree (ignores node_modules/git/dist) |
 | `glob_files` | Bounded recursive file listing with extension filter |
 | `read_files_batch` | Read multiple files in one call (bounded) |
 | `stat_path` | File metadata: exists / type / size / mtime |
-| `file_patch` | Find-and-replace within a file |
 | `grep_search` | Regex pattern search across files |
 | `ast_parse` | Semantic JS/TS parsing into chunks (for code analysis) |
 
-### Intelligence & Search
+### Intelligence & Search (4 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -144,32 +182,33 @@ flowchart LR
 | `vector_upsert` | Embed text and store in Qdrant for semantic memory |
 | `vector_search` | Embed query and search Qdrant for semantic recall |
 
-### Diagrams
+### Diagrams (3 tools)
 
 | Tool | Description |
 |------|-------------|
 | `generate_mermaid` | Generate a Mermaid `.mmd` diagram file |
 | `read_mermaid` | Read an existing `.mmd` file |
-| `edit_mermaid` | Edit an existing `.mmd` file with an instruction |
+| `edit_mermaid` | Edit an existing `.mmd` file with a natural-language instruction |
 
-### HTTP
+### HTTP (2 tools)
 
 | Tool | Description |
 |------|-------------|
 | `http_get` | HTTP GET with SSRF protection and host allowlist |
 | `http_post` | HTTP POST with SSRF protection and host allowlist |
 
-### Git
+### Git (1 tool)
 
 | Tool | Description |
 |------|-------------|
 | `git_info` | Whitelisted git commands: status, log, diff, branch, show |
 
-### System
+### System (2 tools)
 
 | Tool | Description |
 |------|-------------|
 | `system_info` | Hostname, platform, memory, uptime |
+| `run_command` | Run a shell command inside the agent working directory |
 
 ### Tool Usage Tips
 
@@ -257,7 +296,10 @@ curl http://localhost:3000/metrics            # Prometheus metrics
 | `REDIS_HOST` | Yes | — | Redis hostname |
 | `REDIS_PORT` | Yes | — | Redis port |
 | `PORT` | No | `3000` | HTTP server port |
-| `MISTRAL_MODEL` | No | `mistral-small-latest` | LLM model name |
+| `MISTRAL_MODEL_FAST` | No | `mistral-small-latest` | Model for routing, validation, terminal responses (32K ctx) |
+| `MISTRAL_MODEL_BALANCED` | No | `mistral-small-latest` | Model for chat, research, critic evaluation (32K ctx) |
+| `MISTRAL_MODEL_POWERFUL` | No | `mistral-large-latest` | Model for planning, final answer generation (128K ctx) |
+| `MISTRAL_MODEL_CODE` | No | `codestral-latest` | Model for code-focused execution tasks |
 | `MISTRAL_TIMEOUT_MS` | No | `30000` | LLM call timeout (ms) |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
 | `AGENT_MAX_ITERATIONS` | No | `3` | Base recovery-cycle limit (derives tool-call caps) |
@@ -276,12 +318,14 @@ curl http://localhost:3000/metrics            # Prometheus metrics
 | `QDRANT_CHECK_COMPATIBILITY` | No | `false` | Qdrant version compatibility checks |
 | `HEALTH_EXTERNAL_CHECK_TIMEOUT_MS` | No | `2000` | External dependency health timeout |
 | `HEALTH_EXTERNAL_CACHE_TTL_MS` | No | `60000` | Dependency diagnostics cache TTL |
-| `AGENT_MAX_RETBACKS` | No | `3` | Max replan cycles before fatal (1-10) |
 | `REQUIRE_PLAN_REVIEW` | No | `false` | Pause for human plan approval before execution |
 | `ENABLE_SWAGGER` | No | `false` | Enable Swagger UI at `/docs` |
 | `NODE_ENV` | No | `development` | Node environment |
 | `API_KEY` | No | `""` | API key for auth (`Authorization: Bearer` or `x-api-key`). Empty = disabled |
 | `LOG_FORMAT` | No | `text` | Log format: `text` or `json` (use `json` for production) |
+| `HTTP_TOOL_ALLOWED_HOSTS` | No | `""` | Comma-separated hostname allowlist for HTTP tools. Empty = allow all non-private |
+| `HTTP_TOOL_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private HTTP targets |
+| `HTTP_TOOL_MAX_REDIRECTS` | No | `3` | Max validated redirects (0–10) |
 
 See [docs/ENV.md](docs/ENV.md) for the full annotated reference.
 

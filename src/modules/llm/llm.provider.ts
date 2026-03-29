@@ -153,12 +153,14 @@ function extractContent(content: unknown): string {
 /** Check if an error is fatal and should NOT be retried (auth/bad request). */
 function isFatalLlmError(err: Error): boolean {
   const msg = err.message;
-  // Check for HTTP status codes in various error formats
+  // Match HTTP status in structured formats like "status: 401" or "HTTP 401"
+  // Avoid matching arbitrary numbers — require a status-like prefix
   return (
-    /\b401\b/.test(msg) ||
-    /\b400\b/.test(msg) ||
+    /\b(?:status|HTTP|code)[:\s]+401\b/i.test(msg) ||
+    /\b(?:status|HTTP|code)[:\s]+400\b/i.test(msg) ||
     /\bUnauthorized\b/i.test(msg) ||
-    /\bForbidden\b/i.test(msg)
+    /\bForbidden\b/i.test(msg) ||
+    /\bInvalid API key\b/i.test(msg)
   );
 }
 
@@ -241,11 +243,9 @@ async function withRetryAndTimeout<T>(
     }
   }
 
-  throw (
-    lastError ||
-    new Error(
-      `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms)`,
-    )
+  const reason = lastError?.message ?? 'unknown error';
+  throw new Error(
+    `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms): ${reason}`,
   );
 }
 
@@ -305,11 +305,9 @@ async function* withStreamRetryAndTimeout(
     }
   }
 
-  throw (
-    lastError ||
-    new Error(
-      `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms)`,
-    )
+  const reason = lastError?.message ?? 'unknown error';
+  throw new Error(
+    `${opts.label} failed after ${opts.maxRetries + 1} attempts (timeout=${opts.timeoutMs}ms): ${reason}`,
   );
 }
 
