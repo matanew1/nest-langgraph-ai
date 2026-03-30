@@ -143,6 +143,7 @@ export class AgentsService {
         prompt,
         threadId,
         sessionMemory,
+        images,
       );
 
       // Check cache before invoking the graph, but keep Redis errors inside the
@@ -621,12 +622,21 @@ Enhanced prompt:`;
     prompt: string,
     _sessionId: string,
     sessionMemory?: string,
+    images?: ImageAttachment[],
   ): Promise<string> {
     const gitHash = await this._getRepoFingerprint();
     const memHash = sessionMemory
       ? crypto.createHash('md5').update(sessionMemory).digest('hex').slice(0, 8)
       : 'nomem';
-    const body = `${gitHash}:${memHash}:${prompt}`;
+    const imagesHash =
+      images && images.length > 0
+        ? crypto
+            .createHash('sha256')
+            .update(JSON.stringify(images.map((image) => image.url)))
+            .digest('hex')
+            .slice(0, 12)
+        : 'noimg';
+    const body = `${gitHash}:${memHash}:${imagesHash}:${prompt}`;
     const hash = crypto.createHash('sha256').update(body).digest('hex');
     return `agent:cache:${hash}`;
   }

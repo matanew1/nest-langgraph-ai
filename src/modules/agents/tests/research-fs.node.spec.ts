@@ -5,6 +5,7 @@ jest.mock('@config/env', () => ({
   env: {
     mistralTimeoutMs: 5000,
     agentMaxRetries: 0,
+    toolTimeoutMs: 5000,
   },
 }));
 
@@ -18,12 +19,14 @@ jest.mock('@vector-db/vector-memory.util', () => ({
 
 const mockTreeInvoke = jest.fn();
 const mockGitInvoke = jest.fn();
+const mockImpactRadarInvoke = jest.fn();
 
 jest.mock('../tools/index', () => ({
   toolRegistry: {
     get: jest.fn((name: string) => {
       if (name === 'tree_dir') return { invoke: mockTreeInvoke };
       if (name === 'git_info') return { invoke: mockGitInvoke };
+      if (name === 'repo_impact_radar') return { invoke: mockImpactRadarInvoke };
       return undefined;
     }),
   },
@@ -41,6 +44,9 @@ describe('researchFsNode', () => {
   it('returns projectContext with file tree and git status', async () => {
     mockTreeInvoke.mockResolvedValue('src/\n  index.ts');
     mockGitInvoke.mockResolvedValue('On branch main\nnothing to commit');
+    mockImpactRadarInvoke.mockResolvedValue(
+      'Impact radar for objective: test\n## Likely source files\n1. src/index.ts',
+    );
 
     const result = await researchFsNode(baseState as AgentState);
 
@@ -48,11 +54,13 @@ describe('researchFsNode', () => {
     expect(result.projectContext).toContain('src/');
     expect(result.projectContext).toContain('Git status');
     expect(result.projectContext).toContain('On branch main');
+    expect(result.projectContext).toContain('Impact radar');
   });
 
   it('does NOT set phase', async () => {
     mockTreeInvoke.mockResolvedValue('src/');
     mockGitInvoke.mockResolvedValue('clean');
+    mockImpactRadarInvoke.mockResolvedValue('Impact radar');
 
     const result = await researchFsNode(baseState as AgentState);
 
@@ -62,6 +70,7 @@ describe('researchFsNode', () => {
   it('does NOT write memoryContext or vectorMemoryIds', async () => {
     mockTreeInvoke.mockResolvedValue('src/');
     mockGitInvoke.mockResolvedValue('clean');
+    mockImpactRadarInvoke.mockResolvedValue('Impact radar');
 
     const result = await researchFsNode(baseState as AgentState);
 
@@ -72,6 +81,7 @@ describe('researchFsNode', () => {
   it('includes (unavailable) sections when tools throw', async () => {
     mockTreeInvoke.mockRejectedValue(new Error('fs error'));
     mockGitInvoke.mockRejectedValue(new Error('git error'));
+    mockImpactRadarInvoke.mockRejectedValue(new Error('impact error'));
 
     const result = await researchFsNode(baseState as AgentState);
 
@@ -84,6 +94,7 @@ describe('researchFsNode', () => {
     );
     mockTreeInvoke.mockResolvedValue(longTree);
     mockGitInvoke.mockResolvedValue('clean');
+    mockImpactRadarInvoke.mockResolvedValue('Impact radar');
 
     const result = await researchFsNode(baseState as AgentState);
 
@@ -101,5 +112,6 @@ describe('researchFsNode', () => {
     expect(result.projectContext).toBe('already gathered');
     expect(mockTreeInvoke).not.toHaveBeenCalled();
     expect(mockGitInvoke).not.toHaveBeenCalled();
+    expect(mockImpactRadarInvoke).not.toHaveBeenCalled();
   });
 });

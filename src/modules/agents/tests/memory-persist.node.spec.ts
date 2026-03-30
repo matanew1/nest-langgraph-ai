@@ -1,14 +1,11 @@
 import { memoryPersistNode } from '../nodes/memory-persist.node';
 import type { AgentState } from '../state/agent.state';
+import { createHash } from 'node:crypto';
 
 const mockUpsertVectorMemory = jest.fn();
 
-const mockSearchVectorMemories = jest.fn().mockResolvedValue([]);
-
 jest.mock('@vector-db/vector-memory.util', () => ({
   upsertVectorMemory: (...args: unknown[]) => mockUpsertVectorMemory(...args),
-  searchVectorMemories: (...args: unknown[]) =>
-    mockSearchVectorMemories(...args),
 }));
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
@@ -38,6 +35,14 @@ describe('memoryPersistNode', () => {
     expect(mockUpsertVectorMemory).toHaveBeenCalledTimes(1);
     expect(mockUpsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: createHash('sha256')
+          .update(
+            JSON.stringify({
+              objective: 'test objective',
+              finalAnswer: 'The final answer',
+            }),
+          )
+          .digest('hex'),
         text: 'Objective: test objective\nResult: The final answer',
         metadata: expect.objectContaining({
           sessionId: 'session-abc',
@@ -59,5 +64,12 @@ describe('memoryPersistNode', () => {
 
     const state = makeState();
     await expect(memoryPersistNode(state)).resolves.toEqual({});
+  });
+
+  it('skips persistence when finalAnswer is missing', async () => {
+    const state = makeState({ finalAnswer: undefined });
+
+    await expect(memoryPersistNode(state)).resolves.toEqual({});
+    expect(mockUpsertVectorMemory).not.toHaveBeenCalled();
   });
 });

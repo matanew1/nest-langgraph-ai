@@ -2,6 +2,7 @@ import {
   formatAttempts,
   getAvailableTools,
   formatPromptSection,
+  getToolCapabilityManifest,
 } from './prompt-context.util';
 import { AgentState } from '../state/agent.state';
 import { ToolResult } from '../tools/tool-result';
@@ -31,6 +32,22 @@ jest.mock('../tools/index', () => ({
         })
         .join('\n');
     }),
+    describeCapabilitiesForPrompt: jest.fn(
+      (opts?: { excludeNames?: Set<string> }) => {
+        const allTools = [
+          '- read_file: risk=read_only; parallel_safe=yes',
+          '- search: risk=network_read; parallel_safe=yes',
+          '- write_file: risk=write; parallel_safe=no',
+        ];
+        const excluded = opts?.excludeNames ?? new Set();
+        return allTools
+          .filter((line) => {
+            const name = line.split(':')[0].replace('- ', '').trim();
+            return !excluded.has(name);
+          })
+          .join('\n');
+      },
+    ),
   },
 }));
 
@@ -213,6 +230,15 @@ describe('getAvailableTools', () => {
     expect(result).not.toContain('- search:');
     expect(result).not.toContain('- write_file:');
     expect(result).toContain('read_file');
+  });
+});
+
+describe('getToolCapabilityManifest', () => {
+  it('returns a capability summary for the prompt', () => {
+    const result = getToolCapabilityManifest(emptyState as AgentState);
+
+    expect(result).toContain('risk=read_only');
+    expect(result).toContain('parallel_safe=yes');
   });
 });
 

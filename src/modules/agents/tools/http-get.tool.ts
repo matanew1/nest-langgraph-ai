@@ -9,7 +9,7 @@ const MAX_RESPONSE_SIZE = 500_000; // 500 KB
 
 export const httpGetTool = tool(
   async ({ url, headers }) => {
-    const guard = checkHttpAllowed(url);
+    const guard = await checkHttpAllowed(url);
     if (guard) return `ERROR: ${guard}`;
 
     logger.log(`GET ${url}`);

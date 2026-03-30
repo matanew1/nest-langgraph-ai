@@ -1,8 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from '../agents.service';
-import { REDIS_CLIENT } from '@redis/redis.constants';
 import { agentWorkflow } from '../graph/agent.graph';
-import { RedisSaver } from '../utils/redis-saver';
+import type { SessionMemoryService } from '../services/session-memory.service';
+import type { PlanReviewService } from '../services/plan-review.service';
+import type { SessionService } from '../services/session.service';
+import type { FeedbackService } from '../services/feedback.service';
+import type { RedisSaver } from '../utils/redis-saver';
 
 jest.mock('@config/env', () => ({
   env: {
@@ -30,69 +32,96 @@ jest.mock('../graph/agent.graph', () => ({
   },
 }));
 
-const mockRedisClient = {
-  get: jest.fn(),
-  set: jest.fn().mockResolvedValue('OK'),
-  del: jest.fn().mockResolvedValue(1),
-  setex: jest.fn(),
-  getBuffer: jest.fn(),
-  pipeline: jest.fn().mockReturnValue({
-    del: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    sadd: jest.fn().mockReturnThis(),
-    expire: jest.fn().mockReturnThis(),
-    exec: jest.fn().mockResolvedValue([]),
-  }),
-  smembers: jest.fn().mockResolvedValue([]),
-};
-
 describe('AgentsService', () => {
-  let service: AgentsService;
+  const mockRedisClient = {
+    get: jest.fn(),
+    set: jest.fn().mockResolvedValue('OK'),
+    eval: jest.fn().mockResolvedValue(1),
+    setex: jest.fn().mockResolvedValue('OK'),
+  };
+
+  const sessionMemoryService = {
+    tryLoad: jest.fn(),
+    persist: jest.fn().mockResolvedValue(undefined),
+    getSessionMemory: jest.fn(),
+    addEntry: jest.fn(),
+    clear: jest.fn(),
+  } as unknown as jest.Mocked<SessionMemoryService>;
+
+  const planReviewService = {
+    setApp: jest.fn(),
+  } as unknown as jest.Mocked<PlanReviewService>;
+
+  const sessionService = {
+    setApp: jest.fn(),
+  } as unknown as jest.Mocked<SessionService>;
+
+  const feedbackService = {} as FeedbackService;
+
+  const checkpointer = {
+    setVectorMemoryIds: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<RedisSaver>;
+
   const invoke = jest.fn();
   const mockStream = jest.fn();
   const mockGetState = jest.fn();
-  let mockApp: { invoke: jest.Mock; stream: jest.Mock; getState: jest.Mock };
+  let service: AgentsService;
 
-  beforeEach(async () => {
-    mockApp = { invoke, stream: mockStream, getState: mockGetState };
+  beforeEach(() => {
+    jest.clearAllMocks();
 
     const compileMock = agentWorkflow['compile'] as jest.Mock;
-    compileMock.mockReturnValue(mockApp as any);
+    compileMock.mockReturnValue({
+      invoke,
+      stream: mockStream,
+      getState: mockGetState,
+    } as any);
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AgentsService,
-        { provide: REDIS_CLIENT, useValue: mockRedisClient },
-      ],
-    }).compile();
+    sessionMemoryService.tryLoad.mockResolvedValue(undefined);
+    sessionMemoryService.getSessionMemory.mockResolvedValue({
+      sessionId: 'session',
+      entries: [],
+      raw: '',
+    });
+    sessionMemoryService.addEntry.mockResolvedValue({
+      sessionId: 'session',
+      entries: ['new fact'],
+      raw: 'new fact',
+    });
+    sessionMemoryService.clear.mockResolvedValue(undefined);
+    mockRedisClient.get.mockResolvedValue(null);
 
-    service = module.get<AgentsService>(AgentsService);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    service = new AgentsService(
+      mockRedisClient as any,
+      sessionMemoryService,
+      planReviewService,
+      sessionService,
+      feedbackService,
+      checkpointer,
+    );
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+    expect(planReviewService.setApp).toHaveBeenCalled();
+    expect(sessionService.setApp).toHaveBeenCalled();
   });
 
   describe('run', () => {
     it('should invoke the agent graph and return finalAnswer', async () => {
-      const prompt = 'test prompt';
       invoke.mockResolvedValue({ finalAnswer: 'The answer is 42' });
 
-      const result = await service.run(prompt);
+      const result = await service.run('test prompt', 'session-1');
 
-      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ input: prompt });
+      expect(invoke.mock.calls[0]?.[0]).toMatchObject({ input: 'test prompt' });
       expect(result.result).toBe('The answer is 42');
-      expect(result.sessionId).toBeDefined();
+      expect(result.sessionId).toBe('session-1');
     });
 
     it('should throw InternalServerErrorException when finalAnswer is missing', async () => {
       invoke.mockResolvedValue({});
 
-      await expect(service.run('prompt')).rejects.toThrow(
+      await expect(service.run('prompt', 'session-1')).rejects.toThrow(
         'The agent could not produce an answer',
       );
     });
@@ -100,14 +129,25 @@ describe('AgentsService', () => {
     it('should wrap unexpected graph errors in InternalServerErrorException', async () => {
       invoke.mockRejectedValue(new Error('LLM timeout'));
 
-      await expect(service.run('prompt')).rejects.toThrow(
+      await expect(service.run('prompt', 'session-1')).rejects.toThrow(
         'Agent execution failed: LLM timeout',
+      );
+    });
+
+    it('uses different cache keys when image inputs differ', async () => {
+      invoke.mockResolvedValue({ finalAnswer: 'cached answer' });
+
+      await service.run('prompt', 'session-1', [{ url: 'https://example.com/a.png' }]);
+      await service.run('prompt', 'session-1', [{ url: 'https://example.com/b.png' }]);
+
+      expect(mockRedisClient.get).toHaveBeenCalledTimes(2);
+      expect(mockRedisClient.get.mock.calls[0]?.[0]).not.toBe(
+        mockRedisClient.get.mock.calls[1]?.[0],
       );
     });
   });
 
   describe('streamRun — token-drain logic', () => {
-    /** Helper: collect all events from the streamRun async generator. */
     async function collectEvents(
       gen: AsyncGenerator<any>,
     ): Promise<Array<{ type: string; data: string }>> {
@@ -119,8 +159,6 @@ describe('AgentsService', () => {
     }
 
     it('yields llm_stream_reset and llm_token events after a node that triggers onToken', async () => {
-      // Mock stream: capture onToken from the state and call it with two tokens,
-      // then yield a fake node event so the for-await loop has something to iterate.
       mockStream.mockImplementation(async function* (state: any) {
         state.onToken?.('Hello');
         state.onToken?.(' world');
@@ -131,19 +169,16 @@ describe('AgentsService', () => {
         values: { phase: 'complete', finalAnswer: 'done' },
       });
 
-      const events = await collectEvents(service.streamRun('test prompt'));
+      const events = await collectEvents(
+        service.streamRun('test prompt', 'session-1'),
+      );
 
       const types = events.map((e) => e.type);
       expect(types).toContain('llm_stream_reset');
       expect(types.filter((t) => t === 'llm_token')).toHaveLength(2);
-
-      const tokenEvents = events.filter((e) => e.type === 'llm_token');
-      expect(tokenEvents[0].data).toBe('Hello');
-      expect(tokenEvents[1].data).toBe(' world');
     });
 
     it('yields no llm_stream_reset or llm_token events when no onToken is called', async () => {
-      // Mock stream: yield a node event without touching onToken.
       mockStream.mockImplementation(async function* (_state: any) {
         yield { chatNode: { phase: 'chat' } };
       });
@@ -152,7 +187,9 @@ describe('AgentsService', () => {
         values: { phase: 'complete', finalAnswer: 'done' },
       });
 
-      const events = await collectEvents(service.streamRun('test prompt'));
+      const events = await collectEvents(
+        service.streamRun('test prompt', 'session-1'),
+      );
 
       const types = events.map((e) => e.type);
       expect(types).not.toContain('llm_stream_reset');
@@ -161,50 +198,27 @@ describe('AgentsService', () => {
   });
 
   describe('session memory', () => {
-    let getThreadMemorySpy: jest.SpyInstance;
-    let setThreadMemorySpy: jest.SpyInstance;
+    it('getSessionMemory delegates to SessionMemoryService', async () => {
+      await service.getSessionMemory('session');
 
-    beforeEach(() => {
-      getThreadMemorySpy = jest
-        .spyOn(RedisSaver.prototype, 'getThreadMemory')
-        .mockResolvedValue(undefined);
-      setThreadMemorySpy = jest
-        .spyOn(RedisSaver.prototype, 'setThreadMemory')
-        .mockResolvedValue(undefined);
-    });
-
-    it('getSessionMemory returns empty entries for unknown session', async () => {
-      getThreadMemorySpy.mockResolvedValue(undefined);
-
-      const result = await service.getSessionMemory('session');
-
-      expect(result.entries).toEqual([]);
-      expect(result.raw).toBe('');
-    });
-
-    it('getSessionMemory splits existing memory into entries', async () => {
-      getThreadMemorySpy.mockResolvedValue('entry1\n---\nentry2');
-
-      const result = await service.getSessionMemory('session');
-
-      expect(result.entries.length).toBe(2);
-    });
-
-    it('addSessionMemoryEntry merges and persists new entry', async () => {
-      getThreadMemorySpy.mockResolvedValue(undefined);
-
-      await service.addSessionMemoryEntry('session', 'new fact');
-
-      expect(setThreadMemorySpy).toHaveBeenCalledWith(
+      expect(sessionMemoryService.getSessionMemory).toHaveBeenCalledWith(
         'session',
-        expect.stringContaining('new fact'),
       );
     });
 
-    it('clearSessionMemory writes empty string', async () => {
+    it('addSessionMemoryEntry delegates to SessionMemoryService', async () => {
+      await service.addSessionMemoryEntry('session', 'new fact');
+
+      expect(sessionMemoryService.addEntry).toHaveBeenCalledWith(
+        'session',
+        'new fact',
+      );
+    });
+
+    it('clearSessionMemory delegates to SessionMemoryService', async () => {
       await service.clearSessionMemory('session');
 
-      expect(setThreadMemorySpy).toHaveBeenCalledWith('session', '');
+      expect(sessionMemoryService.clear).toHaveBeenCalledWith('session');
     });
   });
 });

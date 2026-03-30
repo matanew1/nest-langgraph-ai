@@ -38,7 +38,16 @@ export class FeedbackService {
 
     const existing = await this.redisClient.get(`${idempotencyKey}:stats`);
     if (existing) {
-      return JSON.parse(existing) as FeedbackStatsResponseDto;
+      try {
+        const parsed = JSON.parse(existing) as FeedbackStatsResponseDto;
+        if (parsed.rating === dto.rating) {
+          return parsed;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to parse cached feedback stats for ${sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     const vectorIds = await this.checkpointer.getVectorMemoryIds(sessionId);

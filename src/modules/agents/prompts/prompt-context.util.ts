@@ -2,6 +2,24 @@ import { env } from '@config/env';
 import type { AgentState } from '../state/agent.state';
 import { toolRegistry } from '../tools';
 
+function getExcludedToolNames(state: AgentState): Set<string> {
+  const failureCounts = new Map<string, Set<string>>();
+  for (const attempt of state.attempts ?? []) {
+    if (!attempt.result.ok) {
+      const key = attempt.tool;
+      if (!failureCounts.has(key)) failureCounts.set(key, new Set());
+      failureCounts.get(key)!.add(JSON.stringify(attempt.params));
+    }
+  }
+
+  const excludedNames = new Set<string>();
+  for (const [tool, paramSets] of failureCounts) {
+    if (paramSets.size >= 2) excludedNames.add(tool);
+  }
+
+  return excludedNames;
+}
+
 export function formatPromptSection(
   value: string | undefined,
   fallback: string,
@@ -42,20 +60,13 @@ export function formatAttempts(state: AgentState): string {
 }
 
 export function getAvailableTools(state: AgentState): string {
-  // Only exclude tools that have failed 2+ times with different params,
-  // suggesting the tool itself is broken rather than just bad input.
-  const failureCounts = new Map<string, Set<string>>();
-  for (const attempt of state.attempts ?? []) {
-    if (!attempt.result.ok) {
-      const key = attempt.tool;
-      if (!failureCounts.has(key)) failureCounts.set(key, new Set());
-      failureCounts.get(key)!.add(JSON.stringify(attempt.params));
-    }
-  }
-  const excludedNames = new Set<string>();
-  for (const [tool, paramSets] of failureCounts) {
-    if (paramSets.size >= 2) excludedNames.add(tool);
-  }
+  return toolRegistry.describeForPrompt({
+    excludeNames: getExcludedToolNames(state),
+  });
+}
 
-  return toolRegistry.describeForPrompt({ excludeNames: excludedNames });
+export function getToolCapabilityManifest(state: AgentState): string {
+  return toolRegistry.describeCapabilitiesForPrompt({
+    excludeNames: getExcludedToolNames(state),
+  });
 }

@@ -11,6 +11,7 @@ const envSchema = Joi.object({
   MISTRAL_MODEL_BALANCED: Joi.string().default('mistral-small-latest'),
   MISTRAL_MODEL_POWERFUL: Joi.string().default('mistral-large-latest'),
   MISTRAL_MODEL_CODE: Joi.string().default('codestral-latest'),
+  MISTRAL_MODEL_VISION: Joi.string().default('pixtral-large-latest'),
   MISTRAL_TIMEOUT_MS: Joi.number().min(1000).default(30_000),
   TAVILY_API_KEY: Joi.string().required(),
   REDIS_HOST: Joi.string().required(),
@@ -64,6 +65,7 @@ interface EnvVariables {
   MISTRAL_MODEL_BALANCED: string;
   MISTRAL_MODEL_POWERFUL: string;
   MISTRAL_MODEL_CODE: string;
+  MISTRAL_MODEL_VISION: string;
   MISTRAL_TIMEOUT_MS: number;
   TAVILY_API_KEY: string;
   REDIS_HOST: string;
@@ -111,6 +113,7 @@ export const env = {
   mistralModelBalanced: validatedEnv.MISTRAL_MODEL_BALANCED,
   mistralModelPowerful: validatedEnv.MISTRAL_MODEL_POWERFUL,
   mistralModelCode: validatedEnv.MISTRAL_MODEL_CODE,
+  mistralModelVision: validatedEnv.MISTRAL_MODEL_VISION,
   mistralTimeoutMs: validatedEnv.MISTRAL_TIMEOUT_MS,
   tavilyKey: validatedEnv.TAVILY_API_KEY,
   redisHost: validatedEnv.REDIS_HOST,

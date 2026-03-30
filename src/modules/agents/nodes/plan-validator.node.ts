@@ -12,8 +12,14 @@ import { logPhaseEnd, logPhaseStart, startTimer } from '@utils/pretty-log.util';
 import { AGENT_PLAN_LIMITS } from '../graph/agent.config';
 import { Logger } from '@nestjs/common';
 import { basename, dirname } from 'node:path';
+import type { ToolCapabilityMetadata } from '../tools/tool.registry';
 
 const logger = new Logger('PlanValidator');
+const REVIEW_REQUIRED_RISKS = new Set(['write', 'network_write', 'execute']);
+const DEFAULT_CAPABILITY: ToolCapabilityMetadata = {
+  risk: 'execute',
+  parallelSafe: false,
+};
 
 function failValidation(
   finalAnswer: string,
@@ -26,8 +32,12 @@ function failValidation(
   });
 }
 
+function getToolCapability(toolName: string): ToolCapabilityMetadata {
+  return toolRegistry.getCapability?.(toolName) ?? DEFAULT_CAPABILITY;
+}
+
 /**
- * Validates the planner output before any tool execution happens.
+ * Plan preflight that validates the planner output before any tool execution.
  */
 export async function planValidatorNode(
   state: AgentState,
@@ -100,6 +110,18 @@ export async function planValidatorNode(
           `Non-contiguous parallel group ${groupId}`,
         );
       }
+    }
+
+    if (indices.length > 5) {
+      logPhaseEnd(
+        'PLAN_VALIDATOR',
+        `FAILED: parallel group ${groupId} exceeds size limit`,
+        elapsed(),
+      );
+      return failValidation(
+        `Parallel group ${groupId} has ${indices.length} steps. Maximum allowed is 5.`,
+        `Parallel group ${groupId} exceeds max size`,
+      );
     }
   }
 
@@ -228,6 +250,13 @@ export async function planValidatorNode(
       );
     }
 
+    const capability = getToolCapability(step.tool);
+    if (step.parallel_group !== undefined && !capability.parallelSafe) {
+      const detail = `Tool "${step.tool}" is not parallel-safe and cannot be used in parallel group ${step.parallel_group}.`;
+      logPhaseEnd('PLAN_VALIDATOR', `FAILED: ${detail}`, elapsed());
+      return failValidation(detail, detail);
+    }
+
     const schema: any = (tool as any).schema;
     if (schema?.safeParse) {
       // Skip schema validation when any input value contains a placeholder that
@@ -258,18 +287,9 @@ export async function planValidatorNode(
   const first = steps[0];
   logPhaseEnd('PLAN_VALIDATOR', 'OK', elapsed());
 
-  // Only pause for human review when the plan contains destructive/irreversible tools.
-  // Read-only operations (search, stat_path, read_file, etc.) run without review.
-  const DESTRUCTIVE_TOOLS = new Set([
-    'write_file',
-    'file_patch',
-    'file_append',
-    'run_command',
-    'delete_file',
-    'move_file',
-    'http_post',
-  ]);
-  const hasDestructiveTool = steps.some((s) => DESTRUCTIVE_TOOLS.has(s.tool));
+  const hasDestructiveTool = steps.some((step) =>
+    REVIEW_REQUIRED_RISKS.has(getToolCapability(step.tool).risk),
+  );
 
   if (env.requirePlanReview && state.sessionId && hasDestructiveTool) {
     logPhaseEnd('PLAN_VALIDATOR', 'AWAIT_PLAN_REVIEW', elapsed());

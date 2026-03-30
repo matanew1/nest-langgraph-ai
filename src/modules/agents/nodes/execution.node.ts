@@ -13,22 +13,9 @@ import { isZodArrayField, coerceToStringArray } from '@utils/zod-coerce.util';
 import { incrementAgentCounters } from '../state/agent-state.helpers';
 import { AGENT_PHASES } from '../state/agent-phase';
 import { transitionToPhase } from '../state/agent-transition.util';
+import { extractInlineContent, INLINE_NOT_FOUND } from './inline-content.util';
 
 const logger = new Logger('Executor');
-
-/**
- * Extract the first inline file content block from a user message.
- * Handles both [Attached: name] and [File: name] forms followed by a code fence.
- * Falls back to the full input if no block is found.
- */
-const INLINE_NOT_FOUND = '__INLINE_CONTENT_MISSING__';
-
-function extractInlineContent(input: string): string {
-  const match = input.match(
-    /\[(?:Attached|File):[^\]]*\]\s*```(?:\w+)?\s*([\s\S]*?)```/,
-  );
-  return match ? match[1].trim() : INLINE_NOT_FOUND;
-}
 
 export async function executionNode(
   state: AgentState,

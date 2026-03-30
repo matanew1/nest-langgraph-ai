@@ -34,9 +34,11 @@ export const runCommandTool = tool(
             .slice(0, MAX_OUTPUT);
 
           if (error) {
-            const exitCode = (error as NodeJS.ErrnoException & { code?: number }).code ?? 1;
+            const exitCode = (
+              error as NodeJS.ErrnoException & { code?: number }
+            ).code ?? 1;
             resolve(
-              `Exit ${exitCode}:\n${combined || error.message}`,
+              `ERROR: Command exited with code ${exitCode}\n${combined || error.message}`,
             );
           } else {
             resolve(combined || '(command completed with no output)');

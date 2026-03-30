@@ -64,7 +64,8 @@ async function maybeSummarize(
  * Collects:
  *  1. File tree (tree_dir on ".")
  *  2. Git status (git_info status)
- *  3. LLM-summarized context (if raw context > SUMMARIZE_THRESHOLD chars)
+ *  3. Repo impact radar (likely source/test files for the objective)
+ *  4. LLM-summarized context (if raw context > SUMMARIZE_THRESHOLD chars)
  *
  * Writes only `projectContext` — does NOT set phase or write memoryContext.
  */
@@ -134,6 +135,31 @@ export async function researchFsNode(
       } catch (e) {
         logger.error('Failed to fetch git status', e);
         workspaceSections.push('## Git status\n(unavailable)');
+      }
+    }
+
+    const impactRadarTool = toolRegistry.get('repo_impact_radar');
+    if (impactRadarTool) {
+      try {
+        const impactRadar = (await withTimeout(
+          impactRadarTool.invoke({
+            objective,
+            maxResults: 6,
+            includeTests: true,
+          }),
+          env.toolTimeoutMs,
+          'repo_impact_radar',
+        )) as string;
+        const summarized = await maybeSummarize(
+          'repo impact radar',
+          `## Impact radar\n${impactRadar}`,
+          objective,
+          sessionId,
+        );
+        workspaceSections.push(summarized);
+      } catch (e) {
+        logger.error('Failed to build repo impact radar', e);
+        workspaceSections.push('## Impact radar\n(unavailable)');
       }
     }
   }

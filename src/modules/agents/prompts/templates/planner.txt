@@ -15,6 +15,9 @@ MEMORY CONTEXT:
 
 Available tools:
 {{availableTools}}
+
+Tool capability manifest:
+{{toolCapabilityManifest}}
 {{attempts}}
 {{replanContext}}
 </context>
@@ -22,7 +25,7 @@ Available tools:
 <requirements>
 HARD RULES:
 1. Output exactly one JSON object matching the schema below. No extra keys.
-2. Each `step.tool` must exactly match one listed tool name.
+2. Each `step.tool` must exactly match one listed tool name and obey that tool's capability manifest entry.
 3. Each `step.input` must match that tool's params shape.
 4. Keep the plan minimal. Prefer 1-6 steps; never exceed 20.
 5. Use relative paths under the project root unless an absolute path is truly required.
@@ -70,6 +73,7 @@ PLANNING GUIDANCE:
 - `__PREVIOUS_RESULT__` resolves to the output of step N-1 ONLY. There is NO way to reference step N-2 or earlier. If step 3 needs the output of step 1, the steps MUST be reordered so that step 1's output flows directly into step 2 (the consumer). Never insert a step between a producer and its consumer if the consumer uses `__PREVIOUS_RESULT__`.
 - `__PREVIOUS_RESULT__` may be used only inside string fields, and only when the immediately prior step produced one coherent text blob.
 - Prefer safe discovery tools first: `glob_files`, `read_files_batch`, `grep_search`, `ast_parse`, `git_info`, `stat_path`.
+- Use `repo_impact_radar` when the objective asks which files, tests, or configs are likely affected by a change.
 - If you need many files, use `glob_files` then `read_files_batch` with a bounded set.
 - Use `llm_summarize` only when deterministic tools cannot directly produce the needed artifact.
 - Use `vector_search` only when the request truly depends on prior knowledge that is not already present in MEMORY CONTEXT.
@@ -81,7 +85,7 @@ PLANNING GUIDANCE:
 
 PARALLEL EXECUTION:
 - Add `"parallel_group": N` (same integer) to steps that can run at the same time.
-- Rules: (1) steps in the same group must be contiguous, (2) no step in a group may use `__PREVIOUS_RESULT__`, (3) each group may have at most 5 steps.
+- Rules: (1) steps in the same group must be contiguous, (2) no step in a group may use `__PREVIOUS_RESULT__`, (3) each group may have at most 5 steps, (4) every tool in the group must have `parallel_safe=yes` in the capability manifest.
 - Example: searching two directories simultaneously. Never use for steps that depend on each other's output.
 
 FILE EDITING RULES:
