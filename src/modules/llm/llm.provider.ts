@@ -15,8 +15,26 @@ const logger = new Logger('LlmProvider');
 const LLM_INSTANCE_CACHE_MAX = 20;
 const llmInstances = new Map<string, ChatMistralAI>();
 
+function resolveTextModel(model?: string): string {
+  return model ?? env.mistralModelBalanced;
+}
+
+function resolveVisionModel(model?: string): string {
+  const requested = model ?? env.mistralModelVision;
+  const textOnlyDefaults = new Set([
+    env.mistralModelFast,
+    env.mistralModelBalanced,
+    env.mistralModelPowerful,
+    env.mistralModelCode,
+  ]);
+
+  return textOnlyDefaults.has(requested)
+    ? env.mistralModelVision
+    : requested;
+}
+
 function getLlmInstance(model?: string): ChatMistralAI {
-  const key = model ?? env.mistralModelBalanced;
+  const key = resolveTextModel(model);
   let instance = llmInstances.get(key);
   if (!instance) {
     // Evict the oldest (first-inserted) entry when the cache is full
@@ -326,12 +344,13 @@ export async function invokeLlm(
   sessionId?: string,
   model?: string,
 ): Promise<string> {
-  const instance = getLlmInstance(model);
+  const resolvedModel = resolveTextModel(model);
+  const instance = getLlmInstance(resolvedModel);
   const opts = resolveOpts(
     timeoutMs,
     maxRetries,
     sessionId,
-    `LLM [${model ?? env.mistralModelBalanced}]`,
+    `LLM [${resolvedModel}]`,
   );
   return withRetryAndTimeout(
     async (signal) =>
@@ -351,12 +370,13 @@ export async function* streamLlm(
   sessionId?: string,
   model?: string,
 ): AsyncGenerator<string> {
-  const instance = getLlmInstance(model);
+  const resolvedModel = resolveTextModel(model);
+  const instance = getLlmInstance(resolvedModel);
   const opts = resolveOpts(
     timeoutMs,
     maxRetries,
     sessionId,
-    `LLM stream [${model ?? env.mistralModelBalanced}]`,
+    `LLM stream [${resolvedModel}]`,
   );
   yield* withStreamRetryAndTimeout(
     (signal) => instance.stream(prompt, { signal }),
@@ -394,12 +414,13 @@ export async function invokeLlmWithImages(
   sessionId?: string,
   model?: string,
 ): Promise<string> {
-  const instance = getLlmInstance(model);
+  const resolvedModel = resolveVisionModel(model);
+  const instance = getLlmInstance(resolvedModel);
   const opts = resolveOpts(
     timeoutMs,
     maxRetries,
     sessionId,
-    `Vision LLM [${model ?? env.mistralModelBalanced}]`,
+    `Vision LLM [${resolvedModel}]`,
   );
   const message = buildVisionMessage(prompt, images);
   return withRetryAndTimeout(
@@ -421,12 +442,13 @@ export async function* streamLlmWithImages(
   sessionId?: string,
   model?: string,
 ): AsyncGenerator<string> {
-  const instance = getLlmInstance(model);
+  const resolvedModel = resolveVisionModel(model);
+  const instance = getLlmInstance(resolvedModel);
   const opts = resolveOpts(
     timeoutMs,
     maxRetries,
     sessionId,
-    `Vision LLM stream [${model ?? env.mistralModelBalanced}]`,
+    `Vision LLM stream [${resolvedModel}]`,
   );
   const message = buildVisionMessage(prompt, images);
   yield* withStreamRetryAndTimeout(

@@ -208,4 +208,60 @@ describe('parallelExecutionNode', () => {
     expect(parsed).toHaveLength(5); // capped at maxParallelTools
     expect(invokeA).toHaveBeenCalledTimes(5);
   });
+
+  it('resolves __INLINE_CONTENT__ for parallel steps from the user message', async () => {
+    const plan = [
+      makeStep(1, 'tool_a', 1, { content: '__INLINE_CONTENT__' }),
+      makeStep(2, 'tool_b', 1, { content: '__INLINE_CONTENT__' }),
+    ];
+    const invokeA = jest.fn().mockResolvedValue('analysis_a');
+    const invokeB = jest.fn().mockResolvedValue('analysis_b');
+
+    toolRegistry.get.mockImplementation((name: string) => {
+      if (name === 'tool_a') return makeTool(invokeA);
+      if (name === 'tool_b') return makeTool(invokeB);
+      return undefined;
+    });
+
+    const state = makeState({
+      input: '[Attached: app.ts]\n```ts\nconst value = 42;\n```',
+      plan,
+      currentStep: 0,
+    });
+
+    await parallelExecutionNode(state);
+
+    expect(invokeA).toHaveBeenCalledWith(
+      { content: 'const value = 42;' },
+      expect.anything(),
+    );
+    expect(invokeB).toHaveBeenCalledWith(
+      { content: 'const value = 42;' },
+      expect.anything(),
+    );
+  });
+
+  it('marks a parallel step as failed when __INLINE_CONTENT__ cannot be resolved', async () => {
+    const plan = [makeStep(1, 'tool_a', 1, { content: '__INLINE_CONTENT__' })];
+    const invokeA = jest.fn().mockResolvedValue('analysis_a');
+
+    toolRegistry.get.mockImplementation(() => makeTool(invokeA));
+
+    const state = makeState({
+      input: 'No inline attachment here',
+      plan,
+      currentStep: 0,
+    });
+
+    const output = await parallelExecutionNode(state);
+    const parsed = JSON.parse(output.toolResultRaw as string);
+
+    expect(parsed[0]).toMatchObject({
+      step_id: 1,
+      tool: 'tool_a',
+      success: false,
+    });
+    expect(parsed[0].result).toContain('__INLINE_CONTENT__ could not be resolved');
+    expect(invokeA).not.toHaveBeenCalled();
+  });
 });

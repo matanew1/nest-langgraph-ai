@@ -17,6 +17,7 @@ import { incrementAgentCounters } from '../state/agent-state.helpers';
 import { AGENT_PHASES } from '../state/agent-phase';
 import { transitionToPhase } from '../state/agent-transition.util';
 import { AGENT_CONSTANTS } from '../graph/agent.config';
+import { extractInlineContent, INLINE_NOT_FOUND } from './inline-content.util';
 
 const logger = new Logger('ParallelExecutor');
 
@@ -71,20 +72,37 @@ export async function parallelExecutionNode(
       const toolParams: Record<string, unknown> = {};
       const resolvedFromPlaceholder = new Set<string>();
       for (const [key, value] of Object.entries(step.input)) {
-        if (
-          typeof value === 'string' &&
-          value.includes('__PREVIOUS_RESULT__')
-        ) {
-          if (!state.toolResultRaw) {
-            throw new Error(
-              `Step ${step.step_id} references __PREVIOUS_RESULT__ but no prior result exists.`,
+        if (typeof value === 'string') {
+          let resolved = value;
+          if (resolved.includes('__PREVIOUS_RESULT__')) {
+            if (!state.toolResultRaw) {
+              throw new Error(
+                `Step ${step.step_id} references __PREVIOUS_RESULT__ but no prior result exists.`,
+              );
+            }
+            resolved = resolved.replaceAll(
+              '__PREVIOUS_RESULT__',
+              state.toolResultRaw,
             );
+            resolvedFromPlaceholder.add(key);
           }
-          toolParams[key] = value.replaceAll(
-            '__PREVIOUS_RESULT__',
-            state.toolResultRaw,
-          );
-          resolvedFromPlaceholder.add(key);
+
+          if (resolved.includes('__INLINE_CONTENT__')) {
+            const extracted = extractInlineContent(state.input ?? '');
+            if (extracted === INLINE_NOT_FOUND) {
+              return {
+                step_id: step.step_id,
+                tool: step.tool,
+                result:
+                  'ERROR: __INLINE_CONTENT__ could not be resolved — no attached file block found in the user message.',
+                success: false,
+              };
+            }
+            resolved = resolved.replaceAll('__INLINE_CONTENT__', extracted);
+            resolvedFromPlaceholder.add(key);
+          }
+
+          toolParams[key] = resolved;
         } else {
           toolParams[key] = value;
         }

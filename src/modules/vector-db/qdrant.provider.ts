@@ -6,7 +6,7 @@ const logger = new Logger('QdrantProvider');
 
 export const qdrantClient = new QdrantClient({
   url: env.qdrantUrl,
-  checkCompatibility: env.qdrantCheckCompatibility,
+  checkCompatibility: env.qdrantCheckCompatibility ?? false,
 });
 
 let connectPromise: Promise<void> | undefined;

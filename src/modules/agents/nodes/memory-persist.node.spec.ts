@@ -1,9 +1,9 @@
 import { memoryPersistNode } from './memory-persist.node';
 import type { AgentState } from '@state/agent.state';
+import { createHash } from 'node:crypto';
 
 jest.mock('@vector-db/vector-memory.util', () => ({
   upsertVectorMemory: jest.fn(),
-  searchVectorMemories: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('@nestjs/common', () => ({
@@ -40,6 +40,14 @@ describe('memoryPersistNode', () => {
 
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: createHash('sha256')
+          .update(
+            JSON.stringify({
+              objective: 'test objective',
+              finalAnswer: 'test result',
+            }),
+          )
+          .digest('hex'),
         text: expect.stringContaining('Objective: test objective'),
         metadata: expect.objectContaining({
           sessionId: 'test-session',
@@ -65,15 +73,11 @@ describe('memoryPersistNode', () => {
     );
   });
 
-  it('uses "(none)" when finalAnswer is undefined', async () => {
+  it('skips persistence when finalAnswer is undefined', async () => {
     const stateWithoutAnswer = makeState({ finalAnswer: undefined });
     await memoryPersistNode(stateWithoutAnswer);
 
-    expect(upsertVectorMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: expect.stringContaining('Result: (none)'),
-      }),
-    );
+    expect(upsertVectorMemory).not.toHaveBeenCalled();
   });
 
   it('returns empty object on success', async () => {
