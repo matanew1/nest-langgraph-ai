@@ -24,6 +24,19 @@ jest.mock('../tools', () => ({
           .join('\n');
       },
     ),
+    describeCapabilitiesForPrompt: jest.fn(
+      ({ excludeNames }: { excludeNames?: Iterable<string> }) => {
+        const excluded = new Set(excludeNames ?? []);
+        return [
+          ['search', '- search: risk=network_read; parallel_safe=yes'],
+          ['read_file', '- read_file: risk=read_only; parallel_safe=yes'],
+          ['write_file', '- write_file: risk=write; parallel_safe=no'],
+        ]
+          .filter(([name]) => !excluded.has(name))
+          .map(([, line]) => line)
+          .join('\n');
+      },
+    ),
   },
 }));
 

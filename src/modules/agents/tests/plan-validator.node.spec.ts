@@ -18,6 +18,7 @@ jest.mock('@config/env', () => ({
 jest.mock('../tools/index', () => ({
   toolRegistry: {
     get: jest.fn(),
+    getCapability: jest.fn(),
     getNames: jest
       .fn()
       .mockReturnValue([
@@ -94,6 +95,12 @@ describe('planValidatorNode', () => {
         }
         return undefined;
       });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'search' || name === 'read_file') {
+          return { risk: 'read_only', parallelSafe: true };
+        }
+        return undefined;
+      });
 
       const result = await planValidatorNode(baseState as AgentState);
 
@@ -104,6 +111,10 @@ describe('planValidatorNode', () => {
 
     it('sets selectedTool and toolParams from first step', async () => {
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'read_only',
+        parallelSafe: true,
+      });
 
       const result = await planValidatorNode(baseState as AgentState);
 
@@ -141,6 +152,10 @@ describe('planValidatorNode', () => {
 
     it('accepts a plan with exactly 20 steps', async () => {
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'read_only',
+        parallelSafe: true,
+      });
 
       const maxPlanState: Partial<AgentState> = {
         ...baseState,
@@ -230,6 +245,10 @@ describe('planValidatorNode', () => {
       const schema = z.object({ query: z.string().min(1) });
 
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn(), schema });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'read_only',
+        parallelSafe: true,
+      });
 
       const goodParamsState: Partial<AgentState> = {
         ...baseState,
@@ -274,6 +293,12 @@ describe('planValidatorNode', () => {
         if (name === 'grep_search') return { invoke: mockGrepInvoke };
         if (name === 'file_patch') return { invoke: jest.fn() };
         return undefined;
+      });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'file_patch') {
+          return { risk: 'write', parallelSafe: false };
+        }
+        return { risk: 'read_only', parallelSafe: true };
       });
 
       const result = await planValidatorNode({
@@ -326,6 +351,12 @@ describe('planValidatorNode', () => {
         if (name === 'file_patch') return { invoke: jest.fn() };
         return undefined; // stat_path not found
       });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'file_patch') {
+          return { risk: 'write', parallelSafe: false };
+        }
+        return undefined;
+      });
 
       const result = await planValidatorNode({
         ...baseState,
@@ -345,6 +376,12 @@ describe('planValidatorNode', () => {
         if (name === 'stat_path') return { invoke: mockStatInvoke };
         if (name === 'file_patch') return { invoke: jest.fn() };
         return undefined;
+      });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'file_patch') {
+          return { risk: 'write', parallelSafe: false };
+        }
+        return { risk: 'read_only', parallelSafe: true };
       });
 
       const result = await planValidatorNode({
@@ -368,6 +405,12 @@ describe('planValidatorNode', () => {
         if (name === 'file_patch') return { invoke: jest.fn() };
         return undefined;
       });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'file_patch') {
+          return { risk: 'write', parallelSafe: false };
+        }
+        return { risk: 'read_only', parallelSafe: true };
+      });
 
       const result = await planValidatorNode({
         ...baseState,
@@ -387,6 +430,10 @@ describe('planValidatorNode', () => {
     it('transitions to await_plan_review when requirePlanReview is true and destructive tool exists', async () => {
       mockEnv.requirePlanReview = true;
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'write',
+        parallelSafe: false,
+      });
 
       const destructivePlan: PlanStep[] = [
         {
@@ -412,6 +459,12 @@ describe('planValidatorNode', () => {
     it('does not pause for review for read-only tools', async () => {
       mockEnv.requirePlanReview = false;
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'search' || name === 'read_file') {
+          return { risk: 'read_only', parallelSafe: true };
+        }
+        return undefined;
+      });
 
       const result = await planValidatorNode({
         ...baseState,
@@ -426,6 +479,10 @@ describe('planValidatorNode', () => {
     it('does not pause for review even with destructive tool when requirePlanReview is false', async () => {
       mockEnv.requirePlanReview = false;
       mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'write',
+        parallelSafe: false,
+      });
 
       const destructivePlan: PlanStep[] = [
         {
@@ -443,6 +500,61 @@ describe('planValidatorNode', () => {
       } as AgentState);
 
       expect(result.phase).toBe('execute');
+    });
+  });
+
+  describe('parallel preflight', () => {
+    it('rejects a parallel group with more than 5 steps', async () => {
+      mockedToolRegistry.get.mockReturnValue({ invoke: jest.fn() });
+      mockedToolRegistry.getCapability.mockReturnValue({
+        risk: 'read_only',
+        parallelSafe: true,
+      });
+
+      const oversizedParallelPlan = Array.from({ length: 6 }, (_, i) => ({
+        step_id: i + 1,
+        description: `Parallel step ${i + 1}`,
+        tool: 'search',
+        input: { query: `q${i + 1}` },
+        parallel_group: 1,
+      }));
+
+      const result = await planValidatorNode({
+        ...baseState,
+        plan: oversizedParallelPlan,
+      } as AgentState);
+
+      expect(result.phase).toBe('fatal');
+      expect(result.finalAnswer).toContain('Maximum allowed is 5');
+    });
+
+    it('rejects a non-parallel-safe tool inside a parallel group', async () => {
+      mockedToolRegistry.get.mockImplementation((name: string) => {
+        if (name === 'run_command') return { invoke: jest.fn() };
+        return undefined;
+      });
+      mockedToolRegistry.getCapability.mockImplementation((name: string) => {
+        if (name === 'run_command') {
+          return { risk: 'execute', parallelSafe: false };
+        }
+        return undefined;
+      });
+
+      const result = await planValidatorNode({
+        ...baseState,
+        plan: [
+          {
+            step_id: 1,
+            description: 'Run two commands at once',
+            tool: 'run_command',
+            input: { command: 'npm test' },
+            parallel_group: 1,
+          },
+        ],
+      } as AgentState);
+
+      expect(result.phase).toBe('fatal');
+      expect(result.finalAnswer).toContain('not parallel-safe');
     });
   });
 });

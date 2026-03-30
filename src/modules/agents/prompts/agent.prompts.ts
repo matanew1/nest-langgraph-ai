@@ -5,6 +5,7 @@ import {
   formatAttempts,
   formatPromptSection,
   getAvailableTools,
+  getToolCapabilityManifest,
 } from './prompt-context.util';
 import {
   getPromptTemplate,
@@ -44,6 +45,7 @@ export const buildPlannerPrompt = (state: AgentState): string => {
   return renderPromptTemplate(getPromptTemplate('planner'), {
     workingDir: env.agentWorkingDir,
     availableTools: getAvailableTools(state),
+    toolCapabilityManifest: getToolCapabilityManifest(state),
     attempts: formatAttempts(state),
     objective,
     userRequest,
