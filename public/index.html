@@ -1435,7 +1435,7 @@
       if (lang === 'mermaid') {
         const id = 'mmd-' + Math.random().toString(36).slice(2);
         mmdSourceMap[id] = raw;
-        blocks.push(`<div class="preview-block"><div class="pre-header"><span class="pre-lang">mermaid</span><button class="pre-copy" onclick="copyBlock(this)">Copy</button></div><div class="mermaid" id="${id}">${raw}</div></div>`);
+        blocks.push(`<div class="preview-block"><div class="pre-header"><span class="pre-lang">mermaid</span><button class="pre-copy" onclick="copyBlock(this)">Copy</button></div><div class="mermaid" id="${id}">${esc(raw)}</div></div>`);
       } else if (lang === 'markdown' || lang === 'md') {
         blocks.push(`<div class="preview-block" style="border: 1px solid var(--border-strong); border-radius: var(--radius-lg); overflow: hidden;"><div class="pre-header"><span class="pre-lang">markdown preview</span></div><div style="padding: 0 20px 10px; background: var(--surface-glass);">${renderMd(raw)}</div></div>`);
       } else {
