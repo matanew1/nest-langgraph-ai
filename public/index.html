@@ -164,6 +164,8 @@
     .nav-action-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
     .nav-action-btn:active { transform: scale(0.93); }
     .nav-action-btn svg { width: 16px; height: 16px; }
+    .nav-lang-btn { width: auto; min-width: 42px; padding: 0 10px; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .nav-lang-btn span { display: inline-block; line-height: 1; }
 
     .nav-avatar {
       width: 34px; height: 34px; border-radius: 50%; background: var(--gradient);
@@ -196,6 +198,7 @@
     .sidebar-close-btn svg { width: 14px; height: 14px; }
 
     .chat-column { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .chat-ambient-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.9; z-index: 0; }
     .chat-feed-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: transparent transparent; }
     .chat-feed-wrap:hover { scrollbar-color: var(--border-strong) transparent; }
     .chat-inner { max-width: 760px; margin: 0 auto; padding: 32px 24px 0; display: flex; flex-direction: column; gap: 20px; }
@@ -305,6 +308,35 @@
 
     .empty-shortcut { margin-top: 28px; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: center; gap: 6px; animation: chipIn 0.5s var(--spring) 0.6s both; }
     .empty-shortcut kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 8px; background: var(--surface-glass); border: 1px solid var(--border-strong); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text-secondary); box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 -1px 0 rgba(0,0,0,0.15); backdrop-filter: blur(10px); }
+    .empty-eyebrow { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 7px 14px; border-radius: var(--radius-full); border: 1px solid var(--border-glow); background: var(--surface-glass); color: var(--accent); font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow-glow); }
+    .empty-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+    .empty-orbit { position: relative; width: 126px; height: 126px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: center; }
+    .empty-orbit-ring { position: absolute; border-radius: 50%; border: 1px solid transparent; }
+    .empty-orbit-ring.ring-1 { inset: 0; border-top-color: rgba(0, 212, 255, 0.35); border-right-color: rgba(0, 212, 255, 0.18); animation: spin 16s linear infinite; }
+    .empty-orbit-ring.ring-2 { inset: 14px; border-bottom-color: rgba(168, 85, 247, 0.35); border-left-color: rgba(168, 85, 247, 0.18); animation: spin 11s linear infinite reverse; }
+    .empty-orbit-ring.ring-3 { inset: 28px; border-top-color: rgba(34, 211, 238, 0.4); border-right-color: rgba(34, 211, 238, 0.18); animation: spin 8s linear infinite; }
+    .empty-orbit .empty-icon { margin: 0; width: 88px; height: 88px; animation: float 4s ease-in-out infinite; }
+    .empty-command-deck { margin-top: 34px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; text-align: left; }
+    .mission-card { position: relative; overflow: hidden; padding: 16px 16px 14px; border-radius: var(--radius-lg); background: var(--surface-glass); border: 1px solid var(--border); box-shadow: var(--shadow-sm); backdrop-filter: blur(18px); transition: transform 0.3s var(--ease), border-color 0.3s var(--ease), box-shadow 0.3s var(--ease); }
+    .mission-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3)); opacity: 0.75; }
+    .mission-card:hover { transform: translateY(-4px); border-color: var(--border-glow); box-shadow: var(--shadow-md), var(--shadow-glow); }
+    .mission-kicker { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px; font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); }
+    .mission-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); box-shadow: 0 0 10px rgba(34, 211, 238, 0.45); }
+    .mission-title { color: var(--text); font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .mission-desc { color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
+    .starter-panel { margin-top: 18px; padding: 18px; border-radius: var(--radius-xl); background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent), var(--surface-glass); border: 1px solid var(--border); backdrop-filter: blur(18px); box-shadow: var(--shadow-md); }
+    .starter-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .starter-panel-label { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-tertiary); }
+    .starter-panel-caption { color: var(--text-secondary); font-size: 12px; line-height: 1.6; text-align: right; }
+    .starter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .starter-btn { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 14px 14px 13px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text); text-align: left; cursor: pointer; transition: transform 0.25s var(--ease), border-color 0.25s var(--ease), box-shadow 0.25s var(--ease), background 0.25s var(--ease); font: inherit; }
+    .starter-btn:hover { transform: translateY(-3px); border-color: var(--border-glow); background: var(--accent-subtle); box-shadow: var(--shadow-glow); }
+    .starter-btn:active { transform: translateY(-1px) scale(0.98); }
+    .starter-btn-icon { width: 34px; height: 34px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(0, 212, 255, 0.18), rgba(168, 85, 247, 0.16)); border: 1px solid rgba(255,255,255,0.06); color: var(--accent); }
+    .starter-btn-icon svg { width: 17px; height: 17px; }
+    .starter-btn-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .starter-btn-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .starter-btn-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.55; }
 
     .feed-inner { max-width: 760px; margin: 0 auto; padding: 32px 24px 20px; display: flex; flex-direction: column; gap: 20px; width: 100%; }
 
@@ -477,6 +509,11 @@
     @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
 
     .input-row { display: flex; gap: 8px; align-items: flex-end; }
+    .composer-meta { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .composer-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .composer-pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: var(--radius-full); background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+    .composer-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(0, 212, 255, 0.45); }
+    .composer-hint { color: var(--text-tertiary); font-size: 11px; }
     .input-btn { width: 42px; height: 42px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface-muted); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.25s; flex-shrink: 0; }
     .input-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
     .input-btn:active { transform: scale(0.93); }
@@ -632,8 +669,16 @@
       .feed-inner { padding: 20px 12px 16px; }
       .inputbar-container { padding: 12px 12px 16px; }
       .empty-title { font-size: 18px; }
+      .empty-orbit { width: 108px; height: 108px; }
+      .empty-orbit .empty-icon { width: 78px; height: 78px; }
+      .empty-command-deck { grid-template-columns: 1fr; gap: 10px; }
+      .starter-panel-head { align-items: flex-start; flex-direction: column; }
+      .starter-panel-caption { text-align: left; }
+      .starter-grid { grid-template-columns: 1fr; }
       .empty-chips { gap: 6px; }
       .empty-chip { padding: 8px 12px; font-size: 12px; }
+      .composer-meta { align-items: flex-start; }
+      .composer-hint { width: 100%; }
     }
   </style>
 </head>
@@ -691,7 +736,7 @@
       <span class="nav-session-name" id="chat-session-title">New Conversation</span>
     </div>
     <div class="nav-spacer"></div>
-    <button class="nav-action-btn" onclick="toggleTheme()" title="Toggle theme">
+    <button class="nav-action-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
       <svg id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
         <circle cx="12" cy="12" r="5"></circle>
         <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
@@ -703,11 +748,15 @@
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
       </svg>
     </button>
+    <button class="nav-action-btn nav-lang-btn" id="lang-toggle" onclick="toggleLang()" title="Switch language">
+      <span id="lang-label">עב</span>
+    </button>
     <div class="nav-avatar"></div>
   </nav>
 
   <!-- Chat column -->
   <div class="chat-column">
+    <canvas class="chat-ambient-canvas" id="particle-canvas" aria-hidden="true"></canvas>
     <div class="model-toast" id="model-toast">
       <span class="model-toast-dot" id="model-toast-dot"></span>
       <span id="model-toast-text"></span>
@@ -717,22 +766,87 @@
       <div class="feed-inner">
         <div id="empty-wrap">
           <div class="empty-state">
-            <div class="empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <div class="empty-eyebrow">
+              <span class="empty-eyebrow-dot"></span>
+              <span id="empty-eyebrow">Mission Control</span>
+            </div>
+            <div class="empty-orbit">
+              <div class="empty-orbit-ring ring-1"></div>
+              <div class="empty-orbit-ring ring-2"></div>
+              <div class="empty-orbit-ring ring-3"></div>
+              <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              </div>
             </div>
             <div class="empty-title">What can I help you with?</div>
             <div class="empty-subtitle">I can search the web, execute code, analyze files, create diagrams, and communicate in multiple languages.</div>
+            <div class="empty-command-deck">
+              <article class="mission-card">
+                <div class="mission-kicker"><span class="mission-kicker-dot"></span><span id="mission-kicker-1">Mode</span></div>
+                <div class="mission-title" id="mission-title-1">Live Research</div>
+                <div class="mission-desc" id="mission-desc-1">Ground answers in current web context and fresh repository state before acting.</div>
+              </article>
+              <article class="mission-card">
+                <div class="mission-kicker"><span class="mission-kicker-dot"></span><span id="mission-kicker-2">Mode</span></div>
+                <div class="mission-title" id="mission-title-2">Code Ops</div>
+                <div class="mission-desc" id="mission-desc-2">Patch files, validate plans, and stream each execution step as it happens.</div>
+              </article>
+              <article class="mission-card">
+                <div class="mission-kicker"><span class="mission-kicker-dot"></span><span id="mission-kicker-3">Mode</span></div>
+                <div class="mission-title" id="mission-title-3">Visual Reasoning</div>
+                <div class="mission-desc" id="mission-desc-3">Handle file uploads, image inputs, and Mermaid diagrams in the same workspace.</div>
+              </article>
+            </div>
+            <div class="starter-panel">
+              <div class="starter-panel-head">
+                <div class="starter-panel-label" id="starter-panel-label">Launch a task</div>
+                <div class="starter-panel-caption" id="starter-panel-caption">Start with a concrete objective and let the agent plan the smallest safe path.</div>
+              </div>
+              <div class="starter-grid">
+                <button class="starter-btn" type="button" data-prompt="" id="starter-btn-1">
+                  <span class="starter-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg></span>
+                  <span class="starter-btn-copy">
+                    <span class="starter-btn-title" id="starter-btn-title-1">Audit risky agent paths</span>
+                    <span class="starter-btn-desc" id="starter-btn-desc-1">Review the agent loop for planner, tool, or memory regressions.</span>
+                  </span>
+                </button>
+                <button class="starter-btn" type="button" data-prompt="" id="starter-btn-2">
+                  <span class="starter-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span>
+                  <span class="starter-btn-copy">
+                    <span class="starter-btn-title" id="starter-btn-title-2">Summarize the codebase</span>
+                    <span class="starter-btn-desc" id="starter-btn-desc-2">Map the main modules, dependencies, and execution flow.</span>
+                  </span>
+                </button>
+                <button class="starter-btn" type="button" data-prompt="" id="starter-btn-3">
+                  <span class="starter-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
+                  <span class="starter-btn-copy">
+                    <span class="starter-btn-title" id="starter-btn-title-3">Generate a diagram</span>
+                    <span class="starter-btn-desc" id="starter-btn-desc-3">Produce a Mermaid view of the system grounded in the repository.</span>
+                  </span>
+                </button>
+                <button class="starter-btn" type="button" data-prompt="" id="starter-btn-4">
+                  <span class="starter-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg></span>
+                  <span class="starter-btn-copy">
+                    <span class="starter-btn-title" id="starter-btn-title-4">Analyze attachments</span>
+                    <span class="starter-btn-desc" id="starter-btn-desc-4">Upload files or images and ask for a grounded change plan.</span>
+                  </span>
+                </button>
+              </div>
+            </div>
             <div class="empty-chips">
-              <div class="empty-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search</div>
-              <div class="empty-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>Code</div>
-              <div class="empty-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Files</div>
-              <div class="empty-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>Diagrams</div>
+              <button class="empty-chip" type="button" data-prompt=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search</button>
+              <button class="empty-chip" type="button" data-prompt=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>Code</button>
+              <button class="empty-chip" type="button" data-prompt=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Files</button>
+              <button class="empty-chip" type="button" data-prompt=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>Diagrams</button>
             </div>
             <div class="empty-shortcut">Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for new line</div>
           </div>
         </div>
       </div>
     </div>
+    <button class="scroll-to-bottom" id="scroll-to-bottom" onclick="jumpToLatest()" title="Jump to latest">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M6 13l6 6 6-6"></path></svg>
+    </button>
 
     <div class="inputbar-container">
       <div class="progress-pill" id="progress-pill">
@@ -766,6 +880,14 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
           </button>
         </div>
+        <div class="composer-meta">
+          <div class="composer-pills">
+            <span class="composer-pill"><span class="composer-pill-dot"></span><span id="composer-pill-1">Repo-grounded</span></span>
+            <span class="composer-pill"><span class="composer-pill-dot"></span><span id="composer-pill-2">Real-time streaming</span></span>
+            <span class="composer-pill"><span class="composer-pill-dot"></span><span id="composer-pill-3">Vision-ready inputs</span></span>
+          </div>
+          <div class="composer-hint" id="composer-hint">Tip: start with the desired outcome, constraints, and any files the agent should inspect first.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -776,15 +898,50 @@
 
 <script>
   // ── i18n System ──
+  const LANG_STORAGE_KEY = 'nexus-lang';
+  const THEME_STORAGE_KEY = 'nexus-theme';
   let currentLang = 'en';
+  let connectionState = 'online';
   const I18N = {
     en: {
-      title: 'Agent', newChat: 'New Chat', history: 'History', clear: 'Clear All', clearAll: 'Clear All',
+      brand: 'Nexus', pageTitle: 'NEXUS — AI Agent',
+      title: 'Agent', newChat: 'New Session', history: 'History', clear: 'Clear All', clearAll: 'Clear All',
       newConversation: 'New Conversation', thinking: 'Thinking', stop: 'Stop',
+      toggleTheme: 'Toggle theme', toggleLanguage: 'Switch language', closeSidebar: 'Close sidebar', refreshSessions: 'Refresh sessions',
       emptyTitle: 'What can I help you with?',
       emptySubtitle: 'I can search the web, execute code, analyze files, create diagrams, and communicate in multiple languages.',
+      emptyEyebrow: 'Mission Control',
+      emptyShortcut: 'Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for new line',
+      missionKicker: 'Mode',
+      missionTitle1: 'Live Research',
+      missionDesc1: 'Ground answers in current web context and fresh repository state before acting.',
+      missionTitle2: 'Code Ops',
+      missionDesc2: 'Patch files, validate plans, and stream each execution step as it happens.',
+      missionTitle3: 'Visual Reasoning',
+      missionDesc3: 'Handle file uploads, image inputs, and Mermaid diagrams in the same workspace.',
+      starterPanelLabel: 'Launch a task',
+      starterPanelCaption: 'Start with a concrete objective and let the agent plan the smallest safe path.',
+      starterTitle1: 'Audit risky agent paths',
+      starterDesc1: 'Review the agent loop for planner, tool, or memory regressions.',
+      starterPrompt1: 'Audit the agent loop and identify the riskiest planner, tool, or memory regressions.',
+      starterTitle2: 'Summarize the codebase',
+      starterDesc2: 'Map the main modules, dependencies, and execution flow.',
+      starterPrompt2: 'Summarize this codebase: map the main modules, dependencies, and execution flow.',
+      starterTitle3: 'Generate a diagram',
+      starterDesc3: 'Produce a Mermaid view of the system grounded in the repository.',
+      starterPrompt3: 'Generate a Mermaid diagram of this system grounded in the current repository structure.',
+      starterTitle4: 'Analyze attachments',
+      starterDesc4: 'Upload files or images and ask for a grounded change plan.',
+      starterPrompt4: 'Analyze the attached files or images and propose a grounded, low-risk change plan.',
       chipSearch: 'Search', chipCode: 'Code', chipFiles: 'Files', chipDiagrams: 'Diagrams',
-      placeholder: 'Message Agent...', attachFile: 'Attach file', attachImage: 'Attach image', sendMessage: 'Send message',
+      chipPromptSearch: 'Search the latest relevant context for this task and summarize what matters.',
+      chipPromptCode: 'Inspect the repository and propose the smallest safe code change.',
+      chipPromptFiles: 'Read the relevant files and explain how they work together.',
+      chipPromptDiagrams: 'Create a Mermaid diagram that explains the current architecture.',
+      placeholder: 'Message Nexus...', attachFile: 'Attach file', attachImage: 'Attach image', sendMessage: 'Send message',
+      enhancePrompt: 'Enhance prompt with AI', jumpLatest: 'Jump to latest',
+      composerPill1: 'Repo-grounded', composerPill2: 'Real-time streaming', composerPill3: 'Vision-ready inputs',
+      composerHint: 'Tip: start with the desired outcome, constraints, and any files the agent should inspect first.',
       toggleSidebar: 'Toggle sidebar', switchLang: '\u05E2\u05D1',
       working: 'Working', stopped: 'Stopped',
       stepsCompleted: (n) => `${n} step${n > 1 ? 's' : ''} completed`,
@@ -793,18 +950,60 @@
       planRejected: 'Plan rejected.', done: 'Done.', reviewFailed: 'Review failed.',
       stoppedToast: 'Stopped', sessionCleared: 'Session cleared', allSessionsCleared: 'All sessions cleared',
       fileTooLarge: 'File too large (max 512 KB)',
+      maxImages: 'Maximum 5 images per message.',
+      maxImageSize: (name) => `${name}: max 5 MB per image.`,
       currentSession: 'Current Session', now: 'now', copied: 'Copied', copy: 'Copy',
       connectionError: 'Connection error:', reviewing: 'Reviewing',
+      connected: 'Connected', serverError: 'Server error', disconnected: 'Disconnected',
+      loading: 'Loading...', noPastSessions: 'No past sessions found.', couldNotLoadSessions: 'Could not load sessions.',
+      deleteSession: 'Delete session', removeImage: 'Remove image',
+      justNow: 'just now', minutesAgo: (n) => `${n}m ago`, hoursAgo: (n) => `${n}h ago`, daysAgo: (n) => `${n}d ago`,
+      sessionHistory: (n) => `Session history · ${n} turn${n > 1 ? 's' : ''}`,
+      replanning: 'Replanning…', executingPlan: 'Executing plan…',
+      couldNotDeleteSession: 'Could not delete session', couldNotClearSessions: 'Could not clear sessions',
+      enhanceFailed: 'Could not enhance the prompt.',
       planReady: (n) => `Plan ready: <strong>${n} steps</strong>`,
       running: (name) => `Running <code>${name}</code>`,
     },
     he: {
-      title: '\u05E1\u05D5\u05DB\u05DF', newChat: '\u05E6\u05F3\u05D0\u05D8 \u05D7\u05D3\u05E9', history: '\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4', clear: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC', clearAll: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC',
+      brand: 'Nexus', pageTitle: 'NEXUS — סוכן AI',
+      title: '\u05E1\u05D5\u05DB\u05DF', newChat: '\u05E1\u05E9\u05DF \u05D7\u05D3\u05E9', history: '\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D4', clear: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC', clearAll: '\u05E0\u05E7\u05D4 \u05D4\u05DB\u05DC',
       newConversation: '\u05E9\u05D9\u05D7\u05D4 \u05D7\u05D3\u05E9\u05D4', thinking: '\u05D7\u05D5\u05E9\u05D1', stop: '\u05E2\u05E6\u05D5\u05E8',
+      toggleTheme: '\u05D4\u05D7\u05DC\u05E3 \u05E2\u05E8\u05DB\u05EA \u05E0\u05D5\u05E9\u05D0', toggleLanguage: '\u05D4\u05D7\u05DC\u05E3 \u05E9\u05E4\u05D4', closeSidebar: '\u05E1\u05D2\u05D5\u05E8 \u05E1\u05E8\u05D2\u05DC \u05E6\u05D3', refreshSessions: '\u05E8\u05E2\u05E0\u05DF \u05E1\u05E9\u05E0\u05D9\u05DD',
       emptyTitle: '\u05D1\u05DE\u05D4 \u05D0\u05D5\u05DB\u05DC \u05DC\u05E2\u05D6\u05D5\u05E8?',
       emptySubtitle: '\u05D0\u05E0\u05D9 \u05D9\u05DB\u05D5\u05DC \u05DC\u05D7\u05E4\u05E9 \u05D1\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8, \u05DC\u05D4\u05E8\u05D9\u05E5 \u05E7\u05D5\u05D3, \u05DC\u05E0\u05EA\u05D7 \u05E7\u05D1\u05E6\u05D9\u05DD, \u05DC\u05D9\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA \u05D5\u05DC\u05EA\u05E7\u05E9\u05E8 \u05D1\u05DE\u05D2\u05D5\u05D5\u05DF \u05E9\u05E4\u05D5\u05EA.',
+      emptyEyebrow: '\u05D7\u05D3\u05E8 \u05D1\u05E7\u05E8\u05D4',
+      emptyShortcut: '\u05DC\u05E9\u05DC\u05D9\u05D7\u05D4 <kbd>Enter</kbd> · \u05DC\u05E9\u05D5\u05E8\u05D4 \u05D7\u05D3\u05E9\u05D4 <kbd>Shift</kbd>+<kbd>Enter</kbd>',
+      missionKicker: '\u05DE\u05E6\u05D1',
+      missionTitle1: '\u05DE\u05D7\u05E7\u05E8 \u05D7\u05D9',
+      missionDesc1: '\u05DC\u05E2\u05D2\u05DF \u05EA\u05E9\u05D5\u05D1\u05D5\u05EA \u05D1\u05D4\u05E7\u05E9\u05E8 \u05D5\u05D5\u05D1 \u05E2\u05D3\u05DB\u05E0\u05D9 \u05D5\u05D1\u05DE\u05E6\u05D1 \u05D4\u05DE\u05D0\u05D2\u05E8 \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9 \u05DC\u05E4\u05E0\u05D9 \u05E4\u05E2\u05D5\u05DC\u05D4.',
+      missionTitle2: '\u05EA\u05E4\u05E2\u05D5\u05DC \u05E7\u05D5\u05D3',
+      missionDesc2: '\u05DC\u05EA\u05E7\u05DF \u05E7\u05D1\u05E6\u05D9\u05DD, \u05DC\u05D0\u05DE\u05EA \u05EA\u05DB\u05E0\u05D9\u05D5\u05EA \u05D5\u05DC\u05D6\u05E8\u05D5\u05DD \u05DB\u05DC \u05E9\u05DC\u05D1 \u05D1\u05D6\u05DE\u05DF \u05D0\u05DE\u05EA.',
+      missionTitle3: '\u05D4\u05D1\u05E0\u05D4 \u05D7\u05D6\u05D5\u05EA\u05D9\u05EA',
+      missionDesc3: '\u05DC\u05E2\u05D1\u05D5\u05D3 \u05E2\u05DD \u05E7\u05D1\u05E6\u05D9\u05DD, \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05D5\u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA Mermaid \u05D1\u05D0\u05D5\u05EA\u05D5 \u05DE\u05E8\u05D7\u05D1 \u05E2\u05D1\u05D5\u05D3\u05D4.',
+      starterPanelLabel: '\u05D4\u05EA\u05D7\u05DC \u05DE\u05E9\u05D9\u05DE\u05D4',
+      starterPanelCaption: '\u05D4\u05EA\u05D7\u05DC \u05E2\u05DD \u05DE\u05D8\u05E8\u05D4 \u05D1\u05E8\u05D5\u05E8\u05D4 \u05D5\u05EA\u05DF \u05DC\u05E1\u05D5\u05DB\u05DF \u05DC\u05EA\u05DB\u05E0\u05DF \u05D0\u05EA \u05D4\u05DE\u05E1\u05DC\u05D5\u05DC \u05D4\u05D1\u05D8\u05D5\u05D7 \u05D5\u05D4\u05E7\u05D8\u05DF \u05D1\u05D9\u05D5\u05EA\u05E8.',
+      starterTitle1: '\u05D1\u05D3\u05D5\u05E7 \u05DE\u05E1\u05DC\u05D5\u05DC\u05D9\u05DD \u05DE\u05E1\u05D5\u05DB\u05E0\u05D9\u05DD',
+      starterDesc1: '\u05E1\u05E7\u05D5\u05E8 \u05D0\u05EA \u05DC\u05D5\u05DC\u05D0\u05EA \u05D4\u05E1\u05D5\u05DB\u05DF \u05E2\u05D1\u05D5\u05E8 \u05E8\u05D2\u05E8\u05E1\u05D9\u05D5\u05EA \u05D1\u05EA\u05DB\u05E0\u05D5\u05DF, \u05D1\u05DB\u05DC\u05D9\u05DD \u05D0\u05D5 \u05D1\u05D6\u05D9\u05DB\u05E8\u05D5\u05DF.',
+      starterPrompt1: '\u05E1\u05E7\u05D5\u05E8 \u05D0\u05EA \u05DC\u05D5\u05DC\u05D0\u05EA \u05D4\u05E1\u05D5\u05DB\u05DF \u05D5\u05D6\u05D4\u05D4 \u05D0\u05EA \u05D4\u05E8\u05D2\u05E8\u05E1\u05D9\u05D5\u05EA \u05D4\u05DE\u05E1\u05D5\u05DB\u05E0\u05D5\u05EA \u05D1\u05D9\u05D5\u05EA\u05E8 \u05D1\u05EA\u05DB\u05E0\u05D5\u05DF, \u05D1\u05DB\u05DC\u05D9\u05DD \u05D0\u05D5 \u05D1\u05D6\u05D9\u05DB\u05E8\u05D5\u05DF.',
+      starterTitle2: '\u05E1\u05DB\u05DD \u05D0\u05EA \u05D4\u05E7\u05D5\u05D3',
+      starterDesc2: '\u05DE\u05E4\u05D4 \u05D0\u05EA \u05D4\u05DE\u05D5\u05D3\u05D5\u05DC\u05D9\u05DD \u05D4\u05DE\u05E8\u05DB\u05D6\u05D9\u05D9\u05DD, \u05D4\u05EA\u05DC\u05D5\u05D9\u05D5\u05EA \u05D5\u05D6\u05E8\u05D9\u05DE\u05EA \u05D4\u05D4\u05E8\u05E6\u05D4.',
+      starterPrompt2: '\u05E1\u05DB\u05DD \u05D0\u05EA \u05D4\u05E7\u05D5\u05D3: \u05DE\u05E4\u05D4 \u05D0\u05EA \u05D4\u05DE\u05D5\u05D3\u05D5\u05DC\u05D9\u05DD \u05D4\u05DE\u05E8\u05DB\u05D6\u05D9\u05D9\u05DD, \u05D4\u05EA\u05DC\u05D5\u05D9\u05D5\u05EA \u05D5\u05D6\u05E8\u05D9\u05DE\u05EA \u05D4\u05D4\u05E8\u05E6\u05D4.',
+      starterTitle3: '\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D4',
+      starterDesc3: '\u05D4\u05E4\u05E7 \u05EA\u05E6\u05D5\u05D2\u05EA Mermaid \u05E9\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA \u05D1\u05D4\u05EA\u05D1\u05E1\u05E1 \u05E2\u05DC \u05D4\u05DE\u05D0\u05D2\u05E8.',
+      starterPrompt3: '\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05EA Mermaid \u05E9\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA \u05D1\u05D4\u05EA\u05D1\u05E1\u05E1 \u05E2\u05DC \u05DE\u05D1\u05E0\u05D4 \u05D4\u05DE\u05D0\u05D2\u05E8 \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9.',
+      starterTitle4: '\u05E0\u05EA\u05D7 \u05E7\u05D1\u05E6\u05D9\u05DD \u05DE\u05E6\u05D5\u05E8\u05E4\u05D9\u05DD',
+      starterDesc4: '\u05D4\u05E2\u05DC\u05D4 \u05E7\u05D1\u05E6\u05D9\u05DD \u05D0\u05D5 \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05D5\u05D1\u05E7\u05E9 \u05EA\u05D5\u05DB\u05E0\u05D9\u05EA \u05E9\u05D9\u05E0\u05D5\u05D9 \u05DE\u05E2\u05D5\u05D2\u05E0\u05EA.',
+      starterPrompt4: '\u05E0\u05EA\u05D7 \u05D0\u05EA \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D0\u05D5 \u05D4\u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05D4\u05DE\u05E6\u05D5\u05E8\u05E4\u05D9\u05DD \u05D5\u05D4\u05E6\u05E2 \u05EA\u05D5\u05DB\u05E0\u05D9\u05EA \u05E9\u05D9\u05E0\u05D5\u05D9 \u05DE\u05E2\u05D5\u05D2\u05E0\u05EA \u05D5\u05D1\u05E2\u05DC\u05EA \u05E1\u05D9\u05DB\u05D5\u05DF \u05E0\u05DE\u05D5\u05DA.',
       chipSearch: '\u05D7\u05D9\u05E4\u05D5\u05E9 \u05D1\u05D0\u05D9\u05E0\u05D8\u05E8\u05E0\u05D8', chipCode: '\u05E7\u05D5\u05D3', chipFiles: '\u05E7\u05D1\u05E6\u05D9\u05DD', chipDiagrams: '\u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05D5\u05EA',
+      chipPromptSearch: '\u05D7\u05E4\u05E9 \u05D0\u05EA \u05D4\u05D4\u05E7\u05E9\u05E8 \u05D4\u05D0\u05E7\u05D8\u05D5\u05D0\u05DC\u05D9 \u05D4\u05E8\u05DC\u05D5\u05D5\u05E0\u05D8\u05D9 \u05D5\u05E1\u05DB\u05DD \u05DE\u05D4 \u05D7\u05E9\u05D5\u05D1.',
+      chipPromptCode: '\u05E1\u05E7\u05D5\u05E8 \u05D0\u05EA \u05D4\u05DE\u05D0\u05D2\u05E8 \u05D5\u05D4\u05E6\u05E2 \u05D0\u05EA \u05E9\u05D9\u05E0\u05D5\u05D9 \u05D4\u05E7\u05D5\u05D3 \u05D4\u05D1\u05D8\u05D5\u05D7 \u05D5\u05D4\u05E7\u05D8\u05DF \u05D1\u05D9\u05D5\u05EA\u05E8.',
+      chipPromptFiles: '\u05E7\u05E8\u05D0 \u05D0\u05EA \u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05D4\u05E8\u05DC\u05D5\u05D5\u05E0\u05D8\u05D9\u05D9\u05DD \u05D5\u05D4\u05E1\u05D1\u05E8 \u05DB\u05D9\u05E6\u05D3 \u05D4\u05DD \u05E2\u05D5\u05D1\u05D3\u05D9\u05DD \u05D9\u05D7\u05D3.',
+      chipPromptDiagrams: '\u05E6\u05D5\u05E8 \u05D3\u05D9\u05D0\u05D2\u05E8\u05DE\u05EA Mermaid \u05E9\u05DE\u05E1\u05D1\u05D9\u05E8\u05D4 \u05D0\u05EA \u05D4\u05D0\u05E8\u05DB\u05D9\u05D8\u05E7\u05D8\u05D5\u05E8\u05D4 \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9\u05EA.',
       placeholder: '...\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4 \u05DC\u05E1\u05D5\u05DB\u05DF', attachFile: '\u05E6\u05E8\u05E3 \u05E7\u05D5\u05D1\u05E5', attachImage: '\u05E6\u05E8\u05E3 \u05EA\u05DE\u05D5\u05E0\u05D4', sendMessage: '\u05E9\u05DC\u05D7 \u05D4\u05D5\u05D3\u05E2\u05D4',
+      enhancePrompt: '\u05E9\u05D3\u05E8\u05D2 \u05D0\u05EA \u05D4\u05E4\u05E8\u05D5\u05DE\u05E4\u05D8', jumpLatest: '\u05E7\u05E4\u05D5\u05E5 \u05DC\u05D4\u05D5\u05D3\u05E2\u05D4 \u05D4\u05D0\u05D7\u05E8\u05D5\u05E0\u05D4',
+      composerPill1: '\u05DE\u05E2\u05D5\u05D2\u05DF \u05DC\u05DE\u05D0\u05D2\u05E8', composerPill2: '\u05D6\u05E8\u05D9\u05DE\u05D4 \u05D1\u05D6\u05DE\u05DF \u05D0\u05DE\u05EA', composerPill3: '\u05E7\u05DC\u05D8 \u05DE\u05D5\u05DB\u05DF \u05DC\u05D7\u05D6\u05D5\u05EA',
+      composerHint: '\u05D8\u05D9\u05E4: \u05D4\u05EA\u05D7\u05DC \u05E2\u05DD \u05D4\u05EA\u05D5\u05E6\u05D0\u05D4 \u05D4\u05E8\u05E6\u05D5\u05D9\u05D4, \u05D4\u05DE\u05D2\u05D1\u05DC\u05D5\u05EA \u05D5\u05D4\u05E7\u05D1\u05E6\u05D9\u05DD \u05E9\u05D4\u05E1\u05D5\u05DB\u05DF \u05E6\u05E8\u05D9\u05DA \u05DC\u05D1\u05D3\u05D5\u05E7 \u05EA\u05D7\u05D9\u05DC\u05D4.',
       toggleSidebar: '\u05D4\u05E6\u05D2/\u05D4\u05E1\u05EA\u05E8 \u05E1\u05E8\u05D2\u05DC \u05E6\u05D3', switchLang: 'EN',
       working: '\u05E2\u05D5\u05D1\u05D3', stopped: '\u05D4\u05D5\u05E4\u05E1\u05E7',
       stepsCompleted: (n) => `${n} \u05E9\u05DC\u05D1${n > 1 ? '\u05D9\u05DD' : ''} \u05D4\u05D5\u05E9\u05DC\u05DE${n > 1 ? '\u05D5' : ''}`,
@@ -813,8 +1012,18 @@
       planRejected: '\u05D4\u05EA\u05DB\u05E0\u05D9\u05EA \u05E0\u05D3\u05D7\u05EA\u05D4.', done: '\u05D1\u05D5\u05E6\u05E2.', reviewFailed: '\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05E0\u05DB\u05E9\u05DC.',
       stoppedToast: '\u05D4\u05D5\u05E4\u05E1\u05E7', sessionCleared: '\u05D4\u05E9\u05D9\u05D7\u05D4 \u05E0\u05D5\u05E7\u05EA\u05D4', allSessionsCleared: '\u05DB\u05DC \u05D4\u05E9\u05D9\u05D7\u05D5\u05EA \u05E0\u05D5\u05E7\u05D5',
       fileTooLarge: '\u05D4\u05E7\u05D5\u05D1\u05E5 \u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9 (\u05DE\u05E7\u05E1\u05D9\u05DE\u05D5\u05DD 512 KB)',
+      maxImages: '\u05DE\u05E7\u05E1\u05D9\u05DE\u05D5\u05DD 5 \u05EA\u05DE\u05D5\u05E0\u05D5\u05EA \u05DC\u05DB\u05DC \u05D4\u05D5\u05D3\u05E2\u05D4.',
+      maxImageSize: (name) => `${name}: \u05DE\u05E7\u05E1\u05D9\u05DE\u05D5\u05DD 5MB \u05DC\u05DB\u05DC \u05EA\u05DE\u05D5\u05E0\u05D4.`,
       currentSession: '\u05E9\u05D9\u05D7\u05D4 \u05E0\u05D5\u05DB\u05D7\u05D9\u05EA', now: '\u05E2\u05DB\u05E9\u05D9\u05D5', copied: '\u05D4\u05D5\u05E2\u05EA\u05E7', copy: '\u05D4\u05E2\u05EA\u05E7',
       connectionError: '\u05E9\u05D2\u05D9\u05D0\u05EA \u05D7\u05D9\u05D1\u05D5\u05E8:', reviewing: '\u05D1\u05D5\u05D3\u05E7',
+      connected: '\u05DE\u05D7\u05D5\u05D1\u05E8', serverError: '\u05E9\u05D2\u05D9\u05D0\u05EA \u05E9\u05E8\u05EA', disconnected: '\u05DE\u05E0\u05D5\u05EA\u05E7',
+      loading: '\u05D8\u05D5\u05E2\u05DF...', noPastSessions: '\u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0\u05D5 \u05E1\u05E9\u05E0\u05D9\u05DD \u05E7\u05D5\u05D3\u05DE\u05D9\u05DD.', couldNotLoadSessions: '\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05D8\u05E2\u05D5\u05DF \u05E1\u05E9\u05E0\u05D9\u05DD.',
+      deleteSession: '\u05DE\u05D7\u05E7 \u05E1\u05E9\u05DF', removeImage: '\u05D4\u05E1\u05E8 \u05EA\u05DE\u05D5\u05E0\u05D4',
+      justNow: '\u05DB\u05E8\u05D2\u05E2', minutesAgo: (n) => `\u05DC\u05E4\u05E0\u05D9 ${n} \u05D3\u05E7\u05F3`, hoursAgo: (n) => `\u05DC\u05E4\u05E0\u05D9 ${n} \u05E9\u05F3`, daysAgo: (n) => `\u05DC\u05E4\u05E0\u05D9 ${n} \u05D9\u05DE\u05D9\u05DD`,
+      sessionHistory: (n) => `\u05D4\u05D9\u05E1\u05D8\u05D5\u05E8\u05D9\u05D9\u05EA \u05E1\u05E9\u05DF · ${n} \u05E1\u05D1\u05D1${n > 1 ? '\u05D9\u05DD' : ''}`,
+      replanning: '\u05DE\u05EA\u05DB\u05E0\u05DF \u05DE\u05D7\u05D3\u05E9…', executingPlan: '\u05DE\u05D1\u05E6\u05E2 \u05EA\u05DB\u05E0\u05D9\u05EA…',
+      couldNotDeleteSession: '\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05DE\u05D7\u05D5\u05E7 \u05D0\u05EA \u05D4\u05E1\u05E9\u05DF', couldNotClearSessions: '\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E0\u05E7\u05D5\u05EA \u05D0\u05EA \u05D4\u05E1\u05E9\u05E0\u05D9\u05DD',
+      enhanceFailed: '\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E9\u05D3\u05E8\u05D2 \u05D0\u05EA \u05D4\u05E4\u05E8\u05D5\u05DE\u05E4\u05D8.',
       planReady: (n) => `\u05EA\u05DB\u05E0\u05D9\u05EA \u05DE\u05D5\u05DB\u05E0\u05D4: <strong>${n} \u05E9\u05DC\u05D1\u05D9\u05DD</strong>`,
       running: (name) => `\u05DE\u05E8\u05D9\u05E5 <code>${name}</code>`,
     }
@@ -826,72 +1035,168 @@
     return val || key;
   }
 
-  function applyLang() {
+  function readStored(key, fallback = null) {
+    try {
+      const value = window.localStorage.getItem(key);
+      return value ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function writeStored(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // Ignore storage failures in locked-down browsers.
+    }
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function setHtml(selector, value) {
+    const el = document.querySelector(selector);
+    if (el) el.innerHTML = value;
+  }
+
+  function setButtonLabelWithIcon(button, label) {
+    if (!button) return;
+    const icon = button.querySelector('svg');
+    button.textContent = '';
+    if (icon) button.appendChild(icon);
+    button.append(label);
+  }
+
+  function isDefaultSessionTitle(text) {
+    const normalized = (text || '').trim();
+    return !normalized || normalized === I18N.en.newConversation || normalized === I18N.he.newConversation;
+  }
+
+  function applyPromptSuggestions() {
+    const starterPromptKeys = ['starterPrompt1', 'starterPrompt2', 'starterPrompt3', 'starterPrompt4'];
+    const starterTitleKeys = ['starterTitle1', 'starterTitle2', 'starterTitle3', 'starterTitle4'];
+    const starterDescKeys = ['starterDesc1', 'starterDesc2', 'starterDesc3', 'starterDesc4'];
+    const chipLabelKeys = ['chipSearch', 'chipCode', 'chipFiles', 'chipDiagrams'];
+    const chipPromptKeys = ['chipPromptSearch', 'chipPromptCode', 'chipPromptFiles', 'chipPromptDiagrams'];
+
+    starterPromptKeys.forEach((key, index) => {
+      const button = document.getElementById(`starter-btn-${index + 1}`);
+      if (button) button.dataset.prompt = t(key);
+      setText(`starter-btn-title-${index + 1}`, t(starterTitleKeys[index]));
+      setText(`starter-btn-desc-${index + 1}`, t(starterDescKeys[index]));
+    });
+
+    document.querySelectorAll('.empty-chip').forEach((chip, index) => {
+      const svg = chip.querySelector('svg');
+      chip.dataset.prompt = t(chipPromptKeys[index]);
+      chip.textContent = '';
+      if (svg) chip.appendChild(svg);
+      chip.append(t(chipLabelKeys[index]));
+    });
+  }
+
+  function bindPromptSuggestions() {
+    const buttons = [...document.querySelectorAll('.starter-btn'), ...document.querySelectorAll('.empty-chip')];
+    buttons.forEach(button => {
+      if (button.dataset.bound === 'true') return;
+      button.dataset.bound = 'true';
+      button.addEventListener('click', () => {
+        if (!button.dataset.prompt) return;
+        setPromptSuggestion(button.dataset.prompt);
+      });
+    });
+  }
+
+  function syncConnectionIndicator() {
+    const connDot = document.getElementById('connection-dot');
+    if (!connDot) return;
+    connDot.classList.toggle('offline', connectionState !== 'online');
+    connDot.title = t(connectionState === 'online' ? 'connected' : connectionState === 'error' ? 'serverError' : 'disconnected');
+  }
+
+  function applyLang(options = {}) {
+    const { refreshHistory = true } = options;
     const isHe = currentLang === 'he';
     document.documentElement.lang = isHe ? 'he' : 'en';
     document.documentElement.dir = isHe ? 'rtl' : 'ltr';
+    document.title = t('pageTitle');
 
-    // Titlebar title - preserve SVG, update text
-    const titleEl = document.querySelector('.titlebar-title');
-    const svgEl = titleEl.querySelector('svg');
-    titleEl.textContent = '';
-    titleEl.appendChild(svgEl);
-    titleEl.append(' ' + t('title'));
+    document.querySelectorAll('.nav-logo-text, .sidebar-panel-logo-text').forEach(el => {
+      el.textContent = t('brand');
+    });
 
     document.getElementById('lang-label').textContent = t('switchLang');
+    document.getElementById('lang-toggle').title = t('toggleLanguage');
+    document.getElementById('theme-toggle').title = t('toggleTheme');
+    document.getElementById('scroll-to-bottom').title = t('jumpLatest');
+    document.querySelector('.sidebar-close-btn').title = t('closeSidebar');
+    document.getElementById('history-refresh-btn').title = t('refreshSessions');
 
     // Sidebar - preserve SVGs
-    const newChatBtn = document.querySelector('.new-chat-btn');
-    const ncSvg = newChatBtn.querySelector('svg');
-    newChatBtn.textContent = '';
-    newChatBtn.appendChild(ncSvg);
-    newChatBtn.append(' ' + t('newChat'));
+    setButtonLabelWithIcon(document.querySelector('.new-chat-btn'), t('newChat'));
 
     const histLabel = document.getElementById('sidebar-history-label');
     if (histLabel) histLabel.textContent = t('history');
 
     const clearBtn = document.getElementById('delete-session-btn');
     if (clearBtn) {
-      const clSvg = clearBtn.querySelector('svg');
-      clearBtn.textContent = '';
-      clearBtn.appendChild(clSvg);
-      clearBtn.append(' ' + t('clear'));
+      setButtonLabelWithIcon(clearBtn, t('clear'));
     }
 
     // Chat header
-    if (!streaming) {
+    const chatSessionTitle = document.getElementById('chat-session-title');
+    if (chatSessionTitle && !streaming && isDefaultSessionTitle(chatSessionTitle.textContent)) {
       document.getElementById('chat-session-title').textContent = t('newConversation');
     }
     document.getElementById('progress-label').textContent = t('thinking');
     document.getElementById('stop-btn').textContent = t('stop');
 
     // Empty state
+    setText('empty-eyebrow', t('emptyEyebrow'));
     const emptyT = document.querySelector('.empty-title');
     const emptyS = document.querySelector('.empty-subtitle');
     if (emptyT) emptyT.textContent = t('emptyTitle');
     if (emptyS) emptyS.textContent = t('emptySubtitle');
+    setHtml('.empty-shortcut', t('emptyShortcut'));
 
-    const chips = document.querySelectorAll('.empty-chip');
-    const chipKeys = ['chipSearch', 'chipCode', 'chipFiles', 'chipDiagrams'];
-    chips.forEach((chip, i) => {
-      const svg = chip.querySelector('svg');
-      chip.textContent = '';
-      chip.appendChild(svg);
-      chip.append(t(chipKeys[i]));
+    ['1', '2', '3'].forEach(index => {
+      setText(`mission-kicker-${index}`, t('missionKicker'));
+      setText(`mission-title-${index}`, t(`missionTitle${index}`));
+      setText(`mission-desc-${index}`, t(`missionDesc${index}`));
     });
+    setText('starter-panel-label', t('starterPanelLabel'));
+    setText('starter-panel-caption', t('starterPanelCaption'));
+    setText('composer-pill-1', t('composerPill1'));
+    setText('composer-pill-2', t('composerPill2'));
+    setText('composer-pill-3', t('composerPill3'));
+    setText('composer-hint', t('composerHint'));
+    applyPromptSuggestions();
 
     // Input area
     document.getElementById('prompt-input').placeholder = t('placeholder');
     document.querySelector('.input-btn[onclick*="attachFile"]').title = t('attachFile');
     document.querySelector('.input-btn[onclick*="attachImage"]').title = t('attachImage');
+    document.getElementById('enhance-btn').title = t('enhancePrompt');
     document.querySelector('.input-btn-send').title = t('sendMessage');
     document.getElementById('sidebar-toggle').title = t('toggleSidebar');
+    document.querySelectorAll('.review-badge').forEach(el => { el.innerHTML = `${ICONS.warning} ${t('planReview')}`; });
+    document.querySelectorAll('.review-objective strong').forEach(el => { el.textContent = t('objective'); });
+    document.querySelectorAll('.review-btn-approve').forEach(el => { el.textContent = t('approve'); });
+    document.querySelectorAll('.review-btn-reject').forEach(el => { el.textContent = t('reject'); });
+    document.querySelectorAll('.review-btn-replan').forEach(el => { el.textContent = t('replan'); });
+    document.querySelectorAll('.replan-spinner-label').forEach(el => { el.textContent = t('replanning'); });
+    document.querySelectorAll('.process-label').forEach(el => { el.textContent = t('executingPlan'); });
+    syncConnectionIndicator();
 
-    renderHistory();
+    if (refreshHistory) renderHistory();
   }
 
   function toggleLang() {
     currentLang = currentLang === 'en' ? 'he' : 'en';
+    writeStored(LANG_STORAGE_KEY, currentLang);
     applyLang();
   }
 
@@ -937,6 +1242,9 @@
   const modelToast = document.getElementById('model-toast');
   const modelToastDot = document.getElementById('model-toast-dot');
   const modelToastText = document.getElementById('model-toast-text');
+  const scrollToBottomBtn = document.getElementById('scroll-to-bottom');
+
+  feed.addEventListener('scroll', syncScrollToBottom, { passive: true });
 
   let modelToastTimer = null;
 
@@ -991,8 +1299,24 @@
   }
 
   function hideEmpty() { emptyWrap.style.display = 'none'; }
-  function scrollFeed() { requestAnimationFrame(() => feed.scrollTop = feed.scrollHeight); }
+  function syncScrollToBottom() {
+    if (!scrollToBottomBtn) return;
+    const distance = feed.scrollHeight - feed.scrollTop - feed.clientHeight;
+    scrollToBottomBtn.classList.toggle('visible', distance > 180);
+  }
+  function scrollFeed() {
+    requestAnimationFrame(() => {
+      feed.scrollTop = feed.scrollHeight;
+      syncScrollToBottom();
+    });
+  }
   function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px'; }
+  function jumpToLatest() { scrollFeed(); }
+  function setPromptSuggestion(text) {
+    promptInput.value = text;
+    autoResize(promptInput);
+    promptInput.focus();
+  }
 
   function getFeedInner() {
     let inner = feed.querySelector('.feed-inner');
@@ -1218,7 +1542,7 @@
     wrap.innerHTML = `
       <div class="review-replan-overlay">
         <div class="replan-spinner"></div>
-        <div class="replan-spinner-label">Replanning…</div>
+        <div class="replan-spinner-label">${t('replanning')}</div>
       </div>
       <div class="review-process-overlay">
         <div class="orbit-wrap">
@@ -1227,7 +1551,7 @@
           <div class="orbit-r3"></div>
           <div class="orbit-core"></div>
         </div>
-        <div class="process-label">Executing plan…</div>
+        <div class="process-label">${t('executingPlan')}</div>
         <div class="process-steps-live">
           ${steps.map((s,i) => `
           <div class="process-step-live" data-idx="${i}">
@@ -1327,7 +1651,7 @@
       if (target === sessionId) newSession();
       else renderHistory();
     } catch {
-      showToast(t('connectionError') + ' Could not delete session', 'error');
+      showToast(`${t('connectionError')} ${t('couldNotDeleteSession')}`, 'error');
     }
   }
 
@@ -1347,7 +1671,7 @@
       showToast(t('allSessionsCleared'), 'success');
       newSession();
     } catch {
-      showToast(t('connectionError') + ' Could not clear sessions', 'error');
+      showToast(`${t('connectionError')} ${t('couldNotClearSessions')}`, 'error');
     }
   }
 
@@ -1392,7 +1716,7 @@
 
       if (!res.ok) {
         const errorText = await res.text();
-        let errorMsg = 'Server error';
+        let errorMsg = t('serverError');
         try {
           const parsed = JSON.parse(errorText);
           errorMsg = Array.isArray(parsed.message) ? parsed.message.join(', ') : (parsed.message || errorText);
@@ -1531,6 +1855,7 @@
 
   function newSession() {
     if (abortController) abortController.abort();
+    if (window.innerWidth <= 768) setSidebarOpen(false);
     sessionId = crypto.randomUUID().slice(0, 16);
     document.getElementById('chat-session-title').textContent = t('newConversation');
     const inner = feed.querySelector('.feed-inner');
@@ -1543,6 +1868,7 @@
     streamingText = '';
     removeAttachment();
     removeAllImageAttachments();
+    syncScrollToBottom();
     renderHistory();
   }
 
@@ -1552,17 +1878,17 @@
     const m = Math.floor(diff / 60000);
     const h = Math.floor(m / 60);
     const d = Math.floor(h / 24);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    if (h < 24) return `${h}h ago`;
-    return `${d}d ago`;
+    if (m < 1) return t('justNow');
+    if (m < 60) return t('minutesAgo', m);
+    if (h < 24) return t('hoursAgo', h);
+    return t('daysAgo', d);
   }
 
   async function renderHistory() {
     const container = document.getElementById('history-list');
     const refreshBtn = document.getElementById('history-refresh-btn');
     refreshBtn.classList.add('spinning');
-    container.innerHTML = `<div class="history-loading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Loading...</div>`;
+    container.innerHTML = `<div class="history-loading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>${t('loading')}</div>`;
 
     try {
       const res = await fetch(`${base()}/api/agents/sessions`);
@@ -1581,7 +1907,7 @@
       if (sessions.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'history-empty';
-        empty.textContent = 'No past sessions found.';
+        empty.textContent = t('noPastSessions');
         container.appendChild(empty);
       } else {
         for (const s of sessions) {
@@ -1601,20 +1927,21 @@
               </div>
               <div class="history-item-meta">${esc(s.sessionId.slice(0,12))}… · ${time}</div>
             </div>
-            <button class="history-item-del" onclick="event.stopPropagation();deleteSession('${esc(s.sessionId)}')" title="Delete session">
+            <button class="history-item-del" onclick="event.stopPropagation();deleteSession('${esc(s.sessionId)}')" title="${t('deleteSession')}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>`;
           container.appendChild(item);
         }
       }
     } catch {
-      container.innerHTML = '<div class="history-empty">Could not load sessions.</div>';
+      container.innerHTML = `<div class="history-empty">${t('couldNotLoadSessions')}</div>`;
     } finally {
       refreshBtn.classList.remove('spinning');
     }
   }
 
   async function switchToSession(sid, objective, isCurrent = false) {
+    if (window.innerWidth <= 768) setSidebarOpen(false);
     // Update active highlight
     document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
     const el = isCurrent
@@ -1637,6 +1964,7 @@
     const inner = feed.querySelector('.feed-inner');
     if (inner) inner.remove();
     emptyWrap.style.display = '';
+    syncScrollToBottom();
 
     const title = objective ? objective.slice(0, 40) + (objective.length > 40 ? '…' : '') : sid.slice(0, 16) + '…';
     document.getElementById('chat-session-title').textContent = title;
@@ -1652,7 +1980,7 @@
       const feedInner = getFeedInner();
       const note = document.createElement('div');
       note.style.cssText = 'text-align:center;font-size:11px;color:var(--text-tertiary);padding:8px 0 16px;';
-      note.textContent = `Session history · ${detail.entries.length} turn${detail.entries.length > 1 ? 's' : ''}`;
+      note.textContent = t('sessionHistory', detail.entries.length);
       feedInner.appendChild(note);
 
       // Render each memory entry as a card
@@ -1696,7 +2024,7 @@
   }
 
   function attachImage() {
-    if (attachedImages.length >= 5) return alert('Maximum 5 images per message.');
+    if (attachedImages.length >= 5) return alert(t('maxImages'));
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -1704,7 +2032,7 @@
     input.onchange = e => {
       const files = Array.from(e.target.files).slice(0, 5 - attachedImages.length);
       files.forEach(file => {
-        if (file.size > 5 * 1024 * 1024) return alert(`${file.name}: max 5 MB per image.`);
+        if (file.size > 5 * 1024 * 1024) return alert(t('maxImageSize', file.name));
         const reader = new FileReader();
         reader.onload = ev => {
           attachedImages.push({ name: file.name, dataUrl: ev.target.result });
@@ -1776,6 +2104,7 @@
       }
     } catch (err) {
       console.error('Enhance API error:', err);
+      showToast(t('enhanceFailed'), 'error');
     } finally {
       btn.innerHTML = originalSvg;
       btn.disabled = false;
@@ -1788,35 +2117,51 @@
     container.innerHTML = attachedImages.map((img, i) => `
       <div class="image-chip">
         <img src="${img.dataUrl}" alt="${esc(img.name)}">
-        <button class="image-chip-remove" onclick="removeImageAttachment(${i})" title="Remove">✕</button>
+        <button class="image-chip-remove" onclick="removeImageAttachment(${i})" title="${t('removeImage')}">✕</button>
       </div>`).join('');
   }
 
-  function toggleSidebar() {
+  function setSidebarOpen(isOpen) {
     const panel = document.getElementById('sidebar-panel');
     const backdrop = document.getElementById('sidebar-backdrop');
-    const isOpen = panel.classList.contains('open');
-    panel.classList.toggle('open', !isOpen);
-    backdrop.classList.toggle('open', !isOpen);
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    panel.classList.toggle('open', isOpen);
+    backdrop.classList.toggle('open', isOpen);
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function toggleSidebar(forceOpen) {
+    const panel = document.getElementById('sidebar-panel');
+    const nextState = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
+    setSidebarOpen(nextState);
   }
 
   function initSidebar() {}
   document.addEventListener('DOMContentLoaded', initSidebar);
 
   window.addEventListener('resize', function() {
-    const mainGrid = document.getElementById('main-grid');
     const toggleBtn = document.getElementById('sidebar-toggle');
-    if (window.innerWidth <= 768) { mainGrid.classList.remove('sidebar-collapsed'); }
-    else { mainGrid.classList.remove('sidebar-open'); }
-    toggleBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+    if (window.innerWidth > 768) setSidebarOpen(false);
+    const icon = toggleBtn?.querySelector('svg');
+    if (icon) icon.style.transform = 'rotate(0deg)';
+    syncScrollToBottom();
   });
 
-  function toggleTheme() {
+  function applyTheme(theme) {
     const html = document.documentElement;
-    const isDark = html.getAttribute('data-theme') === 'dark';
-    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-    document.getElementById('theme-icon-light').style.display = isDark ? 'block' : 'none';
-    document.getElementById('theme-icon-dark').style.display = isDark ? 'none' : 'block';
+    const normalized = theme === 'light' ? 'light' : 'dark';
+    html.setAttribute('data-theme', normalized);
+    document.getElementById('theme-icon-light').style.display = normalized === 'light' ? 'block' : 'none';
+    document.getElementById('theme-icon-dark').style.display = normalized === 'dark' ? 'block' : 'none';
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', normalized === 'dark' ? '#0a0a1a' : '#f0f2ff');
+  }
+
+  function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const nextTheme = isDark ? 'light' : 'dark';
+    applyTheme(nextTheme);
+    writeStored(THEME_STORAGE_KEY, nextTheme);
   }
 
   // renderHistory is defined above with full API integration
@@ -1826,9 +2171,16 @@
   });
 
   window.onload = () => {
+    currentLang = readStored(LANG_STORAGE_KEY, currentLang) === 'he' ? 'he' : 'en';
+    applyTheme(readStored(THEME_STORAGE_KEY, document.documentElement.getAttribute('data-theme')));
+    bindPromptSuggestions();
+    applyLang({ refreshHistory: false });
     renderHistory(); // async — fetches sessions from API
-    document.getElementById('chat-session-title').textContent = t('newConversation');
+    if (isDefaultSessionTitle(document.getElementById('chat-session-title').textContent)) {
+      document.getElementById('chat-session-title').textContent = t('newConversation');
+    }
     promptInput.focus();
+    syncScrollToBottom();
     if (typeof mermaid !== 'undefined') {
       mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
     }
@@ -1838,17 +2190,17 @@
     });
 
     // Connection status monitoring
-    const connDot = document.getElementById('connection-dot');
     async function checkConnection() {
       try {
         const r = await fetch(`${base()}/api/agents/sessions`, { signal: AbortSignal.timeout(3000) });
-        connDot.classList.toggle('offline', !r.ok);
-        connDot.title = r.ok ? 'Connected' : 'Server error';
+        connectionState = r.ok ? 'online' : 'error';
+        syncConnectionIndicator();
       } catch {
-        connDot.classList.add('offline');
-        connDot.title = 'Disconnected';
+        connectionState = 'offline';
+        syncConnectionIndicator();
       }
     }
+    syncConnectionIndicator();
     checkConnection();
     setInterval(checkConnection, 30000);
   };
