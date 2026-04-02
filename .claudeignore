@@ -1,4 +1,4 @@
-# --- General Noise ---
+# --- General System & OS ---
 .git/
 .DS_Store
 *.log
@@ -6,27 +6,31 @@ logs/
 temp/
 tmp/
 
-# --- Dependencies & Artifacts (THE BIGGEST SAVINGS) ---
+# --- Build & Dependencies (The Token Killers) ---
 node_modules/
 dist/
 build/
 out/
 .next/
 vendor/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+*.tsbuildinfo
+.nestjs/
 
-# --- Expo / React Native Specifics ---
-.expo/
-android/
-ios/
-*.jks
-*.p12
-*.key
-web-build/
+# --- Databases & Vector Stores ---
+# Qdrant and Redis local data are massive and unreadable
+storage/
+qdrant_data/
+dump.rdb
+.redis/
 
-# --- Testing & Coverage ---
-coverage/
-.nyc_output/
-*.lcov
+# --- AI & LangGraph Artifacts ---
+.langchain/
+.langgraph/
+traces/
+*.jsonl
 
 # --- Environment & Secrets ---
 .env
@@ -34,7 +38,16 @@ coverage/
 !.env.example
 secrets.json
 
-# --- Documentation (Optional) ---
-# Ignore large docs if you've already summarized them in CLAUDE.md
-docs/
-site/
+# --- Testing & Coverage ---
+coverage/
+.nyc_output/
+*.lcov
+
+# --- Mobile/Expo (If applicable to your sub-projects) ---
+.expo/
+android/
+ios/
+*.jks
+*.p12
+*.key
+web-build/
