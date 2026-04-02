@@ -13,6 +13,10 @@ import { env } from '@config/env';
  * Example plan step:
  *   {"tool":"llm_summarize","input":{"content":"__PREVIOUS_RESULT__","instruction":"Summarize each TypeScript file…"}}
  */
+
+/** Hard ceiling before even attempting the LLM call. */
+const MAX_CONTENT = 100_000;
+
 export const llmSummarizeTool = new DynamicStructuredTool({
   name: 'llm_summarize',
   description:
@@ -27,12 +31,21 @@ export const llmSummarizeTool = new DynamicStructuredTool({
       ),
   }),
   func: async ({ content, instruction }): Promise<string> => {
+    if (content.length > MAX_CONTENT) {
+      return `ERROR: content is too large (${content.length} chars). Maximum allowed is ${MAX_CONTENT} chars.`;
+    }
+
     const maxChars = env.promptMaxSummaryChars;
     const truncated =
       content.length > maxChars
         ? content.slice(0, maxChars) + '\n[...truncated]'
         : content;
     const prompt = `${instruction}\n\n---\n\n${truncated}`;
-    return invokeLlm(prompt);
+
+    try {
+      return await invokeLlm(prompt);
+    } catch (err) {
+      return `ERROR: LLM call failed — ${err instanceof Error ? err.message : String(err)}`;
+    }
   },
 });
