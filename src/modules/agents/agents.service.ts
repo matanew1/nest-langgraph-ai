@@ -541,6 +541,10 @@ Enhanced prompt:`;
     return this.sessionService.getSessionDetail(sessionId);
   }
 
+  async listCheckpoints(sessionId: string) {
+    return this.sessionService.listCheckpoints(sessionId);
+  }
+
   async deleteSession(sessionId: string): Promise<void> {
     return this.sessionService.deleteSession(sessionId);
   }

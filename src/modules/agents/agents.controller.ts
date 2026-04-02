@@ -21,6 +21,7 @@ import {
 } from './agents.service';
 import {
   AddMemoryEntryDto,
+  CheckpointListResponseDto,
   EnhancePromptDto,
   EnhancePromptResponseDto,
   FeedbackStatsResponseDto,
@@ -158,6 +159,21 @@ export class AgentsController {
     @Param('sessionId') sessionId: string,
   ): Promise<SessionDetailDto> {
     return this.agentsService.getSessionDetail(sessionId);
+  }
+
+  @Get('session/:sessionId/checkpoints')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Sessions')
+  @ApiOperation({ summary: 'List checkpoint history for a session' })
+  @ApiSessionIdParam()
+  @ApiStandardResponse({
+    type: CheckpointListResponseDto,
+    description: 'Ordered list of checkpoints saved by the RedisSaver',
+  })
+  async listCheckpoints(
+    @Param('sessionId') sessionId: string,
+  ): Promise<CheckpointListResponseDto> {
+    return this.agentsService.listCheckpoints(sessionId);
   }
 
   @Delete('session/:sessionId')

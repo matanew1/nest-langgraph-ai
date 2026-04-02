@@ -228,6 +228,19 @@ export class SessionDetailDto {
   @ApiProperty({ nullable: true }) phase: string | null;
 }
 
+export class CheckpointSummaryDto {
+  @ApiProperty() id: string;
+  @ApiProperty() savedAt: number;
+  @ApiProperty({ nullable: true }) phase: string | null;
+  @ApiProperty({ nullable: true }) step: number | null;
+  @ApiProperty({ nullable: true }) parentId: string | null;
+  @ApiProperty() pendingWriteCount: number;
+}
+
+export class CheckpointListResponseDto {
+  @ApiProperty({ type: [CheckpointSummaryDto] }) checkpoints: CheckpointSummaryDto[];
+}
+
 export interface StreamEventDto {
   type:
     | 'status'

@@ -10,6 +10,8 @@ import type {
   ListSessionsResponseDto,
   SessionSummaryDto,
   SessionDetailDto,
+  CheckpointListResponseDto,
+  CheckpointSummaryDto,
 } from '../agents.dto';
 
 /** Safe session ID pattern. */
@@ -100,6 +102,28 @@ export class SessionService {
       lastObjective,
       phase,
     };
+  }
+
+  async listCheckpoints(sessionId: string): Promise<CheckpointListResponseDto> {
+    assertValidSessionId(sessionId);
+    const config = { configurable: { thread_id: sessionId } };
+    const checkpoints: CheckpointSummaryDto[] = [];
+
+    for await (const tuple of this.checkpointer.list(config)) {
+      const meta = tuple.metadata as Record<string, unknown> | undefined;
+      checkpoints.push({
+        id: tuple.checkpoint.id,
+        savedAt: (tuple.checkpoint as any).ts
+          ? new Date((tuple.checkpoint as any).ts).getTime()
+          : Date.now(),
+        phase: (meta?.['phase'] as string) ?? null,
+        step: (meta?.['step'] as number) ?? null,
+        parentId: tuple.parentConfig?.configurable?.['checkpoint_id'] ?? null,
+        pendingWriteCount: (tuple.pendingWrites ?? []).length,
+      });
+    }
+
+    return { checkpoints };
   }
 
   async deleteSession(sessionId: string): Promise<void> {
