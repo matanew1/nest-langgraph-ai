@@ -14,6 +14,13 @@ const EXCLUDE_DIRS = ['node_modules', 'dist', '.git', 'coverage'];
 
 export const grepSearchTool = tool(
   async ({ pattern, path, glob }) => {
+    // Validate pattern is a valid regex before spawning grep
+    try {
+      new RegExp(pattern);
+    } catch {
+      return `ERROR: invalid regex pattern — ${pattern}`;
+    }
+
     const resolved = sandboxPath(path ?? '.');
 
     const args = ['-rn', '--color=never'];
