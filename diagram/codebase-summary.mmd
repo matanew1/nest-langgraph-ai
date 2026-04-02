@@ -1,0 +1,37 @@
+flowchart LR
+  %% Mirrors src/modules/agents/graph/agent.graph.ts (state graph-centric)
+
+  START["START"]
+  END["END"]
+
+  SUPERVISOR["SUPERVISOR
+nodes/supervisor.node.ts"]
+  ROUTER["ROUTER
+nodes/decision-router.node.ts
+routes by state.phase"]
+  RESEARCHER_COORDINATOR["RESEARCHER COORDINATOR
+nodes/researcher-coordinator.node.ts"]
+  RESEARCH_FS["RESEARCH FS
+nodes/research-fs.node.ts"]
+  STATE_GRAPH["STATE GRAPH
+StateGraph<AgentStateAnnotation>"]
+
+  %% Fixed edges (core workflow)
+  START --> SUPERVISOR
+  SUPERVISOR --> ROUTER
+  RESEARCHER_COORDINATOR --> ROUTER
+  RESEARCH_FS --> ROUTER
+
+  %% Conditional edges from ROUTER
+  ROUTER -->|phase = complete OR fatal| END
+  ROUTER -->|phase = research| RESEARCHER_COORDINATOR
+  ROUTER -->|phase = research_fs| RESEARCH_FS
+
+  %% Fallback (default routing)
+  ROUTER -->|phase = route / default fallback| SUPERVISOR
+
+  %% Execution flow (highlighted)
+  style START fill:#f9f,stroke:#333
+  style END fill:#f9f,stroke:#333
+  style STATE_GRAPH fill:#bbf,stroke:#333
+  linkStyle 0,1,2,3,4,5,6,7,8 stroke:#f00,stroke-width:2px

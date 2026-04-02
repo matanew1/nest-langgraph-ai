@@ -159,6 +159,29 @@ export async function planValidatorNode(
         continue;
       }
 
+      // If an earlier step in this plan creates the same file, we cannot verify
+      // existence or grep the anchor yet — skip both checks for this step.
+      const FILE_CREATING_TOOLS = new Set([
+        'write_file',
+        'create_file',
+        'move_file',
+        'copy_file',
+      ]);
+      const priorStepCreatesFile = steps
+        .filter((s) => s.step_id < step.step_id)
+        .some(
+          (s) =>
+            FILE_CREATING_TOOLS.has(s.tool) &&
+            (s.input as Record<string, unknown>)['path'] === input.path,
+        );
+
+      if (priorStepCreatesFile) {
+        logger.log(
+          `⏭ Skipping file_patch verification for step ${step.step_id} — file will be created by a prior step`,
+        );
+        continue;
+      }
+
       logger.log(`Verifying file_patch step ${step.step_id}: ${input.path}`);
 
       try {
