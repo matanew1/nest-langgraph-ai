@@ -19,7 +19,7 @@ describe('readMermaidTool', () => {
 
     const result = await readMermaidTool.invoke({ path: 'big.mmd' });
 
-    expect(result.length).toBeLessThanOrEqual(100_010); // MAX_SIZE + notice overhead
+    expect(result.length).toBeLessThanOrEqual(100_100); // MAX_SIZE + notice overhead
     expect(result).toContain('[truncated]');
   });
 

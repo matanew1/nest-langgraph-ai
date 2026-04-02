@@ -23,7 +23,7 @@ export const readMermaidTool = tool(
     if (content.length > MAX_SIZE) {
       return (
         content.slice(0, MAX_SIZE) +
-        `\n… [truncated: file is ${content.length} chars, limit is ${MAX_SIZE}]`
+        `\n… [truncated] file is ${content.length} chars, limit is ${MAX_SIZE}`
       );
     }
 
