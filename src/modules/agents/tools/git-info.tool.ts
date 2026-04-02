@@ -12,6 +12,12 @@ const ALLOWED_ACTIONS = ['status', 'log', 'diff', 'branch', 'show'] as const;
 
 type GitAction = (typeof ALLOWED_ACTIONS)[number];
 
+/** Only allow chars that git legitimately uses in refs and paths. */
+const SAFE_ARGS_RE = /^[\w\s\-\./=@^~:]+$/;
+
+/** Shell metacharacters that must never appear in args. */
+const SHELL_META_RE = /[;|&$(){}\\`<>!#]/;
+
 /**
  * Build a safe args array for execFile('git', ...).
  * Using execFile avoids shell interpretation — args are passed directly
@@ -41,7 +47,14 @@ export const gitInfoTool = tool(
       return `ERROR: unknown action "${action}". Allowed: ${ALLOWED_ACTIONS.join(', ')}`;
     }
 
-    const gitArgs = buildArgs(action as GitAction, args ?? '');
+    const safeArgs = args ?? '';
+    if (safeArgs.trim().length > 0) {
+      if (SHELL_META_RE.test(safeArgs) || !SAFE_ARGS_RE.test(safeArgs)) {
+        return `ERROR: invalid arg characters detected — only alphanumeric, spaces, and git-safe punctuation (- . / = @ ^ ~ :) are allowed`;
+      }
+    }
+
+    const gitArgs = buildArgs(action as GitAction, safeArgs);
     logger.log(`git ${action}: git ${gitArgs.join(' ')}`);
 
     return new Promise<string>((resolve) => {
