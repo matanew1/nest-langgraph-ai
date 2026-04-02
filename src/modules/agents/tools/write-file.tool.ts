@@ -17,7 +17,7 @@ export const writeFileTool = tool(
 
     // If the LLM includes a markdown block, extract just the code.
     let finalContent = content;
-    const codeBlockMatch = content.match(/```(?:\w*\n)?([\s\S]*?)```/);
+    const codeBlockMatch = content.match(/```(?:\w*\n?)?([\s\S]*?)```/);
     if (codeBlockMatch?.[1]) {
       logger.log('Code block found, extracting content for write operation.');
       finalContent = codeBlockMatch[1].trim();
@@ -26,8 +26,12 @@ export const writeFileTool = tool(
     const resolved = sandboxPath(path);
     logger.log(`Writing file: ${resolved}`);
 
-    await mkdir(dirname(resolved), { recursive: true });
-    await writeFile(resolved, finalContent, 'utf-8');
+    try {
+      await mkdir(dirname(resolved), { recursive: true });
+      await writeFile(resolved, finalContent, 'utf-8');
+    } catch (err) {
+      return `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+    }
 
     return `File written successfully: ${resolved} (${finalContent.length} bytes)`;
   },
