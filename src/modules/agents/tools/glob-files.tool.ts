@@ -1,6 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sandboxPath } from '@utils/path.util';
 
@@ -17,7 +17,8 @@ async function walk(
   for (const entry of entries) {
     if (acc.length >= maxResults) return;
     const full = join(dir, entry);
-    const s = await stat(full);
+    const s = await lstat(full); // lstat does NOT follow symlinks
+    if (s.isSymbolicLink()) continue; // skip to prevent infinite loops
     if (s.isDirectory()) {
       if (SKIP_DIRS.has(entry)) continue;
       await walk(full, extensions, maxResults, acc);

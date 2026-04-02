@@ -23,17 +23,19 @@ jest.mock('@utils/path.util', () => ({
 jest.mock('node:fs/promises', () => ({
   readdir: jest.fn(),
   stat: jest.fn(),
+  lstat: jest.fn(),
 }));
 
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, lstat } from 'node:fs/promises';
 
 const mockedReaddir = readdir as jest.MockedFunction<typeof readdir>;
-const mockedStat = stat as jest.MockedFunction<typeof stat>;
+const mockedStat = lstat as jest.MockedFunction<typeof lstat>;
 
 function makeFileStat(isDir = false) {
   return {
     isDirectory: () => isDir,
     isFile: () => !isDir,
+    isSymbolicLink: () => false,
   } as any;
 }
 
