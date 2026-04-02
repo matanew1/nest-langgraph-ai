@@ -4,16 +4,18 @@ import { upsertVectorMemory } from '@vector-db/vector-memory.util';
 
 export const vectorUpsertTool = tool(
   async ({ text, id, metadata }) => {
-    const result = await upsertVectorMemory({ text, id, metadata });
+    let result: Record<string, unknown>;
+    try {
+      result = await upsertVectorMemory({ text, id, metadata });
+    } catch (err) {
+      return `ERROR: vector upsert failed — ${err instanceof Error ? err.message : String(err)}`;
+    }
 
-    return JSON.stringify(
-      {
-        ok: true,
-        ...result,
-      },
-      null,
-      2,
-    );
+    if (result && typeof result === 'object' && 'error' in result) {
+      return `ERROR: vector upsert returned an error — ${String(result.error)}`;
+    }
+
+    return JSON.stringify({ ok: true, ...result }, null, 2);
   },
   {
     name: 'vector_upsert',
