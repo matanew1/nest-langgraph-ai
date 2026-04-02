@@ -1,6 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, lstat } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
 import { z } from 'zod';
 import { env } from '@config/env';
@@ -126,7 +126,8 @@ async function walkFiles(root: string, acc: string[]): Promise<void> {
   const entries = await readdir(root);
   for (const entry of entries) {
     const full = join(root, entry);
-    const fileStat = await stat(full);
+    const fileStat = await lstat(full); // lstat does NOT follow symlinks
+    if (fileStat.isSymbolicLink()) continue; // skip symlinks to prevent infinite loops
     if (fileStat.isDirectory()) {
       if (SKIP_DIRS.has(entry)) continue;
       await walkFiles(full, acc);
