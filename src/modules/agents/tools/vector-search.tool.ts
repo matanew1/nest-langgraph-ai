@@ -5,19 +5,15 @@ import { searchVectorMemories } from '@vector-db/vector-memory.util';
 export const vectorSearchTool = tool(
   async ({ query, topK }) => {
     const effectiveTopK = topK ?? 5;
-    const results = await searchVectorMemories(query, {
-      topK: effectiveTopK,
-    });
 
-    return JSON.stringify(
-      {
-        ok: true,
-        topK: effectiveTopK,
-        results,
-      },
-      null,
-      2,
-    );
+    let results: unknown;
+    try {
+      results = await searchVectorMemories(query, { topK: effectiveTopK });
+    } catch (err) {
+      return `ERROR: vector search failed — ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    return JSON.stringify({ ok: true, topK: effectiveTopK, results }, null, 2);
   },
   {
     name: 'vector_search',
