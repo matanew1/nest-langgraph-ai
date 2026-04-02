@@ -1,0 +1,87 @@
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+### 0.0.2 (2026-04-02)
+
+
+### Features
+
+* add core providers, utils, and agent modules structure ([249f603](https://github.com/matanew1/nest-langgraph-ai/commit/249f6030a963e5dc8c42c1e9408459ba303e412d))
+* **agents:** add feedback endpoints with salience re-ranking and idempotency ([044acde](https://github.com/matanew1/nest-langgraph-ai/commit/044acdea6dd3ca22b26f1504f0cbc963b432d1e4))
+* **agents:** add Session Memory API endpoints ([4c7f5aa](https://github.com/matanew1/nest-langgraph-ai/commit/4c7f5aaca5de1ff5eb6d29803ee98a721b09ab32))
+* **agents:** implement parallelExecutionNode with Promise.allSettled ([3069bd5](https://github.com/matanew1/nest-langgraph-ai/commit/3069bd56b57e95423aa7fb55d3bbe4441e7fae45))
+* **agents:** register parallel execution node and update routing ([243021f](https://github.com/matanew1/nest-langgraph-ai/commit/243021f6c945d54b50ebcc518c68f0756c11e969))
+* **agents:** wire streamLlm into chat and generator nodes ([ad497e0](https://github.com/matanew1/nest-langgraph-ai/commit/ad497e01e2e3e91ce32f281988c07843c23e8015))
+* animated progress pill, plain-text enhance prompt, fix __INLINE_CONTENT__ fallback ([0edaa87](https://github.com/matanew1/nest-langgraph-ai/commit/0edaa878d7bd390e66c397b91579902c6fc9addc))
+* fix replan flow, add spinner UI, strengthen planner patch rules ([5259255](https://github.com/matanew1/nest-langgraph-ai/commit/5259255a6fbb8ae4afaf6d546be10452c2fc0671))
+* implement AI-powered prompt enhancement feature with new service method, API endpoint, DTOs, and UI integration. ([9cfa480](https://github.com/matanew1/nest-langgraph-ai/commit/9cfa480db25c7d8cea09da347629abbc3876d1b8))
+* implement all robustness and scalability improvements ([93ddbdf](https://github.com/matanew1/nest-langgraph-ai/commit/93ddbdfad887b8ea6a100f69d2b68ecef95c89f7))
+* implement all suggested improvements ([b60fb28](https://github.com/matanew1/nest-langgraph-ai/commit/b60fb282bad92835e94e56bed3c8c9b4975c6ce9))
+* implement streamLlm() async generator in LLM provider ([1a857f6](https://github.com/matanew1/nest-langgraph-ai/commit/1a857f6880c34d8d6e29dd60738430a05b3610b6))
+* implement vector ID tracking feedback loop ([c8603c2](https://github.com/matanew1/nest-langgraph-ai/commit/c8603c2707eaa957d4e940be426b8be184b7d20e))
+* post-completion memory persist fan-out from generator node ([64972f9](https://github.com/matanew1/nest-langgraph-ai/commit/64972f9add0dbb9a906b68b30e7e66eebeedffec))
+* remove model badge from chat UI ([ea85f48](https://github.com/matanew1/nest-langgraph-ai/commit/ea85f486a16a4d3752bc57049e6c5663acf95bb6))
+* Replace `plan-review.html` with a new `index.html` UI and update the redirect path in the agents controller. ([e155187](https://github.com/matanew1/nest-langgraph-ai/commit/e155187a7e09a8cf995e3829cfb44786072364be))
+* replace mac-window HTML with full-page app layout and slide-out sidebar ([f5b14fe](https://github.com/matanew1/nest-langgraph-ai/commit/f5b14fefaba3bd3965de25c9d0be17b1f013e794))
+* split researcher node into parallel fan-out pipeline (Task 2) ([a0863dd](https://github.com/matanew1/nest-langgraph-ai/commit/a0863ddaee713840190db7e0e4c7d691f5f303f1))
+* wire onToken in streamRun() SSE pipeline ([4cb4349](https://github.com/matanew1/nest-langgraph-ai/commit/4cb43498547cd67ba25a587128975ee95ab710e7))
+
+
+### Bug Fixes
+
+* abort stream on early exit, move test to llm module, add edge case tests ([1f9cd3c](https://github.com/matanew1/nest-langgraph-ai/commit/1f9cd3cf0fe5fd484852666905816703a27db726))
+* add SESSION_TTL_SECONDS env var, wire AGENT_LIMITS to env, implement RedisSaver.list() ([7c80dd8](https://github.com/matanew1/nest-langgraph-ai/commit/7c80dd80881f905345716bd71eb1fd6f52804bed))
+* **agents:** add vectorMemoryIds annotation, clamp salience, split VectorClient type ([3cbfe4a](https://github.com/matanew1/nest-langgraph-ai/commit/3cbfe4a9e716e7f75facd0670b2f1645bed2275d))
+* **agents:** fix onToken extraction, empty-stream guard, llm_stream_reset swagger ([c772914](https://github.com/matanew1/nest-langgraph-ai/commit/c772914d201b30579446ff75e5c3531016faf865))
+* **agents:** fix tool name in validator test, reset parallelResult flag, retry-step comment ([4f9b23c](https://github.com/matanew1/nest-langgraph-ai/commit/4f9b23c12c6ac7cc3e76ba36a70baafe9a178bf3))
+* **agents:** register onToken in state annotation, validate streamPhases, add drain tests ([de57dcc](https://github.com/matanew1/nest-langgraph-ai/commit/de57dcc4e124d070b379af662c8c397a953c9ef7))
+* **agents:** remove stale duplicate node file, remove redundant clearTimeout ([ccadd40](https://github.com/matanew1/nest-langgraph-ai/commit/ccadd4006b8d6a29aa5d47c3063fb3b7182a25ea))
+* **agents:** timedOut flag, errors patch, PREVIOUS_RESULT warn in parallel node ([c9be650](https://github.com/matanew1/nest-langgraph-ai/commit/c9be650df244cfa02ac465dbe99211621667b758))
+* **agents:** whitespace validation, 201 status, session memory tests ([6f8769a](https://github.com/matanew1/nest-langgraph-ai/commit/6f8769a04cbeddce3d9d47bb390324fc3405c762))
+* ast_parse handles exported declarations, class methods, and arrow function variables ([56752e3](https://github.com/matanew1/nest-langgraph-ai/commit/56752e324dc31492f7349fba65c30b140c2272f1))
+* correct CLAUDE.md chat fast-path (memory-persist is generator-only) ([1dcef98](https://github.com/matanew1/nest-langgraph-ai/commit/1dcef987919464f253c2173130da0c1f676cc0b3))
+* extract AGENT_GRAPH_NODES to leaf module to break circular dependency ([6a28dfa](https://github.com/matanew1/nest-langgraph-ai/commit/6a28dfad1663dd3845cba10fb340a4be44fb9b58))
+* file_patch returns error when find string has 0 or multiple occurrences ([0ec2caa](https://github.com/matanew1/nest-langgraph-ai/commit/0ec2caa1eec04479316140303276f72316a9dd21))
+* json_repair routing preserves fromPhase and routes result back to originating node ([15258af](https://github.com/matanew1/nest-langgraph-ai/commit/15258afab49d0faa1f6e3f9be8142cc97e783013))
+* llm_summarize truncates content to env.promptMaxSummaryChars before LLM call ([a420170](https://github.com/matanew1/nest-langgraph-ai/commit/a42017094ebfbd7193d99f19e8ba012795d39fdf))
+* planner must read from disk before patching inline-attached files ([e54d2c9](https://github.com/matanew1/nest-langgraph-ai/commit/e54d2c95da2872d639408243a064008826a68b1c))
+* remove dead agentGraph export; filter all errored tools; refresh projectContext on replan ([8148b32](https://github.com/matanew1/nest-langgraph-ai/commit/8148b324f25fc758ce0487345b87e8be3b60881c))
+* remove display:contents on #feed — broke scroll container ([2afd939](https://github.com/matanew1/nest-langgraph-ai/commit/2afd939a0e49b7d19444be6d135a72f9b996d131))
+* remove duplicate tool existence check from planner — plan_validator is authoritative ([1b6b5f9](https://github.com/matanew1/nest-langgraph-ai/commit/1b6b5f94e6d879a7cf97fa117cc153e34d1ff57d))
+* remove modelBadge JS references after element removal ([c94a632](https://github.com/matanew1/nest-langgraph-ai/commit/c94a632b012ed875e0260c01bc43c06c609a8abd))
+* replace hardcoded 60s TimeoutInterceptor with dynamic env-based formula ([8b5ae1c](https://github.com/matanew1/nest-langgraph-ai/commit/8b5ae1c557672fef3fb554c4ce51a27cc67a2c85))
+* replace Send[] node returns with static addEdge fan-out for LangGraph 1.2 compat ([4cc0c82](https://github.com/matanew1/nest-langgraph-ai/commit/4cc0c82a1de84b274501238830c05bc34b58a17c))
+* resolve lint errors and test suite failures ([b1eff1e](https://github.com/matanew1/nest-langgraph-ai/commit/b1eff1e24f09fcd7e58e0439c5544dee0b7f491a))
+* resolve TypeScript compile errors in research fan-out topology ([62f2fd3](https://github.com/matanew1/nest-langgraph-ai/commit/62f2fd320c4bf9e20d9f4a86cefec0fb30c41061))
+* safe cast of LLM content — handle MessageContentComplex arrays ([448756b](https://github.com/matanew1/nest-langgraph-ai/commit/448756bbef3fe880697b2fbf5482e507d125907a))
+* search tool schema rejects empty query and unknown fields ([c227fd0](https://github.com/matanew1/nest-langgraph-ai/commit/c227fd0a8c57bb03914106d0e35ee16303eccf74))
+* tool-result-normalizer uses env.criticResultMaxChars instead of hardcoded 6000 ([f90ba02](https://github.com/matanew1/nest-langgraph-ai/commit/f90ba02d840e5064a8e5038a76f670c7f0a9f300))
+* **tools:** add error handling and result validation in vector_upsert ([0513687](https://github.com/matanew1/nest-langgraph-ai/commit/051368759405d8a56ec54b79aadb2dc0a6b0b160))
+* **tools:** add MAX_CONTENT guard and catch invokeLlm errors in llm_summarize ([4fc14e7](https://github.com/matanew1/nest-langgraph-ai/commit/4fc14e7c87c58e877357ef19d044974e538b463d))
+* **tools:** add MAX_FILE_BYTES guard and type guard for Babel result in ast_parse ([1cb110b](https://github.com/matanew1/nest-langgraph-ai/commit/1cb110bd194f7cc13a85d8f1e04e0df45ac8ae4d))
+* **tools:** add MAX_OCCURRENCES guard to prevent O(n²) scan in file_patch ([2215dc8](https://github.com/matanew1/nest-langgraph-ai/commit/2215dc86d44847c575c4136ca7258db17b94c37b))
+* **tools:** add MAX_SIZE truncation to read_mermaid ([8280386](https://github.com/matanew1/nest-langgraph-ai/commit/82803869becfd299ffc367bb21d741a975e230a3))
+* **tools:** catch searchVectorMemories errors in vector_search ([e229689](https://github.com/matanew1/nest-langgraph-ai/commit/e22968971df6f529d30340aa7a9d8709451c2930))
+* **tools:** check destination existence before rename in move_file ([3c0f6f4](https://github.com/matanew1/nest-langgraph-ai/commit/3c0f6f4924185cc61268a6785c9d5fa11290a33b))
+* **tools:** dedup paths before MAX_FILES cap and report per-file read failures in read_files_batch ([63e53d8](https://github.com/matanew1/nest-langgraph-ai/commit/63e53d83f918d0f815e24178bb2fd9e9d37cccf3))
+* **tools:** fix code-block regex and add error handling in write_file ([12a6607](https://github.com/matanew1/nest-langgraph-ai/commit/12a6607bf76d115bd63ff243e93ec9b675a2a978))
+* **tools:** fix truncation notice format in read_mermaid ([a9b1f3a](https://github.com/matanew1/nest-langgraph-ai/commit/a9b1f3a86bd2c6ba57bdadb10270d49893c0d6db))
+* **tools:** replace exec with execFile and strip secrets from child env in run_command ([9778206](https://github.com/matanew1/nest-langgraph-ai/commit/977820645a883f334ff9d23ac32b94167f6757de))
+* **tools:** restrict http_post body schema to JSON-serializable primitives ([902a310](https://github.com/matanew1/nest-langgraph-ai/commit/902a310c9e03e03bcd6566e999d1a2dc8562ea3f))
+* **tools:** skip symlinks in tree_dir to prevent infinite loops ([490bd72](https://github.com/matanew1/nest-langgraph-ai/commit/490bd72fa38750c1208055af09fe604c5ec6766e))
+* **tools:** strengthen isLikelyMermaid to cover all Mermaid diagram types ([33f23f2](https://github.com/matanew1/nest-langgraph-ai/commit/33f23f27fa7394cf056c079043878d97cc9177f1))
+* **tools:** use lstat to skip symlinks in glob_files ([b91a914](https://github.com/matanew1/nest-langgraph-ai/commit/b91a91408246600a284fafda47e0a6e293a261b3))
+* **tools:** use lstat to skip symlinks in repo_impact_radar walkFiles ([02ec81d](https://github.com/matanew1/nest-langgraph-ai/commit/02ec81d050afc5c7657b6af56b6635e7f2cddd48))
+* **tools:** validate git args against shell metacharacters in git_info ([8d5ceaf](https://github.com/matanew1/nest-langgraph-ai/commit/8d5ceaf35547750cf2331180e517ab9fdc847dc3))
+* **tools:** validate regex pattern before spawning grep in grep_search ([6c71479](https://github.com/matanew1/nest-langgraph-ai/commit/6c714798e8e7e40981a440eee84f105ef2a5cf1c))
+* update docs and stale comment after json-repair removal ([0dc6b00](https://github.com/matanew1/nest-langgraph-ai/commit/0dc6b00b19309fff663d6b0e6cb772ff121e2a70))
+* update stale mock in prompt-template spec after XML refactor ([db98545](https://github.com/matanew1/nest-langgraph-ai/commit/db98545b0cbb21db835eb8cc6652beb44210fda9))
+* use debug log in memory-persist, add fallback coverage tests ([6fc1674](https://github.com/matanew1/nest-langgraph-ai/commit/6fc16746a78be797eddb2b754a1dcf54815a24ea))
+
+
+### Refactors
+
+* **prompts:** restructure supervisor/planner/critic templates with XML tags ([925c95e](https://github.com/matanew1/nest-langgraph-ai/commit/925c95e51740513ef02eb1d4e100bcd225d35a31))
+* replace json-repair node with inline parseWithRepair utility ([5ec0f61](https://github.com/matanew1/nest-langgraph-ai/commit/5ec0f6192a4576b54e3706c97b61938a15e668d0))
+* SOLID refactor, critical bug fixes, and robustness hardening ([75220fe](https://github.com/matanew1/nest-langgraph-ai/commit/75220fe5616a8ca74d7c320fe50014fb79230c28))
