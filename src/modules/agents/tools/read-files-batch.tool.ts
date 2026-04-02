@@ -15,10 +15,17 @@ export const readFilesBatchTool = tool(
 
     for (const p of unique) {
       const resolved = sandboxPath(p);
-      const content = await readFile(resolved, 'utf-8');
-      const truncated = content.length > MAX_PER_FILE;
-      const chunk = truncated ? content.slice(0, MAX_PER_FILE) : content;
-      const block = `=== ${p} ===\n${chunk}${truncated ? '\n… [truncated]' : ''}\n`;
+      let block: string;
+
+      try {
+        const content = await readFile(resolved, 'utf-8');
+        const truncated = content.length > MAX_PER_FILE;
+        const chunk = truncated ? content.slice(0, MAX_PER_FILE) : content;
+        block = `=== ${p} ===\n${chunk}${truncated ? '\n… [truncated]' : ''}\n`;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        block = `=== ${p} ===\nERROR: could not read file — ${msg}\n`;
+      }
       total += block.length;
       if (total > MAX_TOTAL) {
         outputs.push('… [batch truncated: total output limit reached]');
