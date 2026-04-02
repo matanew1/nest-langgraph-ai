@@ -58,8 +58,16 @@ export const httpPostTool = tool(
     schema: z.object({
       url: z.string().describe('Full URL to POST to (must start with http:// or https://)'),
       body: z
-        .union([z.string(), z.record(z.string(), z.unknown())])
-        .describe('Request body — either a JSON string or a plain object (auto-serialised)'),
+        .union([
+          z.string(),
+          z.record(
+            z.string(),
+            z.union([z.string(), z.number(), z.boolean(), z.null()]),
+          ),
+        ])
+        .describe(
+          'Request body — either a JSON string or a plain object with primitive values (auto-serialised)',
+        ),
       headers: z
         .record(z.string(), z.string())
         .optional()
