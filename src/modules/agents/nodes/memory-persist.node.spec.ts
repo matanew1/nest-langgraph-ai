@@ -38,16 +38,14 @@ describe('memoryPersistNode', () => {
     const baseState = makeState();
     await memoryPersistNode(baseState);
 
+    const hex = createHash('sha256')
+      .update(JSON.stringify({ objective: 'test objective', finalAnswer: 'test result' }))
+      .digest('hex');
+    const expectedId = [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20,32)].join('-');
+
     expect(upsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: createHash('sha256')
-          .update(
-            JSON.stringify({
-              objective: 'test objective',
-              finalAnswer: 'test result',
-            }),
-          )
-          .digest('hex'),
+        id: expectedId,
         text: expect.stringContaining('Objective: test objective'),
         metadata: expect.objectContaining({
           sessionId: 'test-session',

@@ -11,6 +11,7 @@ import {
   isLikelyMermaid,
   looksLikeCodeListingDiagram,
   REFERENCE_STYLE,
+  CLASSDIAGRAM_RULES,
 } from './mermaid.util';
 
 const logger = new Logger('GenerateMermaidTool');
@@ -27,6 +28,8 @@ Rules:
 - Prefer simple quoted rectangles like A["label text"] for labels with spaces, punctuation, or multiple lines.
 - Prefer conceptual architecture nodes (e.g. SUPERVISOR/ROUTER), not "code listing" nodes like ".addNode(...)" unless explicitly requested.
 - Use actual newlines in multi-line labels (not \\n).
+
+${CLASSDIAGRAM_RULES}
 
 House style reference (follow this structure and labeling conventions for architecture/workflow diagrams):
 ${REFERENCE_STYLE}

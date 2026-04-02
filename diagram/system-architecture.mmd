@@ -1,0 +1,61 @@
+flowchart LR
+  subgraph HTTP["HTTP Layer"]
+    REQ["REST Request\nPOST /agents/run"]
+    CTRL["AgentsController"]
+    GUARD["ApiKeyGuard"]
+    LOG["LoggingInterceptor\nTimeoutInterceptor"]
+  end
+
+  subgraph INFRA["Infrastructure"]
+    LLM["LlmModule\nMistral API"]
+    REDIS["RedisModule\nRedis"]
+    QDRANT["VectorModule\nQdrant"]
+    METRICS["MetricsModule\nPrometheus"]
+    HEALTH["HealthModule"]
+  end
+
+  subgraph GRAPH["LangGraph Agent Pipeline"]
+    SUPERVISOR["SUPERVISOR"]
+    ROUTER["ROUTER\ndecision-router"]
+
+    subgraph RESEARCH["Research Fan-out"]
+      RC["RESEARCHER\nCOORDINATOR"]
+      RFS["RESEARCH FS\nfilesystem"]
+      RVEC["RESEARCH VECTOR\nqdrant"]
+      RJOIN["RESEARCH JOIN"]
+    end
+
+    PLANNER["PLANNER"]
+    PV["PLAN VALIDATOR\nawait-plan-review"]
+    EXEC["EXECUTE\ntool calls"]
+    NORM["TOOL RESULT\nNORMALIZER"]
+    CRITIC["CRITIC"]
+    GEN["GENERATOR\nfinalAnswer"]
+    MP["MEMORY PERSIST\nside-effect"]
+    CHAT["CHAT\ndirect reply"]
+  end
+
+  REQ --> GUARD --> LOG --> CTRL
+  CTRL --> SUPERVISOR
+
+  SUPERVISOR --> ROUTER
+  ROUTER -->|phase=research| RC
+  RC --> RFS & RVEC --> RJOIN --> ROUTER
+  ROUTER -->|phase=plan| PLANNER --> ROUTER
+  ROUTER -->|phase=validate_plan| PV --> ROUTER
+  ROUTER -->|phase=execute| EXEC --> NORM --> ROUTER
+  ROUTER -->|phase=judge| CRITIC --> ROUTER
+  ROUTER -->|phase=generate| GEN
+  GEN --> ROUTER
+  GEN --> MP --> END["END"]
+  ROUTER -->|phase=chat| CHAT --> END
+  ROUTER -->|phase=complete| END
+
+  SUPERVISOR -.->|uses| LLM
+  PLANNER -.->|uses| LLM
+  CRITIC -.->|uses| LLM
+  GEN -.->|uses| LLM
+  EXEC -.->|session lock| REDIS
+  RVEC -.->|search| QDRANT
+  MP -.->|upsert| QDRANT
+  CTRL -.->|metrics| METRICS

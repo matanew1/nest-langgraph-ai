@@ -33,16 +33,14 @@ describe('memoryPersistNode', () => {
     await memoryPersistNode(state);
 
     expect(mockUpsertVectorMemory).toHaveBeenCalledTimes(1);
+    const hex = createHash('sha256')
+      .update(JSON.stringify({ objective: 'test objective', finalAnswer: 'The final answer' }))
+      .digest('hex');
+    const expectedId = [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20,32)].join('-');
+
     expect(mockUpsertVectorMemory).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: createHash('sha256')
-          .update(
-            JSON.stringify({
-              objective: 'test objective',
-              finalAnswer: 'The final answer',
-            }),
-          )
-          .digest('hex'),
+        id: expectedId,
         text: 'Objective: test objective\nResult: The final answer',
         metadata: expect.objectContaining({
           sessionId: 'session-abc',

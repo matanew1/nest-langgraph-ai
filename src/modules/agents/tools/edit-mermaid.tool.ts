@@ -11,6 +11,7 @@ import {
   isLikelyMermaid,
   looksLikeCodeListingDiagram,
   REFERENCE_STYLE,
+  CLASSDIAGRAM_RULES,
 } from './mermaid.util';
 
 const logger = new Logger('EditMermaidTool');
@@ -25,6 +26,8 @@ Rules:
 - IMPORTANT: Node IDs must be simple (letters/numbers/underscores). Do NOT use reserved words like "graph", "end", or "subgraph" as node IDs.
 - Prefer conceptual architecture nodes (e.g. SUPERVISOR/ROUTER), not "code listing" nodes like ".addNode(...)" unless explicitly requested.
 - Use quoted labels like A["label text"] for any label that contains spaces, punctuation, or parentheses.
+
+${CLASSDIAGRAM_RULES}
 
 House style reference (keep formatting consistent with this style unless asked otherwise):
 ${REFERENCE_STYLE}

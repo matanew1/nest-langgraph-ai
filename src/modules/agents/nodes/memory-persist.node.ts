@@ -27,9 +27,19 @@ export async function memoryPersistNode(
     `Objective: ${objective}`,
     `Result: ${finalAnswer}`,
   ].join('\n');
-  const stablePointId = createHash('sha256')
+  const hex = createHash('sha256')
     .update(JSON.stringify({ objective, finalAnswer }))
     .digest('hex');
+  // Qdrant only accepts UUID or uint64 point IDs — format the first 32 hex
+  // chars of the SHA-256 digest as a UUID so repeated identical results
+  // still map to the same stable point.
+  const stablePointId = [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join('-');
 
   try {
     await upsertVectorMemory({
