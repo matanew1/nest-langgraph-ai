@@ -6,6 +6,9 @@ import { sandboxPath } from '@utils/path.util';
 
 const logger = new Logger('FilePatchTool');
 
+/** Bail out if the pattern appears more than this many times to avoid O(n²) scans. */
+const MAX_OCCURRENCES = 1000;
+
 export const filePatchTool = tool(
   async ({ path, find, replace }) => {
     const resolved = sandboxPath(path);
@@ -27,6 +30,12 @@ export const filePatchTool = tool(
       const idx = content.indexOf(find, searchPos);
       if (idx === -1) break;
       occurrenceCount++;
+      if (occurrenceCount > MAX_OCCURRENCES) {
+        return JSON.stringify({
+          ok: false,
+          error: `Pattern appears more than ${MAX_OCCURRENCES} times — too common to patch safely. Provide more surrounding context.`,
+        });
+      }
       searchPos = idx + 1;
     }
 
