@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, stat, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tool } from '@langchain/core/tools';
 import { Logger } from '@nestjs/common';
@@ -36,9 +36,14 @@ async function buildTree(
 
     let s;
     try {
-      s = await stat(fullPath);
+      s = await lstat(fullPath); // lstat does NOT follow symlinks
     } catch {
       lines.push(`${prefix}${connector}${name} [unreadable]`);
+      continue;
+    }
+
+    if (s.isSymbolicLink()) {
+      // Skip symlinks to prevent infinite loops on circular references
       continue;
     }
 
