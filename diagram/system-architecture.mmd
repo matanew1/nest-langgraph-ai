@@ -1,61 +1,85 @@
-flowchart LR
-  subgraph HTTP["HTTP Layer"]
-    REQ["REST Request\nPOST /agents/run"]
-    CTRL["AgentsController"]
-    GUARD["ApiKeyGuard"]
-    LOG["LoggingInterceptor\nTimeoutInterceptor"]
-  end
+classDiagram
+direction LR
 
-  subgraph INFRA["Infrastructure"]
-    LLM["LlmModule\nMistral API"]
-    REDIS["RedisModule\nRedis"]
-    QDRANT["VectorModule\nQdrant"]
-    METRICS["MetricsModule\nPrometheus"]
-    HEALTH["HealthModule"]
-  end
+%% Core Modules
+APP_MODULE["app.module.ts
+Root module"]
+AGENTS_MODULE["agents.module.ts
+Agents feature module"]
+TOOLS_MODULE["tools.module.ts
+Tools feature module"]
+NODES_MODULE["nodes.module.ts
+Nodes feature module"]
 
-  subgraph GRAPH["LangGraph Agent Pipeline"]
-    SUPERVISOR["SUPERVISOR"]
-    ROUTER["ROUTER\ndecision-router"]
+%% Common Components
+CONFIG["env.ts
+Environment config"]
+DECORATORS["decorators/
+Common decorators"]
+GUARDS["guards/
+Common guards"]
+INTERCEPTORS["interceptors/
+Common interceptors"]
+MIDDLEWARE["middleware/
+Common middleware"]
+FILTERS["filters/
+Common exception filters"]
+DTO["dto/
+Data transfer objects"]
 
-    subgraph RESEARCH["Research Fan-out"]
-      RC["RESEARCHER\nCOORDINATOR"]
-      RFS["RESEARCH FS\nfilesystem"]
-      RVEC["RESEARCH VECTOR\nqdrant"]
-      RJOIN["RESEARCH JOIN"]
-    end
+%% Nodes
+SUPERVISOR_NODE["SUPERVISOR
+nodes/supervisor.node.ts"]
+RESEARCHER_NODE["RESEARCHER
+nodes/researcher.node.ts"]
+PLANNER_NODE["PLANNER
+nodes/planner.node.ts"]
+PLAN_VALIDATOR_NODE["PLAN VALIDATOR
+nodes/plan-validator.node.ts"]
+EXECUTE_NODE["EXECUTE
+nodes/execution.node.ts"]
+TOOL_RESULT_NORMALIZER_NODE["TOOL RESULT NORMALIZER
+nodes/tool-result-normalizer.node.ts"]
+CRITIC_NODE["CRITIC
+nodes/critic.node.ts"]
 
-    PLANNER["PLANNER"]
-    PV["PLAN VALIDATOR\nawait-plan-review"]
-    EXEC["EXECUTE\ntool calls"]
-    NORM["TOOL RESULT\nNORMALIZER"]
-    CRITIC["CRITIC"]
-    GEN["GENERATOR\nfinalAnswer"]
-    MP["MEMORY PERSIST\nside-effect"]
-    CHAT["CHAT\ndirect reply"]
-  end
+%% Tools
+HTTP_TOOL["HTTP_TOOL
+tools/http.tool.ts"]
+MEMORY_TOOL["MEMORY_TOOL
+tools/memory.tool.ts"]
+SEARCH_TOOL["SEARCH_TOOL
+tools/search.tool.ts"]
 
-  REQ --> GUARD --> LOG --> CTRL
-  CTRL --> SUPERVISOR
+%% Router
+ROUTER_NODE["ROUTER
+nodes/decision-router.node.ts
+routes by state.phase"]
 
-  SUPERVISOR --> ROUTER
-  ROUTER -->|phase=research| RC
-  RC --> RFS & RVEC --> RJOIN --> ROUTER
-  ROUTER -->|phase=plan| PLANNER --> ROUTER
-  ROUTER -->|phase=validate_plan| PV --> ROUTER
-  ROUTER -->|phase=execute| EXEC --> NORM --> ROUTER
-  ROUTER -->|phase=judge| CRITIC --> ROUTER
-  ROUTER -->|phase=generate| GEN
-  GEN --> ROUTER
-  GEN --> MP --> END["END"]
-  ROUTER -->|phase=chat| CHAT --> END
-  ROUTER -->|phase=complete| END
+%% Relationships
+APP_MODULE --> AGENTS_MODULE
+APP_MODULE --> TOOLS_MODULE
+APP_MODULE --> NODES_MODULE
 
-  SUPERVISOR -.->|uses| LLM
-  PLANNER -.->|uses| LLM
-  CRITIC -.->|uses| LLM
-  GEN -.->|uses| LLM
-  EXEC -.->|session lock| REDIS
-  RVEC -.->|search| QDRANT
-  MP -.->|upsert| QDRANT
-  CTRL -.->|metrics| METRICS
+AGENTS_MODULE --> SUPERVISOR_NODE
+AGENTS_MODULE --> RESEARCHER_NODE
+AGENTS_MODULE --> PLANNER_NODE
+AGENTS_MODULE --> PLAN_VALIDATOR_NODE
+AGENTS_MODULE --> EXECUTE_NODE
+AGENTS_MODULE --> TOOL_RESULT_NORMALIZER_NODE
+AGENTS_MODULE --> CRITIC_NODE
+
+TOOLS_MODULE --> HTTP_TOOL
+TOOLS_MODULE --> MEMORY_TOOL
+TOOLS_MODULE --> SEARCH_TOOL
+
+NODES_MODULE --> ROUTER_NODE
+
+ROUTER_NODE --> SUPERVISOR_NODE : phase = supervisor
+ROUTER_NODE --> RESEARCHER_NODE : phase = research
+ROUTER_NODE --> PLANNER_NODE : phase = plan
+ROUTER_NODE --> PLAN_VALIDATOR_NODE : phase = validate_plan
+ROUTER_NODE --> EXECUTE_NODE : phase = execute
+ROUTER_NODE --> TOOL_RESULT_NORMALIZER_NODE : phase = normalize_tool_result
+ROUTER_NODE --> CRITIC_NODE : phase = judge
+ROUTER_NODE -->|phase = complete OR fatal| SUPERVISOR_NODE
