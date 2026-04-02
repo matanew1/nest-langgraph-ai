@@ -7,6 +7,8 @@ import { sandboxPath } from '@utils/path.util';
 
 const logger = new Logger('ReadMermaidTool');
 
+const MAX_SIZE = 100_000; // 100 KB
+
 export const readMermaidTool = tool(
   async ({ path }) => {
     if (extname(path).toLowerCase() !== '.mmd') {
@@ -15,7 +17,16 @@ export const readMermaidTool = tool(
 
     const resolved = sandboxPath(path);
     logger.log(`Reading Mermaid file: ${resolved}`);
+
     const content = await readFile(resolved, 'utf-8');
+
+    if (content.length > MAX_SIZE) {
+      return (
+        content.slice(0, MAX_SIZE) +
+        `\n… [truncated: file is ${content.length} chars, limit is ${MAX_SIZE}]`
+      );
+    }
+
     return content;
   },
   {
