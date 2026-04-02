@@ -3,7 +3,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { sandboxPath } from '@utils/path.util';
 import * as parser from '@babel/parser';
 import * as t from '@babel/types';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { extractStateGraphNodes } from './state-graph-extractor';
 
 const SUPPORTED_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx'];
@@ -20,8 +20,18 @@ interface AstChunk {
   };
 }
 
+const MAX_FILE_BYTES = 500_000; // 500 KB
+
 function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
   const fullPath = sandboxPath(path);
+
+  const fileStat = statSync(fullPath);
+  if (fileStat.size > MAX_FILE_BYTES) {
+    throw new Error(
+      `File is too large to parse (${fileStat.size} bytes). Maximum is ${MAX_FILE_BYTES} bytes.`,
+    );
+  }
+
   const code = readFileSync(fullPath, 'utf-8');
   const ext = fullPath.split('.').pop()?.toLowerCase() || '';
 
@@ -31,7 +41,7 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
     );
   }
 
-  const ast = parser.parse(code, {
+  const parseResult = parser.parse(code, {
     sourceType: 'module',
     plugins: [
       'typescript',
@@ -42,7 +52,14 @@ function extractAstChunks(path: string, maxChunks?: number): AstChunk[] {
     ],
     tokens: false,
     ranges: true,
-  }) as t.File;
+  });
+
+  // Type guard: ensure Babel returned a File node before traversal
+  if (!parseResult || parseResult.type !== 'File') {
+    throw new Error(`Babel parser did not return a File node for: ${path}`);
+  }
+
+  const ast = parseResult as t.File;
 
   const chunks: AstChunk[] = [];
   let count = 0;

@@ -21,6 +21,7 @@ jest.mock('@utils/path.util', () => ({
 
 jest.mock('node:fs', () => ({
   readFileSync: jest.fn(),
+  statSync: jest.fn().mockReturnValue({ size: 1000 }), // default: small file, within limit
 }));
 
 // The state-graph-extractor is a local utility; mock it to avoid needing a
