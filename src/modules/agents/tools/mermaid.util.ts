@@ -9,25 +9,35 @@ export function stripMarkdownFences(text: string): string {
     .trim();
 }
 
+const MERMAID_DIAGRAM_KEYWORDS = [
+  'flowchart',
+  'graph',
+  'sequenceDiagram',
+  'stateDiagram',
+  'classDiagram',
+  'erDiagram',
+  'gantt',
+  'pie',
+  'gitGraph',
+  'mindmap',
+  'timeline',
+  'xychart',
+  'journey',
+  'C4Context',
+  'C4Container',
+  'C4Component',
+  'C4Dynamic',
+  'C4Deployment',
+] as const;
+
 export function isLikelyMermaid(text: string): boolean {
-  const t = text.trimStart();
-  return (
-    t.startsWith('flowchart') ||
-    t.startsWith('graph') ||
-    t.startsWith('sequenceDiagram') ||
-    t.startsWith('stateDiagram') ||
-    t.startsWith('classDiagram') ||
-    t.startsWith('erDiagram') ||
-    t.startsWith('gantt') ||
-    t.startsWith('journey') ||
-    t.startsWith('mindmap') ||
-    t.startsWith('timeline') ||
-    t.startsWith('C4Context') ||
-    t.startsWith('C4Container') ||
-    t.startsWith('C4Component') ||
-    t.startsWith('C4Dynamic') ||
-    t.startsWith('C4Deployment')
-  );
+  // Find the first non-empty line and check if it starts with a known keyword
+  const firstNonEmpty = text
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!firstNonEmpty) return false;
+  return MERMAID_DIAGRAM_KEYWORDS.some((kw) => firstNonEmpty.startsWith(kw));
 }
 
 export function sanitizeMermaid(text: string): string {
